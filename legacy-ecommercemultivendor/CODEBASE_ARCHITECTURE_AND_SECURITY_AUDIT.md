@@ -5,7 +5,7 @@
 > **Framework:** Laravel 6.18.x / PHP 7-era application  
 > **Audit date:** 2026-07-27  
 > **Scope:** `app`, `Backup`, `bootstrap`, `config`, `database`, `resources`, `routes`, `storage`, `temp`, `vendor`, plus root runtime files and `public` where required to understand deployment  
-> **Original code modifications:** None; this report is the only added file
+> **Original application-code modifications:** None; this report is the only file changed for this request
 
 ## Table of contents
 
@@ -1667,3 +1667,484 @@ Environment files exist in the live and Backup trees. OAuth private/public keys 
 - Authentication, authorization and add-on activation must be enforced in routing/domain code, not only in Blade.
 
 ---
+
+## 13. Logic defects and edge cases
+
+This section distinguishes correctness defects from the broader security findings. Some entries have security consequences as well.
+
+### 13.1 Catalog and product edge cases
+
+| Defect | Trigger | Result |
+|---|---|---|
+| Ungrouped search `orWhere(tags)` | Any tag search | Tag match can bypass publication/category/seller filters |
+| Undefined `$products` | Customer classified filter with the relevant feature branch disabled | PHP error/empty response instead of stable catalog behavior |
+| Tag delimiter mismatch | Save tags with one delimiter, AJAX search splits another | Partial or failed suggestions/filter matching |
+| Duplicate omits stocks | Duplicate a variant product | Product options exist without corresponding stock variants |
+| Stale variant rows | Remove choices during product update | Old variants remain in database and can affect price/stock |
+| Missing `Carbon` import | Product publication update path | Class resolution/runtime failure |
+| Nonexistent `DigitalProduct` | Digital publication update | Runtime class-not-found failure |
+| Unchecked optional relationships | Deleted/missing brand/category/shop/user | API resource or Blade null dereference |
+| Hardcoded product hostname | API product detail response | Links point to `v4local.in`, not current deployment |
+| Empty featured deal assumption | No featured flash deal | Flash-deal resource can dereference an empty result |
+
+### 13.2 Cart, coupon and shipping edge cases
+
+| Defect | Trigger | Result |
+|---|---|---|
+| No reliable non-variant stock check on add | Add non-variant product with insufficient stock | Invalid quantity reaches cart |
+| Merge does not validate combined quantity | Add the same line repeatedly | Session quantity can exceed stock |
+| No stock reservation | Simultaneous checkouts | Both users can purchase final inventory |
+| Stale session pricing | Price/discount changes after cart creation | Checkout uses outdated value |
+| Shipping uses last loop `$product` | Multi-item/multi-seller cart | Wrong seller/admin shipping amount |
+| Guest coupon uses `Auth::user()->id` | Guest checkout with coupon | Null-user exception |
+| API invalid coupon calls `first()->id` | Unknown code | Null dereference rather than validation error |
+| Cart and API implementations differ | Same commercial action through web/API | Different validation and totals |
+
+### 13.3 Order and payment edge cases
+
+| Defect | Trigger | Result |
+|---|---|---|
+| Stock reduced before payment | Gateway cancellation/failure | Unpaid order consumes stock |
+| No transaction | Exception during details/stock/email | Partial order state |
+| No row lock | Concurrent final-stock checkout | Negative/oversold inventory |
+| Delete has no reversal | Remove order | Stock, sales, coupon and credits stay altered |
+| Weak order code entropy | Concurrent orders in same second | Collision risk |
+| Session/client totals trusted | Stale/tampered cart/API request | Incorrect charge/order amount |
+| Callback replay | Provider retries or attacker resubmits | Repeated seller/affiliate/points/package/wallet credit |
+| Commission implementations differ | COD/manual/online/status paths | Seller balance varies by path |
+| Wallet balance not checked | Wallet purchase above balance | Negative balance |
+| Invoice deleted after dispatch | Switch queue from sync to async | Email job cannot find attachment |
+| Public invoice temp path | Invoice generation window | Private invoice can be downloaded if name guessed |
+| Undefined `$payment` in VoguePay branch | Customer-package success | Runtime error/wrong completion |
+| PayHere route spelling mismatch | Cancellation callback | Callback method not found |
+
+### 13.4 Wallet, affiliate, package and points edge cases
+
+| Defect | Trigger | Result |
+|---|---|---|
+| Repeated offline wallet approval | Approve an already approved recharge | Balance added again |
+| Repeated rejection/status toggle | Apply non-approved state repeatedly | Balance subtracted repeatedly |
+| Affiliate withdrawal lacks range checks | Negative/oversized request | Invalid or negative balance state |
+| Seller/package callback replay | Repeat valid provider notification | Remaining-upload entitlement added again |
+| Public seller invalidation | Call endpoint anonymously | Batch unpublishing of expired sellers' products |
+| Club-point record not ownership-scoped | Submit another record ID | Current user receives points from another record |
+| Club conversion not one-time | Repeat conversion | Repeated credit |
+| Last `$total_pts` reused | Process several club-point details | Wrong points applied across rows |
+
+### 13.5 Account and communication edge cases
+
+| Defect | Trigger | Result |
+|---|---|---|
+| Verification code retained | Reuse verification URL | Persistent bearer login behavior |
+| Email target in URL | Change target while retaining valid code | Verification not bound to intended new email |
+| `H:m:s` timestamp format | Format time | Month displayed/stored as minutes |
+| OTP no expiry/attempt limit | Brute force or delayed reuse | Account reset/login risk |
+| Conversation/ticket direct lookup | Supply another numeric ID | Private message/support disclosure |
+| Public/unscoped address actions | Supply arbitrary address/customer ID | Cross-user address modification |
+
+### 13.6 Administration and infrastructure edge cases
+
+| Defect | Trigger | Result |
+|---|---|---|
+| Permission checks only in sidebar | Staff directly requests hidden URL | Full admin operation may execute |
+| Translation file written at runtime | Missing translation key/concurrent requests | Source mutation, write failure or corrupted JSON |
+| `.env` changed by string replacement | Special values/duplicate key/concurrency | Broken or partially updated environment |
+| Duplicate provider registration | Package auto-discovery plus manual config | Duplicate routes/listeners/boot side effects |
+| Add-on route always loaded | Add-on absent/inactive | Runtime controller errors or hidden callable endpoints |
+| Add-on copy/SQL not transactional | Install failure midway | Partially installed source/schema |
+| Sitemap route returns path string | Request `/sitemap.xml` | No valid sitemap content |
+| Root sitemap is empty | Search crawler request | Empty response/file |
+| GET used for mutations | Crawler/link preview/replay | Unintended deletion/status change |
+
+---
+
+## 14. Broken, missing, or inconsistent route targets
+
+### 14.1 Controllers referenced by loaded routes but missing from the live app
+
+- `Api\CouponController`
+- `ClubPointController`
+- `FlutterwaveController`
+- `MpesaController`
+- `OTPController`
+- `OTPVerificationController`
+- `PaytmController`
+- `RefundRequestController`
+- `SellerPackagePaymentController`
+- `SmsController`
+- `TwoCheckoutController`
+
+Some OTP, club-point, SMS and Paytm controller source exists beneath extracted `temp` packages, but it is not present at the live namespace/path expected by the loaded route. Refund, Flutterwave, M-Pesa, 2Checkout and seller-package-payment route targets are not fully supplied by the inspected package set.
+
+### 14.2 Missing or misspelled methods in existing controllers
+
+| Route target | Problem |
+|---|---|
+| `SellerPackageController@purchase_package_offline` | Method absent |
+| `PayhereController@chekout_cancel` | Misspelled route target; controller uses `checkout_cancel` |
+| `PayhereController@customer_package_testing` | Controller method has a different name |
+| PayHere seller-package callbacks | Referenced methods absent |
+| `ProductBulkUploadController@import_product` | Method absent |
+| `ProductBulkUploadController@import_vendor_product` | Method absent |
+| `VoguePayController@showForm` | Controller uses a different customer-form method name |
+| Club-point `set_all_products_point` | Missing from extracted club-point controller |
+| OTP `show_reset_password_form` | Missing from extracted OTP verification controller |
+
+Static scanners can falsely flag methods supplied by Laravel auth traits, such as standard verification resend or logout. Those are not included above as real defects.
+
+### 14.3 Naming and callback inconsistencies
+
+- PayHere has a duplicate route name for a testing path.
+- `chekout_cancel` is misspelled at the routing boundary.
+- Customer-package and seller-package method names vary by gateway/controller.
+- VoguePay's customer-package success branch refers to an undefined `$payment` variable.
+- Some gateway routes exist although the corresponding Composer dependency is absent.
+- Controller class capitalization/namespaces follow inconsistent older conventions, which can behave differently across case-sensitive and case-insensitive filesystems.
+
+### 14.4 Consequences
+
+Depending on Laravel's controller resolution timing, these issues produce one or more of:
+
+- Route-dispatch `Class not found`.
+- `Method does not exist`.
+- Failed provider callback and an order stuck pending/unpaid.
+- A package purchased/charged externally but not activated locally.
+- A menu visible for a feature whose route cannot complete.
+- Behavior that works on Windows but fails on a case-sensitive Linux host.
+
+The definitive runtime inventory should be regenerated with `php artisan route:list` after the critical malicious routes are removed and missing add-ons are either fully installed or fully disabled/unregistered.
+
+---
+
+## 15. Operational and maintainability assessment
+
+### 15.1 Test coverage
+
+The live and Backup test suites contain only Laravel's default example tests: a trivial unit assertion and a feature request expecting the homepage to return HTTP 200. They do not test authentication, roles, catalog filtering, cart stock, pricing, checkout, gateways, callbacks, seller commission, API ownership or uploads.
+
+Because no PHP executable is available in the current analysis environment, even those example tests and `artisan route:list` could not be executed during this audit.
+
+### 15.2 Framework and dependency age
+
+Laravel 6 and the intended PHP 7-era platform are outside a modern supported production baseline. The dependency lock contains packages from roughly 2017–2020, old payment SDKs, old document parsers/renderers and development branches.
+
+An in-place dependency update is unlikely to be safe because:
+
+- Current gateway APIs have changed.
+- Laravel/PHP breaking changes span multiple major versions.
+- Custom/nulled modifications are mixed into the source.
+- Tests are absent.
+- Several dependencies are referenced through old static APIs.
+
+A supported-target migration requires characterization tests and staged replacement, not a single `composer update`.
+
+### 15.3 Logging and diagnostics
+
+Historical logs show database DNS/host resolution failures and a missing Laravel Excel class. Logs and stack traces are stored with the application snapshot instead of being treated as protected operational data.
+
+The application mostly reports business failures through redirect flash messages and catches few domain-level exceptions. Payment callbacks lack structured event logging and idempotency records, making financial reconciliation difficult.
+
+Recommended observability includes:
+
+- Correlation/request IDs.
+- Immutable payment-event IDs and provider payload hashes, with sensitive fields redacted.
+- Order-state transition logs.
+- Balance-ledger entries.
+- Inventory movement records.
+- Authentication and administrator/staff audit logs.
+- Alerts for failed callbacks, negative balances and stock anomalies.
+
+### 15.4 Performance characteristics
+
+Frequent database queries occur inside helpers and Blade loops. Common examples are business-setting lookups, seller/shop/category relationships, ratings, wishlist checks and price calculations.
+
+Potential effects:
+
+- N+1 query patterns on catalog/home/dashboard pages.
+- Repeated JSON decode and setting lookup.
+- Slow large product/detail templates.
+- Expensive seller invalidation performed through a public HTTP request.
+
+Performance optimization should follow correctness/security remediation. Eager loading, cached immutable settings and dedicated query/view models can then reduce query count without altering business rules.
+
+### 15.5 Portability
+
+The snapshot was inspected on Windows, while typical production hosting is Linux. Inconsistent class/file capitalization can remain hidden on Windows and fail on Linux. Root-level deployment assumptions also vary between Apache and IIS (`.htaccess` versus `web.config`).
+
+The application should be tested in a clean container matching the final Linux/PHP/database runtime with no copied caches/vendor/storage state.
+
+### 15.6 Queue assumptions
+
+The sync queue hides lifecycle defects such as deleting invoice attachments immediately after job dispatch. Moving to a real queue without refactoring will break these flows. Jobs must own or persist every artifact they need and be safe to retry.
+
+### 15.7 Data recovery and accounting
+
+Because there are no foreign keys, immutable ledgers or consistent reversals, database recovery is not merely restoring orders. A reconciliation process must compare:
+
+- Orders and order details.
+- Payment-provider settlements.
+- Seller credits/payouts.
+- Affiliate earnings/withdrawals.
+- Wallet transactions/balances.
+- Product stock/sales counts.
+- Coupon usage and package entitlements.
+
+Historical financial correctness cannot be guaranteed from current balance fields alone.
+
+### 15.8 Current feature-state snapshot
+
+The included SQL data suggests the following historical configuration; it is not guaranteed to match any current database:
+
+| Feature | Snapshot state |
+|---|---|
+| Vendor system | Enabled |
+| Cash on delivery | Enabled |
+| Email verification | Enabled |
+| Coupons | Enabled |
+| Conversations | Enabled |
+| Guest checkout | Enabled |
+| Product-wise shipping | Selected |
+| Wallet | Disabled |
+| Classified products | Disabled |
+| Pickup points | Disabled |
+| Offline-payment add-on | Activated |
+| Affiliate add-on | Present but activation value off |
+| POS add-on | Present but activation value off |
+| Seller subscription add-on | Present but activation value off |
+| Most online gateways | Disabled in settings snapshot |
+
+Disabled does not mean unreachable: routes are generally registered regardless of these values.
+
+---
+
+## 16. Prioritized remediation roadmap
+
+### Phase 0: incident containment and evidence preservation
+
+Do this before normal refactoring:
+
+1. Take an access-controlled forensic copy of source, database, web logs, mail logs, file timestamps, running processes and scheduled tasks.
+2. Remove public traffic from the legacy instance or place it behind a deny-by-default maintenance boundary.
+3. Block `/config_content`, both `/demo/cron_*` routes, public POS mutations and public package invalidation at the web server immediately.
+4. Search all writable paths for unexpected PHP/scripts and compare against a trusted package source.
+5. Inspect outbound mail/network records for the hardcoded recipient and licensing endpoints.
+6. Assume checked-in/exposed secrets are compromised.
+7. Rotate application key strategy as appropriate, database, SMTP, AWS/storage, gateway, OAuth/social, SMS and other integration credentials.
+8. Regenerate Passport keys and revoke existing access/refresh tokens.
+9. Invalidate existing sessions and require password resets where evidence warrants.
+
+Do not delete forensic evidence before preserving it. The hidden behavior means this should be treated as a potential compromise investigation, not just a code-quality cleanup.
+
+### Phase 1: establish a safe deployment boundary
+
+1. Serve only a clean `public` directory as the web document root.
+2. Remove `Backup`, `temp`, dumps, `.env`, logs, sessions, OAuth keys, installer/updater and vendor source from any public path.
+3. Deny execution in every upload/static media directory.
+4. Move uploads and generated documents to private storage.
+5. Restore encrypted cookies and enforce HTTPS, secure, HTTP-only and appropriate same-site cookie attributes.
+6. Remove destructive/state-changing GET routes.
+7. Register add-on routes only when the complete, trusted add-on is installed and enabled.
+
+### Phase 2: rebuild authorization
+
+1. Separate full administrator and staff middleware.
+2. Define named permissions rather than integer sidebar-only IDs.
+3. Enforce permissions at route/controller/policy level.
+4. Add policies for Product, Order, OrderDetail, Address, Wishlist, Conversation, Message, Ticket, Review, CustomerProduct and downloadable files.
+5. Scope customer/seller record lookup through authenticated relationships.
+6. Separate impersonation into an audited, reauthenticated administrator capability.
+7. Add negative tests proving one user/role cannot access another's records.
+
+### Phase 3: repair checkout and financial integrity
+
+Create one shared commerce service used by web, API and POS:
+
+```text
+Authenticated/guest checkout identity
+    -> server reloads products and variants
+    -> server computes prices, discounts, tax and shipping
+    -> database transaction begins
+    -> stock rows locked and availability rechecked
+    -> pending order and immutable amount snapshot created
+    -> payment attempt created with idempotency key
+    -> transaction commits
+    -> provider payment occurs
+    -> signed provider event verified and deduplicated
+    -> paid transition posts stock/seller/affiliate/points ledger effects once
+```
+
+Required details:
+
+- Use decimal-safe monetary handling or integer minor units.
+- Make every status transition explicit and one-way where appropriate.
+- Maintain inventory movements instead of only counters.
+- Maintain seller/wallet/affiliate ledgers rather than only mutable balances.
+- Define cancellation/refund/reversal operations.
+- Restore stock and reverse benefits through ledgered compensating transactions.
+- Link provider transaction, amount, currency, user and order.
+- Store and deduplicate provider event IDs.
+
+### Phase 4: secure files and notifications
+
+1. Inventory every upload field and define an allowlist, maximum size and intended audience.
+2. Re-encode images and reject mixed/executable formats.
+3. Use generated object keys, not submitted filenames.
+4. Authorize every download.
+5. Move invoice rendering into the email job or retain private artifacts until job completion.
+6. Make jobs retry-safe and idempotent.
+7. Remove runtime translation-source writes.
+
+### Phase 5: rebuild the API boundary
+
+1. Disable insecure social login until provider-token verification is complete.
+2. Derive self-service identity exclusively from Passport.
+3. Ignore caller `user_id` values for self-service endpoints.
+4. Use policies/scoped bindings for every record ID.
+5. Reuse catalog/pricing/checkout services shared with the website.
+6. Shorten access-token lifetime and rotate/revoke refresh tokens.
+7. Bind Stripe/other provider payment success to one server checkout.
+8. Replace missing/obsolete gateway SDKs or remove their endpoints.
+9. Make API resources null-safe and generate URLs from application routing/configuration.
+
+### Phase 6: normalize domain architecture
+
+1. Select one model namespace and remove duplicates.
+2. Move pricing, shipping, inventory, commissions, orders, wallets and packages out of controllers/helpers into tested services.
+3. Create Form Request validators for every mutation.
+4. Replace global setting queries with a typed/cached settings layer.
+5. Remove database calls and authorization assumptions from Blade.
+6. Use explicit view models/resources.
+7. Turn cron-like HTTP actions into idempotent console commands.
+
+### Phase 7: make schema and dependencies reproducible
+
+1. Produce a clean schema from a sanitized database after integrity analysis.
+2. Create baseline migrations and subsequent versioned changes.
+3. Add foreign keys where historical data can satisfy them.
+4. Create seed/factory data with no production secrets or personal data.
+5. Inventory active gateway/business requirements.
+6. Remove unused add-ons and SDKs.
+7. Move to a supported PHP/Laravel version through staged upgrades or a clean application shell.
+8. Rebuild Composer dependencies from trusted registries; never copy the legacy vendor tree.
+9. Remove custom licensing behavior from request-time business code unless explicitly required and approved.
+
+### Phase 8: characterization and security tests
+
+Minimum automated test matrix:
+
+- Public catalog publication/seller rules.
+- Search grouping and filters.
+- Variant price/stock generation/update/removal.
+- Cart merge and stock limits.
+- All shipping modes and multi-seller carts.
+- Guest/customer coupon behavior.
+- Concurrent final-stock checkout.
+- Gateway success/failure/cancel/replay.
+- Wallet/package/affiliate/points idempotency.
+- Customer, seller, staff and admin authorization for every resource.
+- API identity isolation.
+- Social-provider verification.
+- Upload allowlist and private downloads.
+- Order cancellation/refund/reversal.
+- Queue retries and invoice attachments.
+- Add-on route enable/disable behavior.
+
+### Production-readiness acceptance criteria
+
+The application should not return to public service until at least:
+
+- Malicious/hidden behavior is removed and forensic response is complete.
+- No repository/storage/secret path is public.
+- All credentials and Passport keys are rotated.
+- Authorization tests cover every role/resource.
+- Payment/order creation is server-authoritative, transactional and idempotent.
+- Uploads cannot execute and private files require authorization.
+- Broken/inactive add-on routes are removed.
+- A supported runtime and reproducible build exist.
+- Critical checkout/API/security tests run in CI.
+
+---
+
+## 17. Source navigation guide
+
+### Runtime and configuration
+
+- [`index.php`](index.php) — root front controller.
+- [`.htaccess`](.htaccess) — Apache rewrite/limited environment-file denial.
+- [`bootstrap/app.php`](bootstrap/app.php) — Laravel container bootstrap.
+- [`app/Http/Kernel.php`](app/Http/Kernel.php) — middleware groups and aliases.
+- [`app/Providers/RouteServiceProvider.php`](app/Providers/RouteServiceProvider.php) — route-file loading.
+- [`config/auth.php`](config/auth.php) — web/API guards.
+- [`config/filesystems.php`](config/filesystems.php) — public-root local filesystem.
+- [`config/session.php`](config/session.php) — session/cookie behavior.
+- [`config/queue.php`](config/queue.php) — synchronous queue default.
+
+### Routes
+
+- [`routes/web.php`](routes/web.php) — storefront, shared auth, customer/seller and payment callbacks.
+- [`routes/admin.php`](routes/admin.php) — administrator/staff back office.
+- [`routes/api.php`](routes/api.php) — `/api/v1` endpoints.
+- [`routes/pos.php`](routes/pos.php) — POS pages and mutations.
+- [`routes/offline_payment.php`](routes/offline_payment.php) — manual order/wallet/package payments.
+- [`routes/affiliate.php`](routes/affiliate.php) — affiliate user/admin behavior.
+- [`routes/seller_package.php`](routes/seller_package.php) — seller subscription behavior.
+- [`routes/club_points.php`](routes/club_points.php) — incomplete club-point integration.
+- [`routes/otp.php`](routes/otp.php) — incomplete OTP integration.
+- [`routes/install.php`](routes/install.php) and [`routes/update.php`](routes/update.php) — disabled but high-impact setup/update behavior.
+
+### Core backend
+
+- [`app/Http/Helpers.php`](app/Http/Helpers.php) — filters, prices, shipping, translations and critical hidden code.
+- [`app/Http/Controllers/HomeController.php`](app/Http/Controllers/HomeController.php) — homepage, catalog/detail and hidden config-content handler.
+- [`app/Http/Controllers/ProductController.php`](app/Http/Controllers/ProductController.php) — standard product management and variants.
+- [`app/Http/Controllers/DigitalProductController.php`](app/Http/Controllers/DigitalProductController.php) — digital files/products.
+- [`app/Http/Controllers/CartController.php`](app/Http/Controllers/CartController.php) — web session cart.
+- [`app/Http/Controllers/CheckoutController.php`](app/Http/Controllers/CheckoutController.php) — gateway dispatch and completion.
+- [`app/Http/Controllers/OrderController.php`](app/Http/Controllers/OrderController.php) — order creation, stock, details, invoices and statuses.
+- [`app/Http/Controllers/POSController.php`](app/Http/Controllers/POSController.php) — POS cart/order flow.
+- [`app/Http/Controllers/DemoController.php`](app/Http/Controllers/DemoController.php) — destructive reset behavior.
+- [`app/Http/Controllers/AddonController.php`](app/Http/Controllers/AddonController.php) — ZIP extraction, file copy and SQL installation.
+- [`app/Http/Middleware/IsAdmin.php`](app/Http/Middleware/IsAdmin.php) — admin/staff equivalence.
+- [`app/Http/Middleware/VerifyCsrfToken.php`](app/Http/Middleware/VerifyCsrfToken.php) — callback/config exclusions.
+
+### Models and data
+
+- [`app/User.php`](app/User.php) — central identity and domain relationships.
+- [`app/Product.php`](app/Product.php) — root/web product model.
+- [`app/Order.php`](app/Order.php) — order header.
+- [`app/OrderDetail.php`](app/OrderDetail.php) — seller/product line allocation.
+- [`app/Models`](app/Models) — parallel API-oriented model tree.
+- [`software_ecommercemvendor22.sql`](software_ecommercemvendor22.sql) — 65-table live-era schema/data snapshot.
+- [`database/migrations`](database/migrations) — incomplete default migrations.
+
+### Frontend
+
+- [`resources/views/frontend/layouts/app.blade.php`](resources/views/frontend/layouts/app.blade.php) — public/customer/seller shell.
+- [`resources/views/layouts/app.blade.php`](resources/views/layouts/app.blade.php) — admin shell.
+- [`resources/views/inc/admin_sidenav.blade.php`](resources/views/inc/admin_sidenav.blade.php) — role/add-on/settings-driven admin navigation.
+- [`resources/views/frontend/product_details.blade.php`](resources/views/frontend/product_details.blade.php) — detailed product UI/variant/cart behavior.
+- [`resources/js/app.js`](resources/js/app.js) — mostly unused default Vue scaffold.
+
+### API
+
+- [`app/Http/Controllers/Api/AuthController.php`](app/Http/Controllers/Api/AuthController.php) — login/signup/social token issue.
+- [`app/Http/Controllers/Api/OrderController.php`](app/Http/Controllers/Api/OrderController.php) — client-trusting API order path.
+- [`app/Http/Controllers/Api/CartController.php`](app/Http/Controllers/Api/CartController.php) — database cart.
+- [`app/Http/Resources`](app/Http/Resources) — API serializers and hardcoded/null-assumption behavior.
+
+### Historical and add-on evidence
+
+- [`Backup`](Backup) — older complete snapshot; not runtime source of truth.
+- [`temp`](temp) — extracted add-on packages and SQL; partially installed/incomplete.
+- [`storage/logs`](storage/logs) — historical operational errors.
+- [`vendor/mehedi-iitdu`](vendor/mehedi-iitdu) — custom external licensing behavior.
+
+---
+
+## 18. Final assessment
+
+The website is an older monolithic Laravel marketplace assembled from a base application plus copy-installed add-ons. It uses a database-configured feature system, Blade-driven interfaces and separate web/API implementations. Its key domain model—users, sellers, shops, products, variant stocks, orders and seller-specific order details—is understandable, but authorization and financial integrity are distributed across controllers, helpers and views rather than enforced as central invariants.
+
+The most important conclusion is not simply that the code has legacy bugs. The inspected distribution contains hidden file-write and outbound-mail behavior, destructive public operations and indicators of a nulled source. It must be treated as untrusted code. The safest path is to preserve it as reference/forensic evidence, extract verified business requirements and sanitized data, and migrate onto a clean supported application/dependency base.
+
+If rehabilitation rather than replacement is chosen, the order of work matters: contain and rotate first; fix deployment and authorization next; then rebuild checkout/payment/upload/API boundaries; only after those controls are in place should normal feature development or UI modernization resume.
