@@ -1,0 +1,17 @@
+import Link from "next/link";
+import { Icon } from "@/components/icon";
+import { ProductGrid } from "@/components/product-card";
+import { getBrands, getCategories, getProducts, getSliders } from "@/lib/catalog";
+import { asset } from "@/lib/utils";
+
+export default async function HomePage() {
+  const [categories, featured, deals, brands, sliders] = await Promise.all([getCategories(), getProducts({ featured: true, limit: 8 }), getProducts({ deal: true, limit: 8 }), getBrands(), getSliders()]);
+  return <main>
+    <section className="hero"><aside className="hero-categories"><h2>Shop by category</h2>{categories.slice(0, 8).map((category) => <Link href={`/category/${encodeURIComponent(category.slug)}`} key={category.id}><img className="category-icon" src={asset(category.icon)} alt="" />{category.name}</Link>)}</aside><div className="hero-main"><img src={asset(sliders[0])} alt="Local marketplace offers" /><div className="hero-copy"><span className="eyebrow">India's local marketplace</span><h1>Great finds, closer to home.</h1><p>Discover independent labels, neighborhood shops, and products made with local care.</p><Link href="/products" className="button button-primary">Start shopping <span>→</span></Link></div></div></section>
+    <section className="trust-strip"><div className="trust-item"><Icon name="store" /><div><strong>Local sellers</strong><span>Shop independent businesses</span></div></div><div className="trust-item"><Icon name="truck" /><div><strong>Reliable delivery</strong><span>Clear order tracking</span></div></div><div className="trust-item"><Icon name="shield" /><div><strong>Secure shopping</strong><span>Protected checkout</span></div></div><div className="trust-item"><Icon name="support" /><div><strong>Friendly support</strong><span>Help when you need it</span></div></div></section>
+    <section className="home-section"><div className="section-heading"><div><span className="eyebrow">Curated for you</span><h2>Popular categories</h2><p>Find something for every part of your day.</p></div><Link href="/categories">View all →</Link></div><div className="category-grid">{categories.slice(0, 5).map((category) => <Link href={`/category/${encodeURIComponent(category.slug)}`} className="category-tile" key={category.id}><img src={asset(category.banner)} alt={category.name} /><span>{category.name}</span></Link>)}</div></section>
+    <section className="home-section"><div className="section-heading"><div><span className="eyebrow">Handpicked</span><h2>Featured products</h2><p>Standout products from sellers we love.</p></div><Link href="/products?featured=1">Shop featured →</Link></div><ProductGrid products={featured} /></section>
+    {deals.length > 0 && <><div className="promo-banner"><div><span className="eyebrow">Limited-time prices</span><h2>Today’s local deals</h2><p>Fresh offers across fashion, home, sports, and more.</p></div><Link className="button button-primary" href="/products?deal=1">Explore deals</Link></div><section className="home-section"><ProductGrid products={deals} /></section></>}
+    <section className="home-section"><div className="section-heading"><div><span className="eyebrow">Names you know</span><h2>Featured brands</h2></div><Link href="/brands">All brands →</Link></div><div className="brand-grid">{brands.slice(0, 5).map((brand) => <Link className="brand-tile" href={`/brand/${encodeURIComponent(brand.slug)}`} key={brand.id}>{brand.logo && <img src={asset(brand.logo)} alt="" />}<span>{brand.name}</span></Link>)}</div></section>
+  </main>;
+}

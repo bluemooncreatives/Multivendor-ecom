@@ -1,0 +1,6 @@
+import Link from "next/link";
+import { NewsletterForm } from "@/components/newsletter-form";
+
+export function Footer() {
+  return <footer className="site-footer"><div className="footer-grid"><div><Link href="/" className="brand brand-light"><span className="brand-mark">V4</span><span>local<small>Vocal for local</small></span></Link><p>A marketplace connecting customers with independent Indian sellers and neighborhood businesses.</p><NewsletterForm/></div><div><h3>Shop</h3><Link href="/products">All products</Link><Link href="/categories">Categories</Link><Link href="/brands">Brands</Link><Link href="/shops">Shops</Link></div><div><h3>Customer care</h3><Link href="/track_your_order">Track order</Link><Link href="/supportpolicy">Support policy</Link><Link href="/returnpolicy">Return policy</Link><Link href="/support_ticket">Support ticket</Link></div><div><h3>Marketplace</h3><Link href="/seller/register">Become a seller</Link><Link href="/sellerpolicy">Seller policy</Link><Link href="/terms">Terms</Link><Link href="/privacypolicy">Privacy</Link></div></div><div className="footer-bottom"><span>© {new Date().getFullYear()} V4Local. All rights reserved.</span><span>Secure checkout · Local sellers · Customer support</span></div></footer>;
+}
