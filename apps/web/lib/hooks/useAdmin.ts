@@ -96,6 +96,22 @@ export function usePendingProducts() {
   });
 }
 
+export function useAdminWalletRecharges() {
+  return useQuery({
+    queryKey: ["admin", "wallet-recharges"],
+    queryFn: async () => (await api.get("/admin/wallet-recharges")).data.items,
+  });
+}
+
+export function useResolveWalletRecharge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; approve: boolean }) =>
+      (await api.patch(`/admin/wallet-recharges/${input.id}`, { approve: input.approve })).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "wallet-recharges"] }),
+  });
+}
+
 export function useModerateProduct() {
   const queryClient = useQueryClient();
   return useMutation({

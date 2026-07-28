@@ -34,6 +34,7 @@ import {
   resolveRechargeRequestHandler,
   resolveRechargeRequestSchema,
 } from "../controllers/wallet.controller.js";
+import { listAdminTicketsHandler, replyTicketHandler, replyTicketSchema } from "../controllers/customer.controller.js";
 
 export const adminRouter = Router();
 
@@ -71,6 +72,14 @@ adminRouter.patch(
 );
 
 adminRouter.get("/orders", requirePermission("orders.manage"), asyncHandler(listAllOrdersHandler));
+
+adminRouter.get("/tickets", requirePermission("orders.manage"), asyncHandler(listAdminTicketsHandler));
+adminRouter.post(
+  "/tickets/:id/reply",
+  requirePermission("orders.manage"),
+  validateBody(replyTicketSchema),
+  asyncHandler(replyTicketHandler),
+);
 
 adminRouter.get("/wallet-recharges", requirePermission("payments.manage"), asyncHandler(listAdminRechargeRequestsHandler));
 adminRouter.patch(

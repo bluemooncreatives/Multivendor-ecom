@@ -13,6 +13,8 @@ export interface SellerProductInput {
   basePrice: number;
   variants: { sku: string; attributes: Record<string, string>; price: number; stock: number }[];
   tags: string[];
+  isDigital?: boolean;
+  digitalFileUrl?: string;
 }
 
 export function useSellerProducts() {

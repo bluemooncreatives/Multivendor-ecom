@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useLocale } from "next-intl";
 import toast from "react-hot-toast";
 import { useCategories } from "@/lib/hooks/useProducts";
 import {
@@ -16,9 +18,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/format";
 
-const EMPTY = { name: "", slug: "", categoryId: "", description: "", basePrice: 0, stock: 0 };
+const EMPTY = {
+  name: "",
+  slug: "",
+  categoryId: "",
+  description: "",
+  basePrice: 0,
+  stock: 0,
+  isDigital: false,
+  digitalFileUrl: "",
+};
 
 export default function SellerProductsPage() {
+  const locale = useLocale();
   const { data: categories } = useCategories();
   const { data: products, isLoading } = useSellerProducts();
   const createProduct = useCreateSellerProduct();
@@ -38,7 +50,18 @@ export default function SellerProductsPage() {
         images: [],
         basePrice: form.basePrice,
         tags: [],
-        variants: [{ sku: form.slug || `sku-${Date.now()}`, attributes: {}, price: form.basePrice, stock: form.stock }],
+        isDigital: form.isDigital,
+        digitalFileUrl: form.isDigital ? form.digitalFileUrl : undefined,
+        variants: [
+          {
+            sku: form.slug || `sku-${Date.now()}`,
+            attributes: {},
+            price: form.basePrice,
+            // Digital goods aren't stock-limited the way physical inventory is —
+            // a large fixed count stands in for "always available".
+            stock: form.isDigital ? 999999 : form.stock,
+          },
+        ],
       });
       setForm(EMPTY);
       setShowForm(false);
@@ -52,9 +75,14 @@ export default function SellerProductsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Products</h1>
-        <Button variant="outline" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Cancel" : "Add product"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/${locale}/seller/products/bulk-upload`}>Bulk upload</Link>
+          </Button>
+          <Button variant="outline" onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Cancel" : "Add product"}
+          </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -95,16 +123,38 @@ export default function SellerProductsPage() {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Stock</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
-                  required
-                />
+              <div className="flex items-end gap-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.isDigital}
+                    onChange={(e) => setForm({ ...form, isDigital: e.target.checked })}
+                  />
+                  Digital product
+                </label>
               </div>
+              {form.isDigital ? (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Digital file URL</Label>
+                  <Input
+                    value={form.digitalFileUrl}
+                    onChange={(e) => setForm({ ...form, digitalFileUrl: e.target.value })}
+                    placeholder="Link to the file buyers will download"
+                    required
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Stock</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={form.stock}
+                    onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+                    required
+                  />
+                </div>
+              )}
               <div className="space-y-2 sm:col-span-2">
                 <Label>Description</Label>
                 <textarea

@@ -122,6 +122,10 @@ export async function listMyTicketsHandler(req: Request, res: Response) {
   res.json({ items: await Ticket.find({ userId: req.user!.id }).sort({ updatedAt: -1 }) });
 }
 
+export async function listAdminTicketsHandler(_req: Request, res: Response) {
+  res.json({ items: await Ticket.find().populate("userId", "name email").sort({ updatedAt: -1 }) });
+}
+
 export const replyTicketSchema = z.object({ message: z.string().min(1) });
 
 export async function replyTicketHandler(req: Request, res: Response) {
