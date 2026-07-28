@@ -123,6 +123,11 @@ export const approveProductSchema = z.object({
   reason: z.string().optional(),
 });
 
+export async function listPendingProductsHandler(_req: Request, res: Response) {
+  const products = await Product.find({ approvalStatus: "pending" }).sort({ createdAt: -1 });
+  res.json({ items: products });
+}
+
 export async function moderateProductHandler(req: Request, res: Response) {
   const product = await Product.findByIdAndUpdate(
     req.params.id,

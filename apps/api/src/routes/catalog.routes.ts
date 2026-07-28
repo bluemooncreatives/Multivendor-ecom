@@ -21,6 +21,7 @@ import {
   deleteProductHandler,
   cloneProductHandler,
   listSellerProductsHandler,
+  listPendingProductsHandler,
   moderateProductHandler,
   approveProductSchema,
 } from "../controllers/product.controller.js";
@@ -82,6 +83,12 @@ catalogRouter.delete("/seller/products/:id", authenticate, requireRole("seller")
 catalogRouter.post("/seller/products/:id/clone", authenticate, requireRole("seller"), asyncHandler(cloneProductHandler));
 
 // Admin moderation queue
+catalogRouter.get(
+  "/admin/products/pending",
+  authenticate,
+  requirePermission("catalog.moderate"),
+  asyncHandler(listPendingProductsHandler),
+);
 catalogRouter.post(
   "/admin/products/:id/moderate",
   authenticate,

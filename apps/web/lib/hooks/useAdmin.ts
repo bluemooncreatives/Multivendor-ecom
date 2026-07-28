@@ -89,9 +89,18 @@ export function useSaveGeneralSettings() {
   });
 }
 
+export function usePendingProducts() {
+  return useQuery({
+    queryKey: ["admin", "products", "pending"],
+    queryFn: async () => (await api.get("/catalog/admin/products/pending")).data.items,
+  });
+}
+
 export function useModerateProduct() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: { id: string; approved: boolean }) =>
       (await api.post(`/catalog/admin/products/${input.id}/moderate`, { approved: input.approved })).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "products", "pending"] }),
   });
 }
