@@ -4,10 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { ShoppingCart, User as UserIcon, Search, Heart, Menu, X, ChevronRight } from "lucide-react";
+import { ShoppingCart, User as UserIcon, Search, Heart, Menu, X, ChevronRight, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuthStore } from "@/lib/store";
+import { useAuthStore, useCompareStore } from "@/lib/store";
 import { useCart } from "@/lib/hooks/useCart";
 import { useCategories } from "@/lib/hooks/useProducts";
 import { useWishlist } from "@/lib/hooks/useWishlist";
@@ -23,6 +23,7 @@ export function SiteHeader() {
   const { data: cart } = useCart();
   const { data: categories } = useCategories();
   const { data: wishlist } = useWishlist();
+  const compareIds = useCompareStore((s) => s.productIds);
   const [menuOpen, setMenuOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
 
@@ -126,6 +127,17 @@ export function SiteHeader() {
             {wishlistCount > 0 && (
               <span className="absolute -end-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
                 {wishlistCount}
+              </span>
+            )}
+          </Link>
+        </Button>
+
+        <Button variant="ghost" size="icon" asChild>
+          <Link href={`/${locale}/compare`} className="relative">
+            <Scale className="h-5 w-5" />
+            {compareIds.length > 0 && (
+              <span className="absolute -end-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                {compareIds.length}
               </span>
             )}
           </Link>

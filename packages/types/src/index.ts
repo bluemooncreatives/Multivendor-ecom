@@ -98,6 +98,8 @@ export interface Product {
   published: boolean;
   tags: string[];
   currency: string;
+  ratingAverage: number;
+  ratingCount: number;
   createdAt: string;
 }
 

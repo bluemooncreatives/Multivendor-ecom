@@ -4,10 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Heart } from "lucide-react";
+import { Heart, Scale } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatPrice } from "@/lib/format";
-import { useAuthStore } from "@/lib/store";
+import { useAuthStore, useCompareStore } from "@/lib/store";
 import { useWishlist, useAddWishlistItem, useRemoveWishlistItem } from "@/lib/hooks/useWishlist";
 import type { Product } from "@ecommercemultivendor/types";
 
@@ -18,6 +18,9 @@ export function ProductCard({ product }: { product: Product }) {
   const { data: wishlist } = useWishlist();
   const addWishlist = useAddWishlistItem();
   const removeWishlist = useRemoveWishlistItem();
+  const compareIds = useCompareStore((s) => s.productIds);
+  const toggleCompare = useCompareStore((s) => s.toggle);
+  const isComparing = compareIds.includes(product.id);
 
   const image = product.images[0];
   const cheapestVariant = product.variants.length
@@ -55,14 +58,28 @@ export function ProductCard({ product }: { product: Product }) {
               {Math.round(100 - (price / (comparePrice as number)) * 100)}% OFF
             </span>
           )}
-          <button
-            type="button"
-            onClick={toggleWishlist}
-            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-            className="absolute end-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 opacity-0 shadow transition-opacity group-hover:opacity-100 hover:text-primary"
-          >
-            <Heart className={`h-4 w-4 ${isWishlisted ? "fill-primary text-primary" : ""}`} />
-          </button>
+          <div className="absolute end-2 top-2 flex flex-col gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={toggleWishlist}
+              aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow hover:text-primary"
+            >
+              <Heart className={`h-4 w-4 ${isWishlisted ? "fill-primary text-primary" : ""}`} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleCompare(product.id);
+              }}
+              aria-label={isComparing ? "Remove from compare" : "Add to compare"}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow hover:text-primary"
+            >
+              <Scale className={`h-4 w-4 ${isComparing ? "text-primary" : ""}`} />
+            </button>
+          </div>
         </div>
         <CardContent className="space-y-1 p-3">
           <div className="flex items-baseline gap-2">
