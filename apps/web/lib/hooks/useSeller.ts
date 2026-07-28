@@ -48,6 +48,7 @@ export function useDeleteSellerProduct() {
 
 export interface Shop {
   id?: string;
+  sellerId?: string;
   name: string;
   slug: string;
   logoUrl?: string;

@@ -1,16 +1,46 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Image from "next/image";
-import { CheckCircle2, Store } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
+import toast from "react-hot-toast";
+import { CheckCircle2, MessageCircle, Store } from "lucide-react";
 import { usePublicShop } from "@/lib/hooks/useSeller";
 import { useProducts } from "@/lib/hooks/useProducts";
+import { useStartConversation } from "@/lib/hooks/useConversations";
+import { useAuthStore } from "@/lib/store";
 import { ProductCard } from "@/components/storefront/product-card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function PublicShopPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
+  const locale = useLocale();
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const { data: shop, isLoading } = usePublicShop(slug);
   const { data: products } = useProducts({ sellerId: shop?.id, sort: "newest" });
+  const startConversation = useStartConversation();
+  const [showMessageForm, setShowMessageForm] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function handleSendMessage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user) {
+      router.push(`/${locale}/login`);
+      return;
+    }
+    if (!shop?.sellerId || !message.trim()) return;
+    try {
+      await startConversation.mutateAsync({ otherUserId: shop.sellerId, message });
+      setMessage("");
+      setShowMessageForm(false);
+      toast.success("Message sent");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "Could not send message");
+    }
+  }
 
   if (isLoading) return <div className="container py-10 text-muted-foreground">Loading…</div>;
   if (!shop) return <div className="container py-10">Shop not found.</div>;
@@ -38,7 +68,24 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
             </h1>
             {shop.description && <p className="mt-1 text-sm text-muted-foreground">{shop.description}</p>}
           </div>
+          <Button variant="outline" className="sm:ms-auto" onClick={() => setShowMessageForm((v) => !v)}>
+            <MessageCircle className="me-2 h-4 w-4" />
+            Message seller
+          </Button>
         </div>
+        {showMessageForm && (
+          <form className="flex gap-2 border-t p-4" onSubmit={handleSendMessage}>
+            <Input
+              placeholder="Ask the seller a question…"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              required
+            />
+            <Button type="submit" disabled={startConversation.isPending}>
+              Send
+            </Button>
+          </form>
+        )}
       </div>
 
       <div className="rounded-lg bg-card p-4 shadow-sm md:p-6">

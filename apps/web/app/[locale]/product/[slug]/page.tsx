@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ProductCard } from "@/components/storefront/product-card";
+import { ProductReviews } from "@/components/storefront/product-reviews";
 import { StorefrontSection } from "@/components/storefront/section";
 import { formatPrice } from "@/lib/format";
 
@@ -142,7 +143,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           {tab === "description" ? (
             <p className="whitespace-pre-line text-sm text-muted-foreground">{product.description}</p>
           ) : (
-            <p className="text-sm text-muted-foreground">No reviews yet.</p>
+            <ProductReviews productId={product.id} />
           )}
         </div>
       </div>
