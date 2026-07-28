@@ -43,3 +43,6 @@ customerRouter.delete("/wishlist/:productId", asyncHandler(removeWishlistHandler
 customerRouter.get("/tickets", asyncHandler(listMyTicketsHandler));
 customerRouter.post("/tickets", validateBody(createTicketSchema), asyncHandler(createTicketHandler));
 customerRouter.post("/tickets/:id/reply", validateBody(replyTicketSchema), asyncHandler(replyTicketHandler));
+
+customerRouter.patch("/profile", validateBody(updateProfileSchema), asyncHandler(updateProfileHandler));
+customerRouter.post("/change-password", validateBody(changePasswordSchema), asyncHandler(changePasswordHandler));
