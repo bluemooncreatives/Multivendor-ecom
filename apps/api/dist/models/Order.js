@@ -30,7 +30,10 @@ const orderSchema = new Schema({
     code: { type: String, required: true, unique: true }, // UUID-derived, not sequential
     userId: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
     guestId: { type: String, default: null, index: true },
-    addressId: { type: Schema.Types.ObjectId, ref: "Address", required: true },
+    // Optional: only set when the shopper checked out with a saved Address.
+    // Guests (and inline one-off addresses) have no Address record at all —
+    // addressSnapshot below is the authoritative shipping address either way.
+    addressId: { type: Schema.Types.ObjectId, ref: "Address", default: null },
     addressSnapshot: { type: Schema.Types.Mixed, required: true },
     details: { type: [orderDetailSchema], required: true, validate: (v) => v.length > 0 },
     couponCode: { type: String, default: null },
@@ -41,7 +44,7 @@ const orderSchema = new Schema({
     currency: { type: String, required: true, default: "INR" },
     paymentMethod: {
         type: String,
-        enum: ["stripe", "razorpay", "paypal", "cod", "wallet", "manual"],
+        enum: ["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"],
         required: true,
     },
     paymentStatus: {

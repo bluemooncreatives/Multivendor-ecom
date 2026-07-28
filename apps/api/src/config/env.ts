@@ -24,6 +24,11 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES: z.string().default("15m"),
   JWT_REFRESH_EXPIRES: z.string().default("7d"),
   EMAIL_VERIFY_SECRET: z.string().min(16),
+  // Shared secret for the web app's NextAuth server-side callback to call
+  // POST /auth/social — this endpoint must never be reachable with a client-
+  // forged email, so it's gated behind a header only the trusted Next.js
+  // server (never the browser) holds.
+  INTERNAL_API_SECRET: z.string().min(16),
 
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
 

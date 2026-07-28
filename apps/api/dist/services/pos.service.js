@@ -45,7 +45,7 @@ export async function createPosSale(sellerId, lines) {
             await SellerLedger.create([
                 { sellerId, orderId, type: "sale", amount: subtotal, note: "POS sale" },
                 { sellerId, orderId, type: "commission", amount: -amount, note: "Platform commission (POS)" },
-            ], { session });
+            ], { session, ordered: true });
             const [order] = await Order.create([
                 {
                     _id: orderId,

@@ -1,22 +1,46 @@
+import { Types } from "mongoose";
 import { Product } from "../models/Product.js";
 import { InventoryMovement } from "../models/Ledger.js";
 import { ApiError } from "../middleware/errorHandler.js";
 // Holds stock without decrementing the sellable count yet — `stock - reserved`
 // is what's shown as "available" everywhere else in the app. The oversell guard
-// (`stock - reserved >= quantity`) is evaluated inside the same atomic update via
-// $elemMatch + $expr, so two concurrent checkouts can't both reserve the last unit.
+// (`stock - reserved >= quantity`) is evaluated atomically via an aggregation-
+// pipeline update ($map/$cond over the variants array), NOT arrayFilters: MongoDB
+// rejects $expr inside both $elemMatch queries ("can only be applied to the
+// top-level document") and arrayFilters conditions ("$expr is not allowed in
+// this context") on this server version. The pipeline update only rewrites the
+// matching variant when the guard passes, so `modifiedCount === 0` reliably means
+// "not enough stock" — no separate read-then-write race is needed.
+//
+// Uses the native driver (Product.collection), not the Mongoose model, since
+// Mongoose has no query-builder support for pipeline-style updates.
 export async function reserveStock(lines, orderId, session) {
     for (const line of lines) {
-        const updated = await Product.findOneAndUpdate({
-            _id: line.productId,
-            variants: {
-                $elemMatch: {
-                    sku: line.variantSku,
-                    $expr: { $gte: [{ $subtract: ["$stock", "$reserved"] }, line.quantity] },
+        const result = await Product.collection.updateOne({ _id: new Types.ObjectId(line.productId), "variants.sku": line.variantSku }, [
+            {
+                $set: {
+                    variants: {
+                        $map: {
+                            input: "$variants",
+                            as: "v",
+                            in: {
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $eq: ["$$v.sku", line.variantSku] },
+                                            { $gte: [{ $subtract: ["$$v.stock", "$$v.reserved"] }, line.quantity] },
+                                        ],
+                                    },
+                                    { $mergeObjects: ["$$v", { reserved: { $add: ["$$v.reserved", line.quantity] } }] },
+                                    "$$v",
+                                ],
+                            },
+                        },
+                    },
                 },
             },
-        }, { $inc: { "variants.$.reserved": line.quantity } }, { session, new: true });
-        if (!updated) {
+        ], { session });
+        if (result.matchedCount === 0 || result.modifiedCount === 0) {
             throw new ApiError(409, "One of the items in your cart no longer has enough stock available");
         }
         await InventoryMovement.create([{ productId: line.productId, variantSku: line.variantSku, type: "reserve", quantity: line.quantity, orderId }], { session });

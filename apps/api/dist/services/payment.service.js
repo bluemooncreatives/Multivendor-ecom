@@ -94,7 +94,7 @@ export async function settleOrderPayment(orderId, method, providerRef) {
                         amount: -detail.commissionAmount,
                         note: "Platform commission",
                     },
-                ], { session });
+                ], { session, ordered: true });
             }
             order.paymentStatus = "paid";
             order.status = "confirmed";

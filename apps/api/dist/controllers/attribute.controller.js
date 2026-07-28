@@ -1,0 +1,44 @@
+import { z } from "zod";
+import { Attribute, Color } from "../models/Category.js";
+import { ApiError } from "../middleware/errorHandler.js";
+export const attributeSchema = z.object({
+    name: z.string().min(1),
+    values: z.array(z.string().min(1)).min(1),
+});
+export async function listAttributesHandler(_req, res) {
+    res.json({ items: await Attribute.find().sort({ name: 1 }) });
+}
+export async function createAttributeHandler(req, res) {
+    const attribute = await Attribute.create(req.body);
+    res.status(201).json(attribute);
+}
+export async function updateAttributeHandler(req, res) {
+    const attribute = await Attribute.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!attribute)
+        throw new ApiError(404, "Attribute not found");
+    res.json(attribute);
+}
+export async function deleteAttributeHandler(req, res) {
+    const deleted = await Attribute.findByIdAndDelete(req.params.id);
+    if (!deleted)
+        throw new ApiError(404, "Attribute not found");
+    res.status(204).send();
+}
+export const colorSchema = z.object({
+    name: z.string().min(1),
+    hex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+});
+export async function listColorsHandler(_req, res) {
+    res.json({ items: await Color.find().sort({ name: 1 }) });
+}
+export async function createColorHandler(req, res) {
+    const color = await Color.create(req.body);
+    res.status(201).json(color);
+}
+export async function deleteColorHandler(req, res) {
+    const deleted = await Color.findByIdAndDelete(req.params.id);
+    if (!deleted)
+        throw new ApiError(404, "Color not found");
+    res.status(204).send();
+}
+//# sourceMappingURL=attribute.controller.js.map

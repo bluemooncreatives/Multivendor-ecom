@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Product } from "../models/Product.js";
 import { searchProducts } from "../services/product.service.js";
+import { importProductsCsv } from "../services/bulkimport.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 const variantInput = z.object({
     sku: z.string().min(1),
@@ -109,6 +110,16 @@ export const approveProductSchema = z.object({
     approved: z.boolean(),
     reason: z.string().optional(),
 });
+export async function bulkImportProductsHandler(req, res) {
+    if (!req.file)
+        throw new ApiError(400, "A CSV file is required");
+    const result = await importProductsCsv(req.user.id, req.file.buffer);
+    res.status(201).json(result);
+}
+export async function listPendingProductsHandler(_req, res) {
+    const products = await Product.find({ approvalStatus: "pending" }).sort({ createdAt: -1 });
+    res.json({ items: products });
+}
 export async function moderateProductHandler(req, res) {
     const product = await Product.findByIdAndUpdate(req.params.id, {
         approvalStatus: req.body.approved ? "approved" : "rejected",

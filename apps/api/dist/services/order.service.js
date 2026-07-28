@@ -4,9 +4,14 @@ import { Product } from "../models/Product.js";
 import { Wallet, WalletTransaction } from "../models/Wallet.js";
 import { SellerLedger, InventoryMovement } from "../models/Ledger.js";
 import { ApiError } from "../middleware/errorHandler.js";
-// IDOR guard: customers only ever see their own orders; staff/admin can see any.
+// IDOR guard: customers only ever see their own orders; sellers only orders
+// containing at least one of their own items; staff/admin can see any.
 export async function getOrderForRequester(orderId, requester) {
-    const filter = requester.role === "admin" || requester.role === "staff" ? { _id: orderId } : { _id: orderId, userId: requester.id };
+    const filter = requester.role === "admin" || requester.role === "staff"
+        ? { _id: orderId }
+        : requester.role === "seller"
+            ? { _id: orderId, "details.sellerId": requester.id }
+            : { _id: orderId, userId: requester.id };
     const order = await Order.findOne(filter);
     if (!order)
         throw new ApiError(404, "Order not found");
@@ -61,7 +66,7 @@ export async function cancelOrder(orderId, requester) {
                     await SellerLedger.create([
                         { sellerId: detail.sellerId, orderId: order._id, type: "refund", amount: -detail.subtotal, note: "Order cancelled" },
                         { sellerId: detail.sellerId, orderId: order._id, type: "commission", amount: detail.commissionAmount, note: "Commission reversed" },
-                    ], { session });
+                    ], { session, ordered: true });
                 }
             }
             if (order.paymentMethod === "wallet" && order.paymentStatus === "paid" && order.userId) {

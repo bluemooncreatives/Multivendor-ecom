@@ -20,13 +20,14 @@ function ownerFromRequest(req) {
     return { guestId };
 }
 export async function getCartHandler(req, res) {
-    const cart = await cartService.getCart(ownerFromRequest(req));
+    const cart = await cartService.getCartWithDetails(ownerFromRequest(req));
     res.json(cart);
 }
 export async function setCartItemHandler(req, res) {
     const { productId, variantSku, quantity } = req.body;
-    const cart = await cartService.setCartItem(ownerFromRequest(req), productId, variantSku, quantity);
-    res.json(cart);
+    const owner = ownerFromRequest(req);
+    await cartService.setCartItem(owner, productId, variantSku, quantity);
+    res.json(await cartService.getCartWithDetails(owner));
 }
 export async function removeCartItemHandler(req, res) {
     await cartService.removeCartItem(ownerFromRequest(req), String(req.params.productId), String(req.params.variantSku));
@@ -36,7 +37,6 @@ export async function mergeCartHandler(req, res) {
     if (!req.user)
         throw new ApiError(401, "Authentication required");
     await cartService.mergeGuestCartIntoUser(req.body.guestId, req.user.id);
-    const cart = await cartService.getCart({ userId: req.user.id });
-    res.json(cart);
+    res.json(await cartService.getCartWithDetails({ userId: req.user.id }));
 }
 //# sourceMappingURL=cart.controller.js.map

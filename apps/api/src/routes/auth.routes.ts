@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import {
   registerHandler,
   loginHandler,
+  socialLoginHandler,
   refreshHandler,
   logoutHandler,
   verifyEmailHandler,
@@ -13,6 +14,7 @@ import {
   verifyPhoneOtpHandler,
   registerSchema,
   loginSchema,
+  socialLoginSchema,
   refreshSchema,
   verifyEmailSchema,
   forgotPasswordSchema,
@@ -22,6 +24,7 @@ import {
 } from "../controllers/auth.controller.js";
 import { validateBody } from "../middleware/validate.js";
 import { authenticate } from "../middleware/auth.js";
+import { requireInternalSecret } from "../middleware/internal.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const authRouter = Router();
@@ -31,6 +34,7 @@ const authLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: tr
 
 authRouter.post("/register", authLimiter, validateBody(registerSchema), asyncHandler(registerHandler));
 authRouter.post("/login", authLimiter, validateBody(loginSchema), asyncHandler(loginHandler));
+authRouter.post("/social", requireInternalSecret, validateBody(socialLoginSchema), asyncHandler(socialLoginHandler));
 authRouter.post("/refresh", authLimiter, validateBody(refreshSchema), asyncHandler(refreshHandler));
 authRouter.post("/logout", validateBody(refreshSchema), asyncHandler(logoutHandler));
 authRouter.post("/verify-email", validateBody(verifyEmailSchema), asyncHandler(verifyEmailHandler));

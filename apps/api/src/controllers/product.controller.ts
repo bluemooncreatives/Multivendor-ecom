@@ -52,6 +52,15 @@ export async function searchProductsHandler(req: Request, res: Response) {
   res.json(result);
 }
 
+export async function getProductsByIdsHandler(req: Request, res: Response) {
+  const ids = String(req.query.ids ?? "")
+    .split(",")
+    .filter(Boolean)
+    .slice(0, 10);
+  const products = await Product.find({ _id: { $in: ids }, published: true });
+  res.json({ items: products });
+}
+
 export async function getProductHandler(req: Request, res: Response) {
   const product = await Product.findOne({ slug: req.params.slug, published: true, approvalStatus: "approved" });
   if (!product) throw new ApiError(404, "Product not found");

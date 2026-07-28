@@ -19,6 +19,7 @@ const brandSchema = new Schema({
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, index: true },
     logoUrl: String,
+    featured: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
 }, { timestamps: true });
 withJsonId(brandSchema);

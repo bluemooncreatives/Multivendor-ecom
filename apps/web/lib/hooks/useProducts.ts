@@ -30,6 +30,14 @@ export function useProduct(slug: string) {
   });
 }
 
+export function useProductsByIds(ids: string[]) {
+  return useQuery({
+    queryKey: ["products", "by-ids", ids],
+    queryFn: async () => (await api.get<{ items: Product[] }>("/catalog/products/by-ids", { params: { ids: ids.join(",") } })).data.items,
+    enabled: ids.length > 0,
+  });
+}
+
 export function useCategories() {
   return useQuery({
     queryKey: ["categories"],

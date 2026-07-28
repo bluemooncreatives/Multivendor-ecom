@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SocialLoginButtons } from "@/components/shared/social-login-buttons";
 import { useLogin } from "@/lib/hooks/useAuth";
 
 export default function LoginPage() {
@@ -60,6 +61,9 @@ export default function LoginPage() {
               </span>
             </div>
           </form>
+          <div className="mt-4">
+            <SocialLoginButtons />
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -37,3 +37,33 @@ function createGuestId() {
 export const useGuestStore = create<GuestState>()(
   persist((_set) => ({ guestId: createGuestId() }), { name: "guest-store" }),
 );
+
+// Compare list is purely client-side (matches the legacy app's session-based
+// compare feature) — no server round trip needed, just a capped list of ids.
+const MAX_COMPARE_ITEMS = 4;
+
+interface CompareState {
+  productIds: string[];
+  toggle: (productId: string) => void;
+  remove: (productId: string) => void;
+  clear: () => void;
+}
+
+export const useCompareStore = create<CompareState>()(
+  persist(
+    (set, get) => ({
+      productIds: [],
+      toggle: (productId) => {
+        const { productIds } = get();
+        if (productIds.includes(productId)) {
+          set({ productIds: productIds.filter((id) => id !== productId) });
+        } else {
+          set({ productIds: [...productIds, productId].slice(-MAX_COMPARE_ITEMS) });
+        }
+      },
+      remove: (productId) => set({ productIds: get().productIds.filter((id) => id !== productId) }),
+      clear: () => set({ productIds: [] }),
+    }),
+    { name: "compare-store" },
+  ),
+);

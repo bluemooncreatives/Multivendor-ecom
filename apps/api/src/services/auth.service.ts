@@ -60,6 +60,39 @@ export async function register(input: { name: string; email: string; password: s
   return { user, tokens };
 }
 
+// Called only from the trusted internal /auth/social bridge — the caller
+// (Next.js server, after NextAuth already completed the OAuth handshake) is
+// asserting this email/provider pairing is verified. Find-or-create by email;
+// OAuth accounts are treated as pre-verified (the provider already confirmed it).
+export async function socialLogin(input: {
+  provider: "google" | "facebook";
+  providerId: string;
+  email: string;
+  name: string;
+  avatarUrl?: string;
+}) {
+  let user = await User.findOne({ email: input.email });
+
+  if (!user) {
+    user = await User.create({
+      name: input.name,
+      email: input.email,
+      passwordHash: await hashPassword(randomUUID()), // unusable random password; account only usable via OAuth or a reset
+      role: "customer",
+      provider: input.provider,
+      providerId: input.providerId,
+      avatarUrl: input.avatarUrl,
+      emailVerifiedAt: new Date(),
+    });
+    await Wallet.create({ userId: user._id, balance: 0 });
+  } else if (user.banned) {
+    throw new ApiError(403, "This account has been suspended");
+  }
+
+  const tokens = await issueTokenPair(String(user._id), user.role, user.permissions);
+  return { user, tokens };
+}
+
 export async function login(email: string, password: string) {
   const user = await User.findOne({ email }).select("+passwordHash");
   if (!user) throw new ApiError(401, "Invalid email or password");

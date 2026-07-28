@@ -16,6 +16,7 @@ import {
 import {
   productSchema,
   searchProductsHandler,
+  getProductsByIdsHandler,
   getProductHandler,
   createProductHandler,
   updateProductHandler,
@@ -34,6 +35,7 @@ export const catalogRouter = Router();
 catalogRouter.get("/categories", asyncHandler(listCategoriesHandler));
 catalogRouter.get("/brands", asyncHandler(listBrandsHandler));
 catalogRouter.get("/products", asyncHandler(searchProductsHandler));
+catalogRouter.get("/products/by-ids", asyncHandler(getProductsByIdsHandler));
 catalogRouter.get("/products/:slug", asyncHandler(getProductHandler));
 
 // Admin/staff taxonomy management

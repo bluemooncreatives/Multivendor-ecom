@@ -17,6 +17,14 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const socialLoginSchema = z.object({
+  provider: z.enum(["google", "facebook"]),
+  providerId: z.string().min(1),
+  email: z.string().email(),
+  name: z.string().min(1),
+  avatarUrl: z.string().url().optional(),
+});
+
 export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
@@ -55,6 +63,11 @@ export async function registerHandler(req: Request, res: Response) {
 export async function loginHandler(req: Request, res: Response) {
   const { email, password } = req.body;
   const { user, tokens } = await authService.login(email, password);
+  res.json(toAuthResponse(user, tokens));
+}
+
+export async function socialLoginHandler(req: Request, res: Response) {
+  const { user, tokens } = await authService.socialLogin(req.body);
   res.json(toAuthResponse(user, tokens));
 }
 

@@ -16,7 +16,7 @@ const sellerPackagePaymentSchema = new Schema({
     amount: { type: Number, required: true, min: 0 },
     startsAt: { type: Date, required: true },
     expiresAt: { type: Date, required: true },
-    paymentMethod: { type: String, enum: ["stripe", "razorpay", "paypal", "wallet", "manual"], required: true },
+    paymentMethod: { type: String, enum: ["stripe", "razorpay", "paypal", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"], required: true },
     status: { type: String, enum: ["pending", "paid", "failed"], default: "pending" },
 }, { timestamps: true });
 withJsonId(sellerPackagePaymentSchema);
@@ -36,7 +36,7 @@ const customerPackagePaymentSchema = new Schema({
     amount: { type: Number, required: true, min: 0 },
     startsAt: { type: Date, required: true },
     expiresAt: { type: Date, required: true },
-    paymentMethod: { type: String, enum: ["stripe", "razorpay", "paypal", "wallet", "manual"], required: true },
+    paymentMethod: { type: String, enum: ["stripe", "razorpay", "paypal", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"], required: true },
     status: { type: String, enum: ["pending", "paid", "failed"], default: "pending" },
 }, { timestamps: true });
 withJsonId(customerPackagePaymentSchema);

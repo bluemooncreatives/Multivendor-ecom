@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as checkoutService from "../services/checkout.service.js";
 import * as orderService from "../services/order.service.js";
+import { streamOrderInvoice } from "../services/invoice.service.js";
+import { Order } from "../models/Order.js";
 import { ApiError } from "../middleware/errorHandler.js";
 const inlineAddressSchema = z.object({
     line1: z.string().min(1),
@@ -16,7 +18,7 @@ export const checkoutSchema = z
     .object({
     addressId: z.string().optional(),
     address: inlineAddressSchema.optional(),
-    paymentMethod: z.enum(["stripe", "razorpay", "paypal", "cod", "wallet", "manual"]),
+    paymentMethod: z.enum(["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"]),
     couponCode: z.string().optional(),
     // Client-generated per checkout-attempt key. Retrying the exact same attempt
     // (same key) returns the original order instead of creating a duplicate.
@@ -57,5 +59,21 @@ export async function listSellerOrdersHandler(req, res) {
 export async function cancelOrderHandler(req, res) {
     const order = await orderService.cancelOrder(String(req.params.id), req.user);
     res.json(order);
+}
+export const trackOrderSchema = z.object({
+    code: z.string().min(1),
+    phone: z.string().min(1),
+});
+// No-login order tracking, gated by code+phone together (not code alone) so a
+// leaked/guessed order code can't be used to pull up someone else's order.
+export async function trackOrderHandler(req, res) {
+    const order = await Order.findOne({ code: req.body.code, "addressSnapshot.phone": req.body.phone });
+    if (!order)
+        throw new ApiError(404, "No order found matching that code and phone number");
+    res.json(order);
+}
+export async function downloadInvoiceHandler(req, res) {
+    const order = await orderService.getOrderForRequester(String(req.params.id), req.user);
+    streamOrderInvoice(order, res);
 }
 //# sourceMappingURL=order.controller.js.map
