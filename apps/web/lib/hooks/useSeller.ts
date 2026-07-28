@@ -40,6 +40,27 @@ export function useCloneSellerProduct() {
   });
 }
 
+export interface BulkImportResult {
+  created: number;
+  skipped: { row: number; reason: string }[];
+}
+
+export function useBulkImportProducts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return (
+        await api.post<BulkImportResult>("/catalog/seller/products/bulk-import", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        })
+      ).data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seller", "products"] }),
+  });
+}
+
 export function useDeleteSellerProduct() {
   const queryClient = useQueryClient();
   return useMutation({

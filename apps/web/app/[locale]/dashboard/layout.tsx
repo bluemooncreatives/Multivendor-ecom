@@ -9,6 +9,8 @@ const LINKS = [
   { href: "/wallet", label: "Wallet" },
   { href: "/addresses", label: "Addresses" },
   { href: "/wishlist", label: "Wishlist" },
+  { href: "/downloads", label: "Downloads" },
+  { href: "/conversations", label: "Messages" },
   { href: "/tickets", label: "Support" },
   { href: "/classifieds", label: "Classifieds" },
   { href: "/affiliate", label: "Affiliate" },

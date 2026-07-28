@@ -1,13 +1,29 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
 import { useAdminUsers, useVerifySeller, useBanUser } from "@/lib/hooks/useAdmin";
+import { useImpersonateUser } from "@/lib/hooks/useAdminCatalogExtras";
+import { useAuthStore } from "@/lib/store";
+import { setAccessToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function AdminSellersPage() {
+  const locale = useLocale();
+  const router = useRouter();
   const { data: sellers, isLoading } = useAdminUsers("seller");
   const verifySeller = useVerifySeller();
   const banUser = useBanUser();
+  const impersonate = useImpersonateUser();
+  const setSession = useAuthStore((s) => s.setSession);
+
+  async function handleImpersonate(userId: string) {
+    const result = await impersonate.mutateAsync(userId);
+    setAccessToken(result.accessToken);
+    setSession(result.user, result.accessToken, null);
+    router.push(`/${locale}/seller`);
+  }
 
   return (
     <div className="space-y-4">
@@ -24,6 +40,9 @@ export default function AdminSellersPage() {
               </div>
               <div className="flex items-center gap-2">
                 {seller.banned && <Badge variant="destructive">Banned</Badge>}
+                <Button variant="outline" size="sm" onClick={() => handleImpersonate(seller.id)} disabled={impersonate.isPending}>
+                  Login as
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => verifySeller.mutate({ id: seller.id, approve: true })}>
                   Approve shop
                 </Button>

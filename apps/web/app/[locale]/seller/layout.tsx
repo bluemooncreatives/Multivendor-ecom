@@ -8,6 +8,8 @@ const LINKS = [
   { href: "/products", label: "Products" },
   { href: "/orders", label: "Orders" },
   { href: "/pos", label: "POS" },
+  { href: "/reviews", label: "Reviews" },
+  { href: "/conversations", label: "Messages" },
   { href: "/ledger", label: "Ledger" },
   { href: "/withdrawals", label: "Withdrawals" },
   { href: "/shop", label: "Shop settings" },
