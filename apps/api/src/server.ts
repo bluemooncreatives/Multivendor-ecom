@@ -7,6 +7,8 @@ import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { apiRouter } from "./routes/index.js";
+import { stripeWebhookHandler, razorpayWebhookHandler, paypalWebhookHandler } from "./controllers/webhook.controller.js";
+import { asyncHandler } from "./utils/asyncHandler.js";
 
 async function main() {
   await connectDb();
@@ -20,6 +22,13 @@ async function main() {
       credentials: true,
     }),
   );
+
+  // Webhook routes read the raw request body (required for signature verification)
+  // and MUST be registered before the global express.json() body parser below.
+  app.post("/api/v1/payments/webhooks/stripe", express.raw({ type: "application/json" }), asyncHandler(stripeWebhookHandler));
+  app.post("/api/v1/payments/webhooks/razorpay", express.raw({ type: "application/json" }), asyncHandler(razorpayWebhookHandler));
+  app.post("/api/v1/payments/webhooks/paypal", express.raw({ type: "application/json" }), asyncHandler(paypalWebhookHandler));
+
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
 

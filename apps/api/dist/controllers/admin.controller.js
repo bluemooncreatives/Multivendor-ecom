@@ -1,0 +1,153 @@
+import { z } from "zod";
+import { User } from "../models/User.js";
+import { Shop } from "../models/Shop.js";
+import { Order } from "../models/Order.js";
+import { SellerWithdrawRequest, SellerLedger } from "../models/Ledger.js";
+import { Role } from "../models/Rbac.js";
+import { GeneralSetting, SeoSetting, BusinessSetting, Addon } from "../models/Settings.js";
+import { ApiError } from "../middleware/errorHandler.js";
+// --- Dashboard -------------------------------------------------------------
+export async function dashboardSummaryHandler(_req, res) {
+    const [orderStats] = await Order.aggregate([
+        {
+            $group: {
+                _id: null,
+                totalOrders: { $sum: 1 },
+                totalRevenue: { $sum: "$grandTotal" },
+            },
+        },
+    ]);
+    const [sellerCount, customerCount, pendingWithdrawals] = await Promise.all([
+        User.countDocuments({ role: "seller" }),
+        User.countDocuments({ role: "customer" }),
+        SellerWithdrawRequest.countDocuments({ status: "pending" }),
+    ]);
+    res.json({
+        totalOrders: orderStats?.totalOrders ?? 0,
+        totalRevenue: orderStats?.totalRevenue ?? 0,
+        sellerCount,
+        customerCount,
+        pendingWithdrawals,
+    });
+}
+// --- Users / sellers / staff -------------------------------------------------
+export async function listUsersHandler(req, res) {
+    const { role } = req.query;
+    const users = await User.find(role ? { role } : {}).sort({ createdAt: -1 }).limit(200);
+    res.json({ items: users });
+}
+export const banUserSchema = z.object({ banned: z.boolean() });
+export async function banUserHandler(req, res) {
+    const user = await User.findByIdAndUpdate(req.params.id, { banned: req.body.banned }, { new: true });
+    if (!user)
+        throw new ApiError(404, "User not found");
+    res.json(user);
+}
+export const assignStaffPermissionsSchema = z.object({ permissions: z.array(z.string()) });
+export async function assignStaffPermissionsHandler(req, res) {
+    const user = await User.findOneAndUpdate({ _id: req.params.id, role: "staff" }, { permissions: req.body.permissions }, { new: true });
+    if (!user)
+        throw new ApiError(404, "Staff member not found");
+    res.json(user);
+}
+export const roleSchema = z.object({ name: z.string().min(1), permissions: z.array(z.string()) });
+export async function listRolesHandler(_req, res) {
+    res.json({ items: await Role.find() });
+}
+export async function createRoleHandler(req, res) {
+    const role = await Role.create(req.body);
+    res.status(201).json(role);
+}
+// --- Seller verification -----------------------------------------------------
+export const verifySellerSchema = z.object({ approve: z.boolean() });
+export async function verifySellerHandler(req, res) {
+    const shop = await Shop.findOneAndUpdate({ sellerId: req.params.id }, { verified: req.body.approve, verificationStatus: req.body.approve ? "approved" : "rejected" }, { new: true });
+    if (!shop)
+        throw new ApiError(404, "Shop not found for this seller");
+    res.json(shop);
+}
+// --- Withdrawals --------------------------------------------------------------
+export async function listWithdrawRequestsHandler(_req, res) {
+    const items = await SellerWithdrawRequest.find().sort({ createdAt: -1 }).limit(200);
+    res.json({ items });
+}
+export const resolveWithdrawSchema = z.object({
+    approve: z.boolean(),
+    rejectionReason: z.string().optional(),
+});
+export async function resolveWithdrawRequestHandler(req, res) {
+    const request = await SellerWithdrawRequest.findById(req.params.id);
+    if (!request)
+        throw new ApiError(404, "Withdraw request not found");
+    if (request.status !== "pending")
+        throw new ApiError(409, "This request has already been resolved");
+    if (req.body.approve) {
+        request.status = "paid";
+        request.processedAt = new Date();
+        request.processedBy = req.user.id;
+        await SellerLedger.create({
+            sellerId: request.sellerId,
+            type: "withdrawal",
+            amount: -request.amount,
+            note: "Withdrawal paid",
+        });
+    }
+    else {
+        request.status = "rejected";
+        request.rejectionReason = req.body.rejectionReason;
+    }
+    await request.save();
+    res.json(request);
+}
+// --- Orders -------------------------------------------------------------------
+export async function listAllOrdersHandler(req, res) {
+    const { status } = req.query;
+    const orders = await Order.find(status ? { status } : {}).sort({ createdAt: -1 }).limit(200);
+    res.json({ items: orders });
+}
+// --- Settings -------------------------------------------------------------------
+export async function getGeneralSettingsHandler(_req, res) {
+    const settings = (await GeneralSetting.findOne({ key: "general" })) ?? (await GeneralSetting.create({}));
+    res.json(settings);
+}
+export async function updateGeneralSettingsHandler(req, res) {
+    const settings = await GeneralSetting.findOneAndUpdate({ key: "general" }, req.body, {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+    });
+    res.json(settings);
+}
+export async function getSeoSettingsHandler(_req, res) {
+    const settings = (await SeoSetting.findOne({ key: "seo" })) ?? (await SeoSetting.create({}));
+    res.json(settings);
+}
+export async function updateSeoSettingsHandler(req, res) {
+    const settings = await SeoSetting.findOneAndUpdate({ key: "seo" }, req.body, {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+    });
+    res.json(settings);
+}
+export async function getBusinessSettingsHandler(_req, res) {
+    const settings = (await BusinessSetting.findOne({ key: "business" })) ?? (await BusinessSetting.create({}));
+    res.json(settings);
+}
+export async function updateBusinessSettingsHandler(req, res) {
+    const settings = await BusinessSetting.findOneAndUpdate({ key: "business" }, req.body, {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+    });
+    res.json(settings);
+}
+export async function listAddonsHandler(_req, res) {
+    res.json({ items: await Addon.find() });
+}
+export const toggleAddonSchema = z.object({ enabled: z.boolean() });
+export async function toggleAddonHandler(req, res) {
+    const addon = await Addon.findOneAndUpdate({ key: req.params.key }, { enabled: req.body.enabled }, { upsert: true, new: true, setDefaultsOnInsert: true });
+    res.json(addon);
+}
+//# sourceMappingURL=admin.controller.js.map

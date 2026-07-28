@@ -23,14 +23,15 @@ function ownerFromRequest(req: Request): cartService.CartOwner {
 }
 
 export async function getCartHandler(req: Request, res: Response) {
-  const cart = await cartService.getCart(ownerFromRequest(req));
+  const cart = await cartService.getCartWithDetails(ownerFromRequest(req));
   res.json(cart);
 }
 
 export async function setCartItemHandler(req: Request, res: Response) {
   const { productId, variantSku, quantity } = req.body;
-  const cart = await cartService.setCartItem(ownerFromRequest(req), productId, variantSku, quantity);
-  res.json(cart);
+  const owner = ownerFromRequest(req);
+  await cartService.setCartItem(owner, productId, variantSku, quantity);
+  res.json(await cartService.getCartWithDetails(owner));
 }
 
 export async function removeCartItemHandler(req: Request, res: Response) {
@@ -41,6 +42,5 @@ export async function removeCartItemHandler(req: Request, res: Response) {
 export async function mergeCartHandler(req: Request, res: Response) {
   if (!req.user) throw new ApiError(401, "Authentication required");
   await cartService.mergeGuestCartIntoUser(req.body.guestId, req.user.id);
-  const cart = await cartService.getCart({ userId: req.user.id });
-  res.json(cart);
+  res.json(await cartService.getCartWithDetails({ userId: req.user.id }));
 }

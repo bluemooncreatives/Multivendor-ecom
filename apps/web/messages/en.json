@@ -1,6 +1,50 @@
 {
   "home": {
     "title": "PHPStore — Be Vocal for Local",
-    "subtitle": "Digital India multivendor marketplace"
+    "subtitle": "Digital India multivendor marketplace",
+    "featured": "Featured products",
+    "categories": "Shop by category"
+  },
+  "nav": {
+    "shop": "Shop",
+    "categories": "Categories",
+    "deals": "Deals",
+    "searchPlaceholder": "Search products..."
+  },
+  "footer": {
+    "copyright": "© {year} PHPStore. All rights reserved.",
+    "tagline": "Be Vocal for Local — Digital India"
+  },
+  "cart": {
+    "title": "Your cart",
+    "empty": "Your cart is empty",
+    "checkout": "Proceed to checkout",
+    "remove": "Remove",
+    "subtotal": "Subtotal"
+  },
+  "auth": {
+    "loginTitle": "Sign in to your account",
+    "registerTitle": "Create an account",
+    "name": "Full name",
+    "email": "Email address",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "forgotPassword": "Forgot password?"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "address": "Shipping address",
+    "payment": "Payment method",
+    "review": "Review order",
+    "placeOrder": "Place order",
+    "cod": "Cash on delivery",
+    "wallet": "Wallet",
+    "stripe": "Card (Stripe)",
+    "razorpay": "Razorpay",
+    "paypal": "PayPal",
+    "manual": "Manual / bank transfer"
   }
 }

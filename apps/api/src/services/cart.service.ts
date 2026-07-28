@@ -26,6 +26,37 @@ export async function getCart(owner: CartOwner) {
   return cart ?? { items: [] };
 }
 
+// Denormalizes each cart line with a product/variant snapshot so the frontend
+// doesn't need a separate round-trip per line item just to render the cart.
+export async function getCartWithDetails(owner: CartOwner) {
+  const cart = await Cart.findOne(ownerFilter(owner));
+  if (!cart || cart.items.length === 0) return { id: cart?._id, items: [] };
+
+  const productIds = [...new Set(cart.items.map((i) => i.productId.toString()))];
+  const products = await Product.find({ _id: { $in: productIds } });
+  const productMap = new Map(products.map((p) => [String(p._id), p]));
+
+  const items = cart.items.map((item) => {
+    const product = productMap.get(item.productId.toString());
+    const variant = product?.variants.find((v) => v.sku === item.variantSku);
+    return {
+      productId: String(item.productId),
+      productSlug: product?.slug,
+      productName: product?.name,
+      productImage: variant?.imageUrl ?? product?.images[0],
+      currency: product?.currency ?? "INR",
+      variantSku: item.variantSku,
+      variantAttributes: variant?.attributes ?? {},
+      quantity: item.quantity,
+      unitPrice: variant?.price ?? 0,
+      lineTotal: (variant?.price ?? 0) * item.quantity,
+      available: variant ? variant.stock - variant.reserved : 0,
+    };
+  });
+
+  return { id: cart._id, items, subtotal: items.reduce((sum, i) => sum + i.lineTotal, 0) };
+}
+
 // Stock is re-checked against `stock - reserved` (available, not gross) every time
 // a quantity is set — on add, on quantity change, and again on guest-cart merge.
 export async function setCartItem(owner: CartOwner, productId: string, variantSku: string, quantity: number) {

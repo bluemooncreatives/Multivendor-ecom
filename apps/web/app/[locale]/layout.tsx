@@ -3,6 +3,9 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { locales, rtlLocales, type Locale } from "@/i18n";
+import { AppProviders } from "@/lib/providers";
+import { SiteHeader } from "@/components/shared/site-header";
+import { SiteFooter } from "@/components/shared/site-footer";
 import "../globals.css";
 
 export const metadata: Metadata = {
@@ -29,8 +32,14 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
-      <body>
-        <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
+      <body className="flex min-h-screen flex-col">
+        <NextIntlClientProvider messages={messages}>
+          <AppProviders>
+            <SiteHeader />
+            <main className="flex-1">{children}</main>
+            <SiteFooter />
+          </AppProviders>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

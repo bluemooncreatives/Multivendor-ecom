@@ -39,6 +39,7 @@ const businessSettingSchema = new Schema(
   {
     key: { type: String, required: true, unique: true, default: "business" },
     taxPercent: { type: Number, default: 0 },
+    commissionPercent: { type: Number, default: 10 },
     shippingMode: { type: String, enum: ["flat", "weight_based", "area_based", "free"], default: "flat" },
     flatShippingCost: { type: Number, default: 0 },
     minOrderForFreeShipping: { type: Number, default: null },
