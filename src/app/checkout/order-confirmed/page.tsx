@@ -1,2 +1,0 @@
-import Link from "next/link";
-export default async function Confirmed({searchParams}:{searchParams:Promise<{code?:string}>}){const{code}=await searchParams;return <main className="page-shell"><div className="empty-state"><span>✓</span><h1>Order confirmed</h1><p>Thank you. Your order reference is <strong>{code||"processing"}</strong>.</p><Link className="button button-primary" href="/purchase_history">View your orders</Link></div></main>}

@@ -1,9 +1,0 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { connectMongo, objectId } from "@/lib/mongodb";
-import { OrderModel, ProductModel } from "@/models";
-
-export const runtime = "nodejs";
-export async function GET(_request:Request,{params}:{params:Promise<{id:string}>}){const user=await getSession();if(!user)return NextResponse.json({message:"Unauthorized"},{status:401});const id=objectId((await params).id);if(!id)return NextResponse.json({message:"Invalid download"},{status:400});await connectMongo();const administrative=user.role==="admin"||user.role==="staff";const order=await OrderModel.findOne({...(administrative?{}:{customer:objectId(user.id)}),items:{$elemMatch:{_id:id,paymentStatus:"paid"}}}).select("items").lean();const item=order?.items.find((candidate:any)=>String(candidate._id)===String(id));if(!item?.product)return NextResponse.json({message:"Download not available"},{status:404});const product=await ProductModel.findOne({_id:item.product,digital:true}).select("digitalFile").lean();if(!product?.digitalFile?.path)return NextResponse.json({message:"Download not available"},{status:404});const publicRoot=path.resolve(process.cwd(),"public");const target=path.resolve(publicRoot,String(product.digitalFile.path).replace(/^[/\\]+/,""));if(!target.startsWith(`${publicRoot}${path.sep}`))return NextResponse.json({message:"Unsafe download path"},{status:400});try{const contents=await fs.readFile(target);const filename=String(product.digitalFile.name||path.basename(target)).replace(/[\r\n"\\/]/g,"_");return new NextResponse(new Uint8Array(contents),{headers:{"content-type":"application/octet-stream","content-disposition":`attachment; filename="${filename}"`,"cache-control":"private, no-store"}})}catch{return NextResponse.json({message:"Download file is missing"},{status:404})}}

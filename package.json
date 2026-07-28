@@ -1,42 +1,26 @@
 {
-  "name": "v4local-mongodb-marketplace",
-  "version": "3.0.0",
+  "name": "ecommercemultivendor",
+  "version": "1.0.0",
   "private": true,
-  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "node --watch server.mjs --dev",
-    "build": "next build",
-    "start": "node server.mjs",
-    "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run build",
-    "pretest:smoke": "npm run build",
-    "test:smoke": "node --env-file-if-exists=.env.local scripts/smoke-runtime.mjs",
-    "data:validate": "node --env-file-if-exists=.env.local scripts/import-mongo-data.mjs --dry-run",
-    "data:audit": "node --env-file-if-exists=.env.local scripts/audit-migration.mjs",
-    "db:import": "node --env-file-if-exists=.env.local scripts/import-mongo-data.mjs",
-    "db:seed": "node --env-file-if-exists=.env.local scripts/seed-mongodb.mjs"
-  },
-  "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "compression": "^1.8.1",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.2.1",
-    "helmet": "^8.1.0",
-    "jose": "^6.2.4",
-    "mongoose": "^9.2.1",
-    "next": "^16.2.12",
-    "nodemailer": "^9.0.3",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "zod": "^4.4.3"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "seed": "npm run seed -w apps/api"
   },
   "devDependencies": {
-    "@types/compression": "^1.8.1",
-    "@types/express": "^5.0.6",
-    "@types/node": "^24.13.3",
-    "@types/nodemailer": "^8.0.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "typescript": "^5.9.3"
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
