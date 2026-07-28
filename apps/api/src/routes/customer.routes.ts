@@ -1,0 +1,45 @@
+import { Router } from "express";
+import { authenticate } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { getMyWalletHandler, listMyWalletHistoryHandler } from "../controllers/wallet.controller.js";
+import {
+  addressSchema,
+  listAddressesHandler,
+  createAddressHandler,
+  updateAddressHandler,
+  deleteAddressHandler,
+  listWishlistHandler,
+  addWishlistHandler,
+  removeWishlistHandler,
+  wishlistSchema,
+  createTicketSchema,
+  createTicketHandler,
+  listMyTicketsHandler,
+  replyTicketSchema,
+  replyTicketHandler,
+  updateProfileSchema,
+  updateProfileHandler,
+  changePasswordSchema,
+  changePasswordHandler,
+} from "../controllers/customer.controller.js";
+
+export const customerRouter = Router();
+
+customerRouter.use(authenticate);
+
+customerRouter.get("/wallet", asyncHandler(getMyWalletHandler));
+customerRouter.get("/wallet/history", asyncHandler(listMyWalletHistoryHandler));
+
+customerRouter.get("/addresses", asyncHandler(listAddressesHandler));
+customerRouter.post("/addresses", validateBody(addressSchema), asyncHandler(createAddressHandler));
+customerRouter.patch("/addresses/:id", validateBody(addressSchema.partial()), asyncHandler(updateAddressHandler));
+customerRouter.delete("/addresses/:id", asyncHandler(deleteAddressHandler));
+
+customerRouter.get("/wishlist", asyncHandler(listWishlistHandler));
+customerRouter.post("/wishlist", validateBody(wishlistSchema), asyncHandler(addWishlistHandler));
+customerRouter.delete("/wishlist/:productId", asyncHandler(removeWishlistHandler));
+
+customerRouter.get("/tickets", asyncHandler(listMyTicketsHandler));
+customerRouter.post("/tickets", validateBody(createTicketSchema), asyncHandler(createTicketHandler));
+customerRouter.post("/tickets/:id/reply", validateBody(replyTicketSchema), asyncHandler(replyTicketHandler));

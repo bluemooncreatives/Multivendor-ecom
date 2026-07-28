@@ -9,6 +9,7 @@ import { localizationRouter } from "./localization.routes.js";
 import { sellerRouter } from "./seller.routes.js";
 import { adminRouter } from "./admin.routes.js";
 import { addonRouter } from "./addon.routes.js";
+import { customerRouter } from "./customer.routes.js";
 
 export const apiRouter = Router();
 
@@ -26,3 +27,4 @@ apiRouter.use("/localization", localizationRouter);
 apiRouter.use("/seller", sellerRouter);
 apiRouter.use("/admin", adminRouter);
 apiRouter.use("/addons", addonRouter);
+apiRouter.use("/me", customerRouter);
