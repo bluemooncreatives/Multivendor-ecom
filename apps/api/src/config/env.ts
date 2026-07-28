@@ -12,6 +12,10 @@ config({ path: path.resolve(here, "../../../../.env") });
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   API_PORT: z.coerce.number().default(4000),
+  // Publicly reachable base URL of THIS API server (not the web app) — used to
+  // build gateway callback/webhook URLs, which must point back at the API, never
+  // at the Next.js origin.
+  API_PUBLIC_URL: z.string().default("http://localhost:4000"),
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
   MONGODB_DB: z.string().default("v4local_marketplace"),
 

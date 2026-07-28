@@ -22,7 +22,7 @@ export async function createVoguePaySession(orderId: string) {
     memo: `Order ${order.code}`,
     total: String(order.grandTotal),
     currency: order.currency,
-    notify_url: `${env.NEXT_PUBLIC_APP_URL}/api/payments/voguepay/notify`,
+    notify_url: `${env.API_PUBLIC_URL}/api/v1/payments/voguepay/notify/${order._id}`,
     v_o_a: "1", // return to store after payment
   });
 

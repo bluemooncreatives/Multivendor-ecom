@@ -21,7 +21,7 @@ export async function createPaystackTransaction(orderId: string) {
       amount: Math.round(order.grandTotal * 100), // kobo
       reference: String(order._id),
       currency: order.currency,
-      callback_url: `${env.NEXT_PUBLIC_APP_URL}/api/payments/paystack/callback`,
+      callback_url: `${env.API_PUBLIC_URL}/api/v1/payments/paystack/callback/${order._id}`,
     },
     { headers: { Authorization: `Bearer ${creds.secretKey}` } },
   );

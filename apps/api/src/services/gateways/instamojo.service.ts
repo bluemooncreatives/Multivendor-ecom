@@ -26,7 +26,7 @@ export async function createInstamojoRequest(orderId: string) {
       amount: String(order.grandTotal),
       buyer_name: addr.line1 ?? "Customer",
       phone: addr.phone ?? "",
-      redirect_url: `${env.NEXT_PUBLIC_APP_URL}/api/payments/instamojo/redirect`,
+      redirect_url: `${env.API_PUBLIC_URL}/api/v1/payments/instamojo/redirect/${order._id}`,
       allow_repeated_payments: "false",
     }),
     { headers: { "X-Api-Key": creds.apiKey, "X-Auth-Token": creds.authToken } },

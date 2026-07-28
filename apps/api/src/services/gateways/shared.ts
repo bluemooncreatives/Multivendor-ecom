@@ -5,7 +5,7 @@ import { ApiError } from "../../middleware/errorHandler.js";
 
 export type GatewayCode = "sslcommerz" | "instamojo" | "paystack" | "voguepay" | "payhere" | "ngenius";
 
-export async function getGatewayCredentials<T extends Record<string, unknown>>(code: GatewayCode): Promise<T> {
+export async function getGatewayCredentials<T>(code: GatewayCode): Promise<T> {
   const gateway = await PaymentGateway.findOne({ code, enabled: true });
   if (!gateway) throw new ApiError(503, `${code} is not enabled. An admin must configure it first.`);
   return gateway.credentials as T;
