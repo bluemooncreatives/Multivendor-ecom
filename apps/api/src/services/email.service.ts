@@ -49,3 +49,11 @@ export function sendPasswordResetEmail(to: string, token: string) {
     `<p>Click below to reset your password. This link expires in 1 hour.</p><p><a href="${link}">${link}</a></p>`,
   );
 }
+
+// Sent one-by-one (not a single BCC blast) so a bad address never exposes the
+// rest of the list, and each failure is logged independently by send().
+export async function sendNewsletterCampaign(recipients: string[], subject: string, bodyHtml: string) {
+  for (const to of recipients) {
+    await send(to, subject, bodyHtml);
+  }
+}

@@ -7,6 +7,31 @@ import * as paymentService from "../services/payment.service.js";
 import * as paypalService from "../services/paypal.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
+export async function listManualPaymentMethodsHandler(_req: Request, res: Response) {
+  res.json({ items: await ManualPaymentMethod.find({ active: true }) });
+}
+
+export async function listAdminManualPaymentMethodsHandler(_req: Request, res: Response) {
+  res.json({ items: await ManualPaymentMethod.find() });
+}
+
+export const manualPaymentMethodSchema = z.object({
+  name: z.string().min(1),
+  instructions: z.string().min(1),
+  accountDetails: z.record(z.unknown()).optional(),
+  active: z.boolean().optional(),
+});
+
+export async function createManualPaymentMethodHandler(req: Request, res: Response) {
+  res.status(201).json(await ManualPaymentMethod.create(req.body));
+}
+
+export async function updateManualPaymentMethodHandler(req: Request, res: Response) {
+  const method = await ManualPaymentMethod.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!method) throw new ApiError(404, "Payment method not found");
+  res.json(method);
+}
+
 async function assertOrderOwnership(orderId: string, req: Request) {
   const filter = req.user ? { _id: orderId, userId: req.user.id } : { _id: orderId, guestId: req.header("x-guest-id") };
   const order = await Order.findOne(filter);
