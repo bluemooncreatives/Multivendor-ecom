@@ -10,6 +10,14 @@ import { sellerRouter } from "./seller.routes.js";
 import { adminRouter } from "./admin.routes.js";
 import { addonRouter } from "./addon.routes.js";
 import { customerRouter } from "./customer.routes.js";
+import { reviewRouter } from "./review.routes.js";
+import { conversationRouter } from "./conversation.routes.js";
+import { cmsRouter } from "./cms.routes.js";
+import { attributeRouter } from "./attribute.routes.js";
+import { flashDealRouter } from "./flashdeal.routes.js";
+import { pickupPointRouter } from "./pickuppoint.routes.js";
+import { newsletterRouter } from "./newsletter.routes.js";
+import { digitalProductRouter } from "./digitalproduct.routes.js";
 
 export const apiRouter = Router();
 
@@ -19,6 +27,7 @@ apiRouter.get("/health", (_req, res) => {
 
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/catalog", catalogRouter);
+apiRouter.use("/catalog", attributeRouter);
 apiRouter.use("/cart", cartRouter);
 apiRouter.use("/coupons", couponRouter);
 apiRouter.use("/orders", orderRouter);
@@ -28,3 +37,9 @@ apiRouter.use("/seller", sellerRouter);
 apiRouter.use("/admin", adminRouter);
 apiRouter.use("/addons", addonRouter);
 apiRouter.use("/me", customerRouter);
+apiRouter.use("/reviews", reviewRouter);
+apiRouter.use("/conversations", conversationRouter);
+apiRouter.use("/cms", cmsRouter);
+apiRouter.use("/flash-deals", flashDealRouter);
+apiRouter.use("/pickup-points", pickupPointRouter);
+apiRouter.use("/newsletter", newsletterRouter);

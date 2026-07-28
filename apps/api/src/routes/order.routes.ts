@@ -8,12 +8,15 @@ import {
   listMyOrdersHandler,
   listSellerOrdersHandler,
   cancelOrderHandler,
+  trackOrderHandler,
   checkoutSchema,
+  trackOrderSchema,
 } from "../controllers/order.controller.js";
 
 export const orderRouter = Router();
 
 orderRouter.post("/checkout", optionalAuthenticate, validateBody(checkoutSchema), asyncHandler(checkoutHandler));
+orderRouter.post("/track", validateBody(trackOrderSchema), asyncHandler(trackOrderHandler));
 orderRouter.get("/mine", authenticate, asyncHandler(listMyOrdersHandler));
 orderRouter.get("/seller", authenticate, requireRole("seller"), asyncHandler(listSellerOrdersHandler));
 orderRouter.get("/:id", authenticate, asyncHandler(getOrderHandler));

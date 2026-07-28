@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as checkoutService from "../services/checkout.service.js";
 import * as orderService from "../services/order.service.js";
+import { Order } from "../models/Order.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 const inlineAddressSchema = z.object({
@@ -63,5 +64,18 @@ export async function listSellerOrdersHandler(req: Request, res: Response) {
 
 export async function cancelOrderHandler(req: Request, res: Response) {
   const order = await orderService.cancelOrder(String(req.params.id), req.user!);
+  res.json(order);
+}
+
+export const trackOrderSchema = z.object({
+  code: z.string().min(1),
+  phone: z.string().min(1),
+});
+
+// No-login order tracking, gated by code+phone together (not code alone) so a
+// leaked/guessed order code can't be used to pull up someone else's order.
+export async function trackOrderHandler(req: Request, res: Response) {
+  const order = await Order.findOne({ code: req.body.code, "addressSnapshot.phone": req.body.phone });
+  if (!order) throw new ApiError(404, "No order found matching that code and phone number");
   res.json(order);
 }

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { Product } from "../models/Product.js";
 import { searchProducts } from "../services/product.service.js";
+import { importProductsCsv } from "../services/bulkimport.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 const variantInput = z.object({
@@ -122,6 +123,12 @@ export const approveProductSchema = z.object({
   approved: z.boolean(),
   reason: z.string().optional(),
 });
+
+export async function bulkImportProductsHandler(req: Request, res: Response) {
+  if (!req.file) throw new ApiError(400, "A CSV file is required");
+  const result = await importProductsCsv(req.user!.id, req.file.buffer);
+  res.status(201).json(result);
+}
 
 export async function listPendingProductsHandler(_req: Request, res: Response) {
   const products = await Product.find({ approvalStatus: "pending" }).sort({ createdAt: -1 });

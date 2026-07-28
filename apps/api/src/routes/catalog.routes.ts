@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { upload } from "../middleware/upload.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   categorySchema,
@@ -21,6 +22,7 @@ import {
   deleteProductHandler,
   cloneProductHandler,
   listSellerProductsHandler,
+  bulkImportProductsHandler,
   listPendingProductsHandler,
   moderateProductHandler,
   approveProductSchema,
@@ -81,6 +83,13 @@ catalogRouter.patch(
 );
 catalogRouter.delete("/seller/products/:id", authenticate, requireRole("seller"), asyncHandler(deleteProductHandler));
 catalogRouter.post("/seller/products/:id/clone", authenticate, requireRole("seller"), asyncHandler(cloneProductHandler));
+catalogRouter.post(
+  "/seller/products/bulk-import",
+  authenticate,
+  requireRole("seller"),
+  upload.single("file"),
+  asyncHandler(bulkImportProductsHandler),
+);
 
 // Admin moderation queue
 catalogRouter.get(

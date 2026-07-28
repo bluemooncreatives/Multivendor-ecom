@@ -9,12 +9,39 @@ import {
   capturePaypalOrderHandler,
   submitManualPaymentHandler,
   approveManualPaymentHandler,
+  listManualPaymentMethodsHandler,
+  listAdminManualPaymentMethodsHandler,
+  createManualPaymentMethodHandler,
+  updateManualPaymentMethodHandler,
   capturePaypalSchema,
   submitManualPaymentSchema,
   approveManualPaymentSchema,
+  manualPaymentMethodSchema,
 } from "../controllers/payment.controller.js";
 
 export const paymentRouter = Router();
+
+paymentRouter.get("/manual-methods", asyncHandler(listManualPaymentMethodsHandler));
+paymentRouter.get(
+  "/admin/manual-methods",
+  authenticate,
+  requirePermission("payments.manage"),
+  asyncHandler(listAdminManualPaymentMethodsHandler),
+);
+paymentRouter.post(
+  "/admin/manual-methods",
+  authenticate,
+  requirePermission("payments.manage"),
+  validateBody(manualPaymentMethodSchema),
+  asyncHandler(createManualPaymentMethodHandler),
+);
+paymentRouter.patch(
+  "/admin/manual-methods/:id",
+  authenticate,
+  requirePermission("payments.manage"),
+  validateBody(manualPaymentMethodSchema.partial()),
+  asyncHandler(updateManualPaymentMethodHandler),
+);
 
 paymentRouter.post("/:orderId/stripe/intent", optionalAuthenticate, asyncHandler(createStripeIntentHandler));
 paymentRouter.post("/:orderId/razorpay/order", optionalAuthenticate, asyncHandler(createRazorpayOrderHandler));
