@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Category, Paginated, Product } from "@ecommercemultivendor/types";
+import type { Brand, Category, Paginated, Product } from "@ecommercemultivendor/types";
 
 export interface ProductSearchParams {
   q?: string;
@@ -33,5 +33,12 @@ export function useCategories() {
   return useQuery({
     queryKey: ["categories"],
     queryFn: async () => (await api.get<{ items: Category[] }>("/catalog/categories")).data.items,
+  });
+}
+
+export function useBrands() {
+  return useQuery({
+    queryKey: ["brands"],
+    queryFn: async () => (await api.get<{ items: Brand[] }>("/catalog/brands")).data.items,
   });
 }

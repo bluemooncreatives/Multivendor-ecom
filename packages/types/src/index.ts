@@ -60,6 +60,13 @@ export interface Category {
   level: 0 | 1 | 2;
 }
 
+export interface Brand {
+  id: ID;
+  name: string;
+  slug: string;
+  logoUrl?: string;
+}
+
 export interface ProductVariant {
   sku: string;
   attributes: Record<string, string>; // e.g. { color: "red", size: "M" }

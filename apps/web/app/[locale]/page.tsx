@@ -1,9 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useProducts, useCategories } from "@/lib/hooks/useProducts";
 import { ProductCard } from "@/components/storefront/product-card";
+import { StorefrontSection } from "@/components/storefront/section";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   const t = useTranslations("home");
@@ -11,34 +14,63 @@ export default function HomePage() {
   const { data: products, isLoading } = useProducts({ sort: "newest" });
   const { data: categories } = useCategories();
 
-  return (
-    <div className="container space-y-12 py-10">
-      <section className="rounded-lg bg-secondary p-10 text-center">
-        <h1 className="text-3xl font-bold">{t("title")}</h1>
-        <p className="mt-2 text-muted-foreground">{t("subtitle")}</p>
-      </section>
+  const topCategories = (categories ?? []).filter((c) => c.level === 0);
 
-      {categories && categories.filter((c) => c.level === 0).length > 0 && (
-        <section>
-          <h2 className="mb-4 text-xl font-semibold">{t("categories")}</h2>
-          <div className="flex flex-wrap gap-3">
-            {categories
-              .filter((c) => c.level === 0)
-              .map((category) => (
+  return (
+    <div className="container space-y-6 py-6">
+      {/* Hero: category list + promo panel, mirroring the legacy home-banner-area */}
+      <section className="grid gap-4 lg:grid-cols-4">
+        <div className="hidden rounded-lg bg-card p-4 shadow-sm lg:block">
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-muted-foreground">Categories</h3>
+          <ul className="space-y-1">
+            {topCategories.slice(0, 11).map((category) => (
+              <li key={category.id}>
                 <Link
-                  key={category.id}
                   href={`/${locale}/category/${category.slug}`}
-                  className="rounded-full border px-4 py-2 text-sm hover:bg-accent"
+                  className="block rounded px-2 py-1.5 text-sm hover:bg-accent hover:text-primary"
                 >
                   {category.name}
                 </Link>
-              ))}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="flex flex-col justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 p-10 text-primary-foreground shadow-sm lg:col-span-3">
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-2 max-w-lg text-primary-foreground/90">{t("subtitle")}</p>
+          <Button asChild variant="secondary" className="mt-6 w-fit">
+            <Link href={`/${locale}/products`}>Shop Now</Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* Category strip */}
+      {topCategories.length > 0 && (
+        <StorefrontSection title={t("categories")} href={`/${locale}/categories`}>
+          <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+            {topCategories.map((category) => (
+              <Link
+                key={category.id}
+                href={`/${locale}/category/${category.slug}`}
+                className="flex flex-col items-center gap-2 rounded-md p-2 text-center hover:bg-accent"
+              >
+                <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-secondary">
+                  {category.iconUrl ? (
+                    <Image src={category.iconUrl} alt={category.name} fill className="object-cover" sizes="56px" />
+                  ) : (
+                    <span className="text-lg font-semibold text-muted-foreground">{category.name.charAt(0)}</span>
+                  )}
+                </div>
+                <span className="line-clamp-1 text-xs font-medium">{category.name}</span>
+              </Link>
+            ))}
           </div>
-        </section>
+        </StorefrontSection>
       )}
 
-      <section>
-        <h2 className="mb-4 text-xl font-semibold">{t("featured")}</h2>
+      {/* Featured products */}
+      <StorefrontSection title={t("featured")} href={`/${locale}/products`}>
         {isLoading ? (
           <p className="text-muted-foreground">Loading…</p>
         ) : (
@@ -48,7 +80,7 @@ export default function HomePage() {
             ))}
           </div>
         )}
-      </section>
+      </StorefrontSection>
     </div>
   );
 }

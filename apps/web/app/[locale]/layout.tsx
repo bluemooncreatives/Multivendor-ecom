@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Open_Sans } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -7,6 +8,12 @@ import { AppProviders } from "@/lib/providers";
 import { SiteHeader } from "@/components/shared/site-header";
 import { SiteFooter } from "@/components/shared/site-footer";
 import "../globals.css";
+
+const openSans = Open_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "PHPStore — Be Vocal for Local — Digital India",
@@ -32,7 +39,7 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
-      <body className="flex min-h-screen flex-col">
+      <body className={`${openSans.variable} flex min-h-screen flex-col font-sans`}>
         <NextIntlClientProvider messages={messages}>
           <AppProviders>
             <SiteHeader />

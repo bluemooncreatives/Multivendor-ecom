@@ -16,6 +16,14 @@ export function useWishlist() {
   });
 }
 
+export function useAddWishlistItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (productId: string) => api.post("/me/wishlist", { productId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wishlist"] }),
+  });
+}
+
 export function useRemoveWishlistItem() {
   const queryClient = useQueryClient();
   return useMutation({

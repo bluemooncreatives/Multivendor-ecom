@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCart } from "@/lib/hooks/useCart";
 import { useCheckout, useValidateCoupon, type InlineAddress, type CheckoutInput } from "@/lib/hooks/useCheckout";
 import { formatPrice } from "@/lib/format";
+import { CheckoutSteps } from "@/components/storefront/checkout-steps";
 
 type Step = "address" | "payment" | "review";
 
