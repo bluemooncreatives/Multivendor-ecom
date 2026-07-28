@@ -50,7 +50,7 @@ export async function requestDownloadHandler(req: Request, res: Response) {
 export async function downloadHandler(req: Request, res: Response) {
   let payload;
   try {
-    payload = verifyDownloadToken(req.params.token!);
+    payload = verifyDownloadToken(String(req.params.token));
   } catch {
     throw new ApiError(400, "This download link is invalid or has expired");
   }

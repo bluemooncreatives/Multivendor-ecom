@@ -22,7 +22,13 @@ export type PaymentMethod =
   | "paypal"
   | "cod"
   | "wallet"
-  | "manual";
+  | "manual"
+  | "sslcommerz"
+  | "instamojo"
+  | "paystack"
+  | "voguepay"
+  | "payhere"
+  | "ngenius";
 
 export type StockReservationStatus = "reserved" | "confirmed" | "released";
 

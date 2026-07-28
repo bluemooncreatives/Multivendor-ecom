@@ -6,10 +6,15 @@ import { SellerLedger, InventoryMovement } from "../models/Ledger.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import type { AuthenticatedUser } from "../middleware/auth.js";
 
-// IDOR guard: customers only ever see their own orders; staff/admin can see any.
+// IDOR guard: customers only ever see their own orders; sellers only orders
+// containing at least one of their own items; staff/admin can see any.
 export async function getOrderForRequester(orderId: string, requester: AuthenticatedUser) {
   const filter =
-    requester.role === "admin" || requester.role === "staff" ? { _id: orderId } : { _id: orderId, userId: requester.id };
+    requester.role === "admin" || requester.role === "staff"
+      ? { _id: orderId }
+      : requester.role === "seller"
+        ? { _id: orderId, "details.sellerId": requester.id }
+        : { _id: orderId, userId: requester.id };
   const order = await Order.findOne(filter);
   if (!order) throw new ApiError(404, "Order not found");
   return order;

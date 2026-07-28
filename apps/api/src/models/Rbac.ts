@@ -26,3 +26,18 @@ const staffPermissionSchema = new Schema(
 
 withJsonId(staffPermissionSchema);
 export const StaffPermission = model("StaffPermission", staffPermissionSchema);
+
+// Immutable audit trail for admin impersonation ("login as user") — every use
+// is recorded and never deleted, so account-access-on-behalf-of-a-user is traceable.
+const adminAuditLogSchema = new Schema(
+  {
+    adminId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    action: { type: String, required: true }, // e.g. "impersonate"
+    targetUserId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    ip: String,
+  },
+  { timestamps: true },
+);
+
+withJsonId(adminAuditLogSchema);
+export const AdminAuditLog = model("AdminAuditLog", adminAuditLogSchema);

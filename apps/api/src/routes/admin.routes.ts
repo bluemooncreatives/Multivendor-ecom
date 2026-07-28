@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, requirePermission } from "../middleware/auth.js";
+import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
@@ -27,6 +27,7 @@ import {
   listAddonsHandler,
   toggleAddonHandler,
   toggleAddonSchema,
+  impersonateUserHandler,
 } from "../controllers/admin.controller.js";
 
 export const adminRouter = Router();
@@ -43,6 +44,8 @@ adminRouter.patch(
   validateBody(assignStaffPermissionsSchema),
   asyncHandler(assignStaffPermissionsHandler),
 );
+
+adminRouter.post("/users/:id/impersonate", requireRole("admin"), asyncHandler(impersonateUserHandler));
 
 adminRouter.get("/roles", requirePermission("staff.manage"), asyncHandler(listRolesHandler));
 adminRouter.post("/roles", requirePermission("staff.manage"), validateBody(roleSchema), asyncHandler(createRoleHandler));

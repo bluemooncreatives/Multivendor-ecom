@@ -18,6 +18,8 @@ import { flashDealRouter } from "./flashdeal.routes.js";
 import { pickupPointRouter } from "./pickuppoint.routes.js";
 import { newsletterRouter } from "./newsletter.routes.js";
 import { digitalProductRouter } from "./digitalproduct.routes.js";
+import { reportRouter } from "./report.routes.js";
+import { homepageRouter } from "./homepage.routes.js";
 
 export const apiRouter = Router();
 
@@ -43,3 +45,6 @@ apiRouter.use("/cms", cmsRouter);
 apiRouter.use("/flash-deals", flashDealRouter);
 apiRouter.use("/pickup-points", pickupPointRouter);
 apiRouter.use("/newsletter", newsletterRouter);
+apiRouter.use("/digital-products", digitalProductRouter);
+apiRouter.use("/admin/reports", reportRouter);
+apiRouter.use("/homepage", homepageRouter);

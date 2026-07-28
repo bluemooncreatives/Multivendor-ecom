@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as checkoutService from "../services/checkout.service.js";
 import * as orderService from "../services/order.service.js";
+import { streamOrderInvoice } from "../services/invoice.service.js";
 import { Order } from "../models/Order.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
@@ -20,7 +21,7 @@ export const checkoutSchema = z
   .object({
     addressId: z.string().optional(),
     address: inlineAddressSchema.optional(),
-    paymentMethod: z.enum(["stripe", "razorpay", "paypal", "cod", "wallet", "manual"]),
+    paymentMethod: z.enum(["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"]),
     couponCode: z.string().optional(),
     // Client-generated per checkout-attempt key. Retrying the exact same attempt
     // (same key) returns the original order instead of creating a duplicate.
@@ -78,4 +79,9 @@ export async function trackOrderHandler(req: Request, res: Response) {
   const order = await Order.findOne({ code: req.body.code, "addressSnapshot.phone": req.body.phone });
   if (!order) throw new ApiError(404, "No order found matching that code and phone number");
   res.json(order);
+}
+
+export async function downloadInvoiceHandler(req: Request, res: Response) {
+  const order = await orderService.getOrderForRequester(String(req.params.id), req.user!);
+  streamOrderInvoice(order, res);
 }

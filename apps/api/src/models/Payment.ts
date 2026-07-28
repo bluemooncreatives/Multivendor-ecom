@@ -6,7 +6,7 @@ const paymentSchema = new Schema(
     orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true, index: true },
     method: {
       type: String,
-      enum: ["stripe", "razorpay", "paypal", "cod", "wallet", "manual"],
+      enum: ["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"],
       required: true,
     },
     amount: { type: Number, required: true, min: 0 },

@@ -21,3 +21,4 @@ export * from "./Localization.js";
 export * from "./Rbac.js";
 export * from "./ClubPoints.js";
 export * from "./Refund.js";
+export * from "./PaymentGateway.js";

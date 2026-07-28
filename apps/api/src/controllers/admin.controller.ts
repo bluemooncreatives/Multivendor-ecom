@@ -4,8 +4,9 @@ import { User } from "../models/User.js";
 import { Shop } from "../models/Shop.js";
 import { Order } from "../models/Order.js";
 import { SellerWithdrawRequest, SellerLedger } from "../models/Ledger.js";
-import { Role } from "../models/Rbac.js";
+import { Role, AdminAuditLog } from "../models/Rbac.js";
 import { GeneralSetting, SeoSetting, BusinessSetting, Addon } from "../models/Settings.js";
+import { signAccessToken } from "../utils/jwt.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 // --- Dashboard -------------------------------------------------------------
@@ -49,6 +50,25 @@ export async function banUserHandler(req: Request, res: Response) {
   const user = await User.findByIdAndUpdate(req.params.id, { banned: req.body.banned }, { new: true });
   if (!user) throw new ApiError(404, "User not found");
   res.json(user);
+}
+
+// Impersonation issues a short-lived access token for the target user, scoped
+// to their own role/permissions (never elevated), and always leaves an audit
+// trail — this is the only way an admin can act "as" another account.
+export async function impersonateUserHandler(req: Request, res: Response) {
+  const target = await User.findById(req.params.id);
+  if (!target) throw new ApiError(404, "User not found");
+  if (target.banned) throw new ApiError(403, "Cannot impersonate a banned account");
+
+  await AdminAuditLog.create({
+    adminId: req.user!.id,
+    action: "impersonate",
+    targetUserId: target._id,
+    ip: req.ip,
+  });
+
+  const accessToken = signAccessToken({ sub: String(target._id), role: target.role, permissions: target.permissions ?? undefined });
+  res.json({ accessToken, user: target });
 }
 
 export const assignStaffPermissionsSchema = z.object({ permissions: z.array(z.string()) });

@@ -54,7 +54,7 @@ const orderSchema = new Schema(
     currency: { type: String, required: true, default: "INR" },
     paymentMethod: {
       type: String,
-      enum: ["stripe", "razorpay", "paypal", "cod", "wallet", "manual"],
+      enum: ["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"],
       required: true,
     },
     paymentStatus: {

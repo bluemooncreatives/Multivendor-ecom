@@ -9,6 +9,7 @@ import {
   listSellerOrdersHandler,
   cancelOrderHandler,
   trackOrderHandler,
+  downloadInvoiceHandler,
   checkoutSchema,
   trackOrderSchema,
 } from "../controllers/order.controller.js";
@@ -20,4 +21,5 @@ orderRouter.post("/track", validateBody(trackOrderSchema), asyncHandler(trackOrd
 orderRouter.get("/mine", authenticate, asyncHandler(listMyOrdersHandler));
 orderRouter.get("/seller", authenticate, requireRole("seller"), asyncHandler(listSellerOrdersHandler));
 orderRouter.get("/:id", authenticate, asyncHandler(getOrderHandler));
+orderRouter.get("/:id/invoice", authenticate, asyncHandler(downloadInvoiceHandler));
 orderRouter.post("/:id/cancel", authenticate, asyncHandler(cancelOrderHandler));
