@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/lib/store";
 import { useCart } from "@/lib/hooks/useCart";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { locales } from "@/i18n";
 
 export function SiteHeader() {
@@ -38,20 +39,20 @@ export function SiteHeader() {
         </nav>
 
         <form
-          className="relative ml-auto hidden max-w-sm flex-1 md:block"
+          className="relative ms-auto hidden max-w-sm flex-1 md:block"
           onSubmit={(e) => {
             e.preventDefault();
             const q = new FormData(e.currentTarget).get("q");
             router.push(`/${locale}/products?q=${encodeURIComponent(String(q ?? ""))}`);
           }}
         >
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input name="q" placeholder={t("searchPlaceholder")} className="pl-9" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input name="q" placeholder={t("searchPlaceholder")} className="ps-9" />
         </form>
 
         <select
           aria-label="Language"
-          className="ml-auto rounded-md border bg-background px-2 py-1 text-sm md:ml-0"
+          className="ms-auto rounded-md border bg-background px-2 py-1 text-sm md:ms-0"
           value={locale}
           onChange={(e) => switchLocale(e.target.value)}
         >
@@ -62,11 +63,13 @@ export function SiteHeader() {
           ))}
         </select>
 
+        <ThemeToggle />
+
         <Button variant="ghost" size="icon" asChild>
           <Link href={`/${locale}/cart`} className="relative">
             <ShoppingCart className="h-5 w-5" />
             {itemCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+              <span className="absolute -end-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
                 {itemCount}
               </span>
             )}

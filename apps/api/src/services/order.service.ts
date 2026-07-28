@@ -82,7 +82,7 @@ export async function cancelOrder(orderId: string, requester: AuthenticatedUser)
               { sellerId: detail.sellerId, orderId: order._id, type: "refund", amount: -detail.subtotal, note: "Order cancelled" },
               { sellerId: detail.sellerId, orderId: order._id, type: "commission", amount: detail.commissionAmount, note: "Commission reversed" },
             ],
-            { session },
+            { session, ordered: true },
           );
         }
       }

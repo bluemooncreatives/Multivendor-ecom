@@ -57,7 +57,7 @@ export async function createPosSale(sellerId: string, lines: PosSaleLine[]) {
           { sellerId, orderId, type: "sale", amount: subtotal, note: "POS sale" },
           { sellerId, orderId, type: "commission", amount: -amount, note: "Platform commission (POS)" },
         ],
-        { session },
+        { session, ordered: true },
       );
 
       const [order] = await Order.create(

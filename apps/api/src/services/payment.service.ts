@@ -104,7 +104,7 @@ export async function settleOrderPayment(orderId: string, method: string, provid
               note: "Platform commission",
             },
           ],
-          { session },
+          { session, ordered: true },
         );
       }
 

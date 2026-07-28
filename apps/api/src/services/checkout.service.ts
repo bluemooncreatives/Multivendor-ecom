@@ -160,7 +160,7 @@ export async function createOrder(input: CheckoutInput) {
               { sellerId: detail.sellerId, orderId, type: "sale", amount: detail.subtotal, note: "Order confirmed" },
               { sellerId: detail.sellerId, orderId, type: "commission", amount: -detail.commissionAmount, note: "Platform commission" },
             ],
-            { session },
+            { session, ordered: true },
           );
         }
       }

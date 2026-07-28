@@ -12,17 +12,24 @@ const transporter =
       })
     : null;
 
+// Email delivery is best-effort: a downed/misconfigured SMTP provider must never
+// fail the request that triggered it (registration already committed the user
+// to the database by this point). Failures are logged for operators, not thrown.
 async function send(to: string, subject: string, html: string) {
   if (!transporter) {
     logger.warn(`SMTP not configured; skipping email to ${to}: ${subject}`);
     return;
   }
-  await transporter.sendMail({
-    from: `"${env.MAIL_FROM_NAME ?? "PHPStore"}" <${env.MAIL_FROM ?? env.SMTP_USER}>`,
-    to,
-    subject,
-    html,
-  });
+  try {
+    await transporter.sendMail({
+      from: `"${env.MAIL_FROM_NAME ?? "PHPStore"}" <${env.MAIL_FROM ?? env.SMTP_USER}>`,
+      to,
+      subject,
+      html,
+    });
+  } catch (err) {
+    logger.error(`Failed to send email to ${to}: ${subject}`, err);
+  }
 }
 
 export function sendVerificationEmail(to: string, token: string) {

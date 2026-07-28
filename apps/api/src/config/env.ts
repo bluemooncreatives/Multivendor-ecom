@@ -1,5 +1,13 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { z } from "zod";
+
+// Single shared .env lives at the monorepo root (apps/web reads it via
+// NEXT_PUBLIC_* at build time; apps/api needs it explicitly since its cwd is
+// apps/api when run standalone, not the workspace root).
+const here = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.resolve(here, "../../../../.env") });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
