@@ -8,6 +8,7 @@ export interface ProductSearchParams {
   q?: string;
   categoryId?: string;
   brandId?: string;
+  sellerId?: string;
   minPrice?: number;
   maxPrice?: number;
   page?: number;

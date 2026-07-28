@@ -12,7 +12,7 @@ export default function ProductsPage() {
   const q = searchParams.get("q") ?? undefined;
 
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
-  const [brandId, setBrandId] = useState<string | undefined>(undefined);
+  const [brandId, setBrandId] = useState<string | undefined>(searchParams.get("brandId") ?? undefined);
   const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
   const [sort, setSort] = useState<ProductSearchParams["sort"]>("newest");

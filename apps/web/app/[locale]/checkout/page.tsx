@@ -83,8 +83,11 @@ export default function CheckoutPage() {
     return <div className="container py-16 text-center text-muted-foreground">Your cart is empty.</div>;
   }
 
+  const stepNumber = step === "address" ? 2 : step === "payment" ? 3 : 4;
+
   return (
-    <div className="container max-w-xl space-y-6 py-10">
+    <div className="container max-w-xl space-y-6 py-6">
+      <CheckoutSteps current={stepNumber} />
       <h1 className="text-2xl font-bold">{t("title")}</h1>
 
       {step === "address" && (

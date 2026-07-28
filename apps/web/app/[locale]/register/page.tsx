@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,10 @@ export default function RegisterPage() {
   const t = useTranslations("auth");
   const locale = useLocale();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const register = useRegister();
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "customer" as "customer" | "seller" });
+  const defaultRole = searchParams.get("role") === "seller" ? "seller" : "customer";
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: defaultRole as "customer" | "seller" });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -69,6 +69,14 @@ export function useMyShop() {
   });
 }
 
+export function usePublicShop(slug: string) {
+  return useQuery({
+    queryKey: ["shop", slug],
+    queryFn: async () => (await api.get<Shop>(`/seller/shops/${slug}`)).data,
+    enabled: !!slug,
+  });
+}
+
 export function useSaveShop() {
   const queryClient = useQueryClient();
   return useMutation({
