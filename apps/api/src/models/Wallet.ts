@@ -30,3 +30,22 @@ const walletTransactionSchema = new Schema(
 
 withJsonId(walletTransactionSchema);
 export const WalletTransaction = model("WalletTransaction", walletTransactionSchema);
+
+// Offline/manual wallet top-up: customer uploads a bank-transfer receipt, an
+// admin approves it, and only then is the wallet credited (one-way state
+// machine, same pattern as manual order payments and refund requests).
+const walletRechargeRequestSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    amount: { type: Number, required: true, min: 1 },
+    methodId: { type: Schema.Types.ObjectId, ref: "ManualPaymentMethod", required: true },
+    proofUrl: { type: String, required: true },
+    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    resolvedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    rejectionReason: String,
+  },
+  { timestamps: true },
+);
+
+withJsonId(walletRechargeRequestSchema);
+export const WalletRechargeRequest = model("WalletRechargeRequest", walletRechargeRequestSchema);

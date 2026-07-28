@@ -2,7 +2,13 @@ import { Router } from "express";
 import { authenticate } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { getMyWalletHandler, listMyWalletHistoryHandler } from "../controllers/wallet.controller.js";
+import {
+  getMyWalletHandler,
+  listMyWalletHistoryHandler,
+  createRechargeRequestHandler,
+  listMyRechargeRequestsHandler,
+  createRechargeRequestSchema,
+} from "../controllers/wallet.controller.js";
 import {
   addressSchema,
   listAddressesHandler,
@@ -30,6 +36,8 @@ customerRouter.use(authenticate);
 
 customerRouter.get("/wallet", asyncHandler(getMyWalletHandler));
 customerRouter.get("/wallet/history", asyncHandler(listMyWalletHistoryHandler));
+customerRouter.post("/wallet/recharge", validateBody(createRechargeRequestSchema), asyncHandler(createRechargeRequestHandler));
+customerRouter.get("/wallet/recharge", asyncHandler(listMyRechargeRequestsHandler));
 
 customerRouter.get("/addresses", asyncHandler(listAddressesHandler));
 customerRouter.post("/addresses", validateBody(addressSchema), asyncHandler(createAddressHandler));

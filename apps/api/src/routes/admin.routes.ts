@@ -29,6 +29,11 @@ import {
   toggleAddonSchema,
   impersonateUserHandler,
 } from "../controllers/admin.controller.js";
+import {
+  listAdminRechargeRequestsHandler,
+  resolveRechargeRequestHandler,
+  resolveRechargeRequestSchema,
+} from "../controllers/wallet.controller.js";
 
 export const adminRouter = Router();
 
@@ -66,6 +71,14 @@ adminRouter.patch(
 );
 
 adminRouter.get("/orders", requirePermission("orders.manage"), asyncHandler(listAllOrdersHandler));
+
+adminRouter.get("/wallet-recharges", requirePermission("payments.manage"), asyncHandler(listAdminRechargeRequestsHandler));
+adminRouter.patch(
+  "/wallet-recharges/:id",
+  requirePermission("payments.manage"),
+  validateBody(resolveRechargeRequestSchema),
+  asyncHandler(resolveRechargeRequestHandler),
+);
 
 adminRouter.get("/settings/general", requirePermission("settings.manage"), asyncHandler(getGeneralSettingsHandler));
 adminRouter.put("/settings/general", requirePermission("settings.manage"), asyncHandler(updateGeneralSettingsHandler));
