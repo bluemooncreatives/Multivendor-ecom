@@ -79,7 +79,18 @@ export const homeCategorySchema = z.object({
 export async function listAdminHomeCategoriesHandler(_req: Request, res: Response) {
   res.json({ items: await HomeCategory.find().populate("categoryId").sort({ order: 1 }) });
 }
+// The legacy screen capped the homepage showcase at three categories, because the
+// storefront section only has room for that many.
+const MAX_HOME_CATEGORIES = 3;
+
 export async function createHomeCategoryHandler(req: Request, res: Response) {
+  const count = await HomeCategory.countDocuments();
+  if (count >= MAX_HOME_CATEGORIES) {
+    throw new ApiError(409, `The homepage showcase holds at most ${MAX_HOME_CATEGORIES} categories`);
+  }
+  if (await HomeCategory.exists({ categoryId: req.body.categoryId })) {
+    throw new ApiError(409, "That category is already on the homepage");
+  }
   res.status(201).json(await HomeCategory.create(req.body));
 }
 export async function deleteHomeCategoryHandler(req: Request, res: Response) {
@@ -92,13 +103,23 @@ export async function deleteHomeCategoryHandler(req: Request, res: Response) {
 
 export const toggleTopSchema = z.object({ featured: z.boolean() });
 
+// Both lists render as a "top 10" strip, so featuring an eleventh would silently
+// drop one — the storefront query already limits to 10.
+const MAX_FEATURED = 10;
+
 export async function toggleTopCategoryHandler(req: Request, res: Response) {
+  if (req.body.featured && (await Category.countDocuments({ featured: true })) >= MAX_FEATURED) {
+    throw new ApiError(409, `Only ${MAX_FEATURED} categories can be featured; unfeature one first`);
+  }
   const doc = await Category.findByIdAndUpdate(req.params.id, { featured: req.body.featured }, { new: true });
   if (!doc) throw new ApiError(404, "Category not found");
   res.json(doc);
 }
 
 export async function toggleTopBrandHandler(req: Request, res: Response) {
+  if (req.body.featured && (await Brand.countDocuments({ featured: true })) >= MAX_FEATURED) {
+    throw new ApiError(409, `Only ${MAX_FEATURED} brands can be featured; unfeature one first`);
+  }
   const doc = await Brand.findByIdAndUpdate(req.params.id, { featured: req.body.featured }, { new: true });
   if (!doc) throw new ApiError(404, "Brand not found");
   res.json(doc);

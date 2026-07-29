@@ -8,6 +8,8 @@ const pageSchema = new Schema(
     body: { type: String, required: true },
     seoTitle: String,
     seoDescription: String,
+    seoKeywords: { type: [String], default: [] },
+    seoImageUrl: String,
     published: { type: Boolean, default: true },
   },
   { timestamps: true },
@@ -16,9 +18,16 @@ const pageSchema = new Schema(
 withJsonId(pageSchema);
 export const Page = model("Page", pageSchema);
 
+// `support` and `return` are the two the storefront links to that the original
+// enum omitted, so /policies/support and /policies/return had nothing to resolve.
 const policySchema = new Schema(
   {
-    type: { type: String, enum: ["privacy", "terms", "refund", "shipping", "seller_agreement"], required: true, unique: true },
+    type: {
+      type: String,
+      enum: ["privacy", "terms", "refund", "return", "shipping", "support", "seller_agreement"],
+      required: true,
+      unique: true,
+    },
     body: { type: String, required: true },
   },
   { timestamps: true },

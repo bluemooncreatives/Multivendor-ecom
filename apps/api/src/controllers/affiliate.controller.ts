@@ -221,6 +221,47 @@ export async function resolveAffiliateWithdrawHandler(req: Request, res: Respons
   }
 }
 
+export const payAffiliateSchema = z.object({
+  amount: z.number().min(0.01),
+  note: z.string().max(300).optional(),
+});
+
+/**
+ * Direct payout to an affiliate, without them having raised a withdrawal — the
+ * legacy admin "pay affiliate" action. Capped at the affiliate's unpaid balance
+ * so an admin cannot over-pay past what has actually been earned.
+ */
+export async function payAffiliateHandler(req: Request, res: Response) {
+  const affiliate = await AffiliateUser.findById(req.params.id);
+  if (!affiliate) throw new ApiError(404, "Affiliate not found");
+
+  const [earned, paid] = await Promise.all([
+    AffiliateEarningDetail.aggregate([
+      { $match: { affiliateUserId: affiliate._id } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
+    AffiliatePayment.aggregate([
+      { $match: { affiliateUserId: affiliate._id } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
+  ]);
+
+  const outstanding = Math.round(((earned[0]?.total ?? 0) - (paid[0]?.total ?? 0)) * 100) / 100;
+  if (req.body.amount > outstanding) {
+    throw new ApiError(400, `That affiliate has only ${outstanding} outstanding`);
+  }
+
+  const payment = await AffiliatePayment.create({
+    affiliateUserId: affiliate._id,
+    withdrawRequestId: null,
+    amount: req.body.amount,
+    note: req.body.note ?? null,
+    paidBy: req.user!.id,
+  });
+
+  res.status(201).json(payment);
+}
+
 export async function listAffiliatePaymentsHandler(req: Request, res: Response) {
   const filter = req.query.affiliateUserId ? { affiliateUserId: req.query.affiliateUserId } : {};
   const items = await AffiliatePayment.find(filter)

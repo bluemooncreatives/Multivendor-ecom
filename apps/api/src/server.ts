@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -38,6 +40,24 @@ async function main() {
       limit: 180,
       standardHeaders: true,
       legacyHeaders: false,
+    }),
+  );
+
+  // Locally-stored uploads (UPLOAD_DRIVER=local). Served read-only with
+  // execution disabled: `index: false` stops directory listing, and the
+  // Content-Disposition/nosniff pair means a file that slipped past the upload
+  // allow-list is downloaded rather than executed or rendered inline. Digital
+  // goods are never written here — they go behind the signed download route.
+  app.use(
+    "/uploads",
+    express.static(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../public/uploads"), {
+      index: false,
+      dotfiles: "deny",
+      maxAge: "7d",
+      setHeaders: (res) => {
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+      },
     }),
   );
 

@@ -14,16 +14,37 @@ import { ProductCard } from "@/components/storefront/product-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+const SHOP_TABS = [
+  { value: "all", label: "All products" },
+  { value: "new", label: "New arrivals" },
+  { value: "top", label: "Top rated" },
+  { value: "cheapest", label: "Lowest price" },
+] as const;
+
+type ShopTab = (typeof SHOP_TABS)[number]["value"];
+
+const TAB_SORT: Record<ShopTab, "newest" | "rating" | "price_asc"> = {
+  all: "newest",
+  new: "newest",
+  top: "rating",
+  cheapest: "price_asc",
+};
+
 export default function PublicShopPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const locale = useLocale();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { data: shop, isLoading } = usePublicShop(slug);
-  const { data: products } = useProducts({ sellerId: shop?.id, sort: "newest" });
   const startConversation = useStartConversation();
   const [showMessageForm, setShowMessageForm] = useState(false);
   const [message, setMessage] = useState("");
+
+  // Legacy /shops/visit/{slug}/{type}: the same storefront, sorted differently.
+  // Filters on `sellerId` (the vendor's user id), not the shop document id — the
+  // latter matches nothing, so the grid was always empty.
+  const [tab, setTab] = useState<ShopTab>("all");
+  const { data: products } = useProducts({ sellerId: shop?.sellerId, sort: TAB_SORT[tab] });
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -88,8 +109,27 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
         )}
       </div>
 
+      {!shop.verified && (
+        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          This seller has not completed verification yet. Take extra care before ordering.
+        </p>
+      )}
+
       <div className="rounded-lg bg-card p-4 shadow-sm md:p-6">
-        <h2 className="mb-4 border-b pb-3 text-lg font-bold">Products from this seller</h2>
+        <div className="mb-4 flex flex-wrap gap-4 border-b">
+          {SHOP_TABS.map((shopTab) => (
+            <button
+              key={shopTab.value}
+              type="button"
+              onClick={() => setTab(shopTab.value)}
+              className={`border-b-2 px-1 pb-2 text-sm font-semibold ${
+                tab === shopTab.value ? "border-primary text-primary" : "border-transparent text-muted-foreground"
+              }`}
+            >
+              {shopTab.label}
+            </button>
+          ))}
+        </div>
         {products && products.items.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {products.items.map((product) => (

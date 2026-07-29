@@ -26,6 +26,8 @@ export async function updateOrderStatusHandler(req: Request, res: Response) {
   }
 
   order.status = req.body.status as never;
+  // Flag the change as unseen so the customer's order list can mark it updated.
+  order.deliveryViewed = false;
   for (const detail of order.details) {
     if (detail.status !== "cancelled" && detail.status !== "refunded") {
       detail.status = req.body.status as never;
@@ -60,6 +62,7 @@ export async function updateOrderPaymentStatusHandler(req: Request, res: Respons
     throw new ApiError(409, "A paid order cannot be marked unpaid; issue a refund instead");
   }
   order.paymentStatus = req.body.paymentStatus as never;
+  order.paymentStatusViewed = false;
   await order.save();
   res.json(order);
 }
@@ -79,7 +82,10 @@ export async function listOrdersByPickupPointHandler(req: Request, res: Response
   const point = await PickupPoint.findById(pickupPointId);
   if (!point) throw new ApiError(404, "Pickup point not found");
 
-  const items = await Order.find({ "addressSnapshot.pickupPointId": pickupPointId })
+  // Reads details[].pickupPointId, which checkout now writes. This previously
+  // queried addressSnapshot.pickupPointId — a field nothing ever populated, so the
+  // day sheet was always empty.
+  const items = await Order.find({ "details.pickupPointId": pickupPointId })
     .sort({ createdAt: -1 })
     .limit(200);
   res.json({ pickupPoint: point, items });

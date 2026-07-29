@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { demoModeGuard } from "../middleware/demoMode.js";
+import { maintenanceGuard } from "../middleware/maintenance.js";
+import { optionalAuthenticate } from "../middleware/auth.js";
 import { authRouter } from "./auth.routes.js";
 import { catalogRouter } from "./catalog.routes.js";
 import { cartRouter } from "./cart.routes.js";
@@ -22,6 +24,7 @@ import { digitalProductRouter } from "./digitalproduct.routes.js";
 import { reportRouter } from "./report.routes.js";
 import { homepageRouter } from "./homepage.routes.js";
 import { extraGatewayRouter } from "./extragateway.routes.js";
+import { uploadRouter } from "./upload.routes.js";
 
 export const apiRouter = Router();
 
@@ -32,6 +35,10 @@ apiRouter.get("/health", (_req, res) => {
 // No-op unless an admin has switched the store into demo mode, in which case every
 // state-changing request below is refused (see middleware/demoMode.ts).
 apiRouter.use(demoModeGuard);
+
+// optionalAuthenticate first, so the maintenance guard can recognise staff and
+// let them through while the storefront is closed to shoppers.
+apiRouter.use(optionalAuthenticate, maintenanceGuard);
 
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/catalog", catalogRouter);
@@ -55,3 +62,4 @@ apiRouter.use("/digital-products", digitalProductRouter);
 apiRouter.use("/admin/reports", reportRouter);
 apiRouter.use("/homepage", homepageRouter);
 apiRouter.use("/payments", extraGatewayRouter);
+apiRouter.use("/uploads", uploadRouter);

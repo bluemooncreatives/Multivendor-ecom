@@ -9,12 +9,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCart } from "@/lib/hooks/useCart";
-import { useCheckout, useValidateCoupon, type InlineAddress, type CheckoutInput } from "@/lib/hooks/useCheckout";
-import { useCreateGatewaySession, useCreatePayhereSession, submitAutoForm, type RedirectGateway } from "@/lib/hooks/useExtraGateways";
+import {
+  useCheckout,
+  useValidateCoupon,
+  usePickupPoints,
+  useClubPointBalance,
+  type InlineAddress,
+  type CheckoutInput,
+} from "@/lib/hooks/useCheckout";
+import {
+  useCreateGatewaySession,
+  useCreateFormPostSession,
+  useCreateRazorpayOrder,
+  useCreateMpesaPush,
+  useCreatePaypalOrder,
+  useCapturePaypalOrder,
+  submitAutoForm,
+  loadScript,
+  type RedirectGateway,
+  type FormPostGateway,
+} from "@/lib/hooks/useExtraGateways";
+import { useAuthStore } from "@/lib/store";
 import { formatPrice } from "@/lib/format";
 import { CheckoutSteps } from "@/components/storefront/checkout-steps";
 
-type Step = "address" | "payment" | "review";
+// Four steps, matching the legacy shipping-info -> delivery-info -> payment ->
+// confirm flow. The delivery step is where the shopper picks home delivery or
+// in-person collection per seller, which decides that seller's shipping cost.
+type Step = "address" | "delivery" | "payment" | "review";
 
 const PAYMENT_METHODS: { value: CheckoutInput["paymentMethod"]; label: string }[] = [
   { value: "cod", label: "Cash on delivery" },
@@ -29,29 +51,58 @@ const PAYMENT_METHODS: { value: CheckoutInput["paymentMethod"]; label: string }[
   { value: "voguepay", label: "VoguePay" },
   { value: "payhere", label: "Payhere" },
   { value: "ngenius", label: "N-Genius" },
+  { value: "paytm", label: "Paytm" },
+  { value: "mpesa", label: "M-Pesa" },
+  { value: "flutterwave", label: "Flutterwave" },
+  { value: "twocheckout", label: "2Checkout" },
 ];
 
-const REDIRECT_GATEWAYS: RedirectGateway[] = ["sslcommerz", "instamojo", "paystack", "voguepay", "ngenius"];
+const REDIRECT_GATEWAYS: RedirectGateway[] = [
+  "sslcommerz",
+  "instamojo",
+  "paystack",
+  "voguepay",
+  "ngenius",
+  "flutterwave",
+  // Stripe uses a hosted Checkout Session, so it redirects like the others.
+  "stripe",
+];
 
-// Synchronously-settled methods (COD/Wallet/Manual) finish right here. The
-// redirect-based regional gateways create a session against the just-created
-// order and hand the browser off to that gateway's hosted payment page — the
-// gateway's own callback settles the order server-side once payment completes.
-// Stripe/Razorpay/PayPal's hosted-widget (Elements / Checkout.js / Buttons SDK)
-// integration remains the acknowledged next increment on top of this flow.
+const FORM_POST_GATEWAYS: FormPostGateway[] = ["payhere", "paytm", "twocheckout"];
+
+// Settled at order-creation time, with no gateway round trip.
+const SYNCHRONOUS_METHODS = ["cod", "wallet", "manual"];
+
+type DeliveryChoice = { method: "home_delivery" | "pickup_point"; pickupPointId?: string };
+
 export default function CheckoutPage() {
   const t = useTranslations("checkout");
   const locale = useLocale();
   const router = useRouter();
   const { data: cart } = useCart();
+  const isSignedIn = useAuthStore((s) => Boolean(s.accessToken));
+
   const checkout = useCheckout();
   const validateCoupon = useValidateCoupon();
+  const { data: pickupPoints } = usePickupPoints();
+  const { data: clubPoints } = useClubPointBalance(isSignedIn);
+
   const createSslcommerzSession = useCreateGatewaySession("sslcommerz");
   const createInstamojoSession = useCreateGatewaySession("instamojo");
   const createPaystackSession = useCreateGatewaySession("paystack");
   const createVoguePaySession = useCreateGatewaySession("voguepay");
   const createNgeniusSession = useCreateGatewaySession("ngenius");
-  const createPayhereSession = useCreatePayhereSession();
+  const createFlutterwaveSession = useCreateGatewaySession("flutterwave");
+  const createStripeSession = useCreateGatewaySession("stripe");
+
+  const createPayhereSession = useCreateFormPostSession("payhere");
+  const createPaytmSession = useCreateFormPostSession("paytm");
+  const createTwoCheckoutSession = useCreateFormPostSession("twocheckout");
+
+  const createRazorpayOrder = useCreateRazorpayOrder();
+  const createMpesaPush = useCreateMpesaPush();
+  const createPaypalOrder = useCreatePaypalOrder();
+  const capturePaypalOrder = useCapturePaypalOrder();
 
   const redirectSessionByGateway: Record<RedirectGateway, typeof createSslcommerzSession> = {
     sslcommerz: createSslcommerzSession,
@@ -59,6 +110,14 @@ export default function CheckoutPage() {
     paystack: createPaystackSession,
     voguepay: createVoguePaySession,
     ngenius: createNgeniusSession,
+    flutterwave: createFlutterwaveSession,
+    stripe: createStripeSession,
+  };
+
+  const formPostByGateway: Record<FormPostGateway, typeof createPayhereSession> = {
+    payhere: createPayhereSession,
+    paytm: createPaytmSession,
+    twocheckout: createTwoCheckoutSession,
   };
 
   const [step, setStep] = useState<Step>("address");
@@ -70,22 +129,41 @@ export default function CheckoutPage() {
     postalCode: "",
     phone: "",
   });
+  const [deliveryChoices, setDeliveryChoices] = useState<Record<string, DeliveryChoice>>({});
   const [paymentMethod, setPaymentMethod] = useState<CheckoutInput["paymentMethod"]>("cod");
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
+  const [pointsToSpend, setPointsToSpend] = useState(0);
   const idempotencyKey = useMemo(() => crypto.randomUUID(), []);
 
+  // One group per seller — each gets its own delivery choice, and each becomes one
+  // shipment on the resulting order.
+  const sellerGroups = useMemo(() => {
+    const groups = new Map<string, { sellerId: string; sellerName: string; items: typeof cart extends undefined ? never : NonNullable<typeof cart>["items"] }>();
+    for (const item of cart?.items ?? []) {
+      const existing = groups.get(item.sellerId);
+      if (existing) existing.items.push(item);
+      else groups.set(item.sellerId, { sellerId: item.sellerId, sellerName: item.sellerName, items: [item] });
+    }
+    return [...groups.values()];
+  }, [cart]);
+
   const subtotal = cart?.subtotal ?? 0;
-  const total = Math.max(0, subtotal - discount);
+  const currency = cart?.items[0]?.currency;
+
+  // Indicative only — the server recomputes every figure at order time, so this is
+  // a preview and never what the shopper is actually charged.
+  const pointsDiscount = clubPoints && pointsToSpend > 0 ? pointsToSpend * clubPoints.convertRate : 0;
+  const estimatedTotal = Math.max(0, subtotal - discount - pointsDiscount);
 
   async function handleApplyCoupon() {
     if (!couponCode) return;
     try {
       const result = await validateCoupon.mutateAsync({ code: couponCode, orderSubtotal: subtotal });
       setDiscount(result.discount);
-      toast.success(`Coupon applied: -${formatPrice(result.discount, cart?.items[0]?.currency)}`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Invalid coupon");
+      toast.success(`Coupon applied: -${formatPrice(result.discount, currency)}`);
+    } catch (err) {
+      toast.error(apiError(err, "Invalid coupon"));
       setDiscount(0);
     }
   }
@@ -96,11 +174,13 @@ export default function CheckoutPage() {
         address,
         paymentMethod,
         couponCode: discount > 0 ? couponCode : undefined,
+        deliveryChoices,
+        clubPoints: pointsToSpend > 0 ? pointsToSpend : undefined,
         idempotencyKey,
       });
 
-      if (paymentMethod === "payhere") {
-        const session = await createPayhereSession.mutateAsync(order.id);
+      if ((FORM_POST_GATEWAYS as string[]).includes(paymentMethod)) {
+        const session = await formPostByGateway[paymentMethod as FormPostGateway].mutateAsync(order.id);
         submitAutoForm(session.actionUrl, session.fields);
         return;
       }
@@ -111,17 +191,99 @@ export default function CheckoutPage() {
         return;
       }
 
+      if (paymentMethod === "razorpay") {
+        await payWithRazorpay(order);
+        return;
+      }
+
+      if (paymentMethod === "paypal") {
+        await payWithPaypal(order);
+        return;
+      }
+
+      if (paymentMethod === "mpesa") {
+        if (!address.phone) return toast.error("A phone number is required for M-Pesa");
+        const push = await createMpesaPush.mutateAsync({ orderId: order.id, phone: address.phone });
+        toast.success(push.message);
+        router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`);
+        return;
+      }
+
+      // Only COD, wallet and manual reach here — every gateway is dispatched
+      // above. Falling through to the confirmation page for a card method is
+      // what previously produced confirmed-looking but unpaid orders.
+      if (!SYNCHRONOUS_METHODS.includes(paymentMethod)) {
+        toast.error("That payment method could not be started. Your order has not been charged.");
+        return;
+      }
+
       router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Could not place order");
+    } catch (err) {
+      toast.error(apiError(err, "Could not place order"));
     }
+  }
+
+  /** Razorpay Checkout opens over this page rather than redirecting away. */
+  async function payWithRazorpay(order: { id: string; code: string }) {
+    const rzp = await createRazorpayOrder.mutateAsync(order.id);
+    await loadScript("https://checkout.razorpay.com/v1/checkout.js");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Razorpay = (window as any).Razorpay;
+    if (!Razorpay) throw new Error("Razorpay could not be loaded");
+
+    new Razorpay({
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      order_id: rzp.razorpayOrderId,
+      amount: rzp.amount,
+      currency: rzp.currency,
+      name: "Order payment",
+      prefill: { contact: address.phone },
+      // The webhook is what actually settles the order; this callback only moves
+      // the shopper along once the modal reports success.
+      handler: () => router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`),
+      modal: {
+        ondismiss: () => toast.error("Payment cancelled — your order has not been charged."),
+      },
+    }).open();
+  }
+
+  /**
+   * PayPal's SDK renders its own buttons, which needs a container in the DOM.
+   * Rather than restructure the review step around that, the order is created
+   * server-side and approved in a popup window opened from this click — which
+   * browsers allow because it is still within the user gesture.
+   */
+  async function payWithPaypal(order: { id: string; code: string }) {
+    const { paypalOrderId } = await createPaypalOrder.mutateAsync(order.id);
+    const approvalUrl = `https://www.paypal.com/checkoutnow?token=${paypalOrderId}`;
+
+    const popup = window.open(approvalUrl, "paypal", "width=500,height=650");
+    if (!popup) {
+      toast.error("Allow pop-ups to pay with PayPal. Your order has not been charged.");
+      return;
+    }
+
+    // Poll for the window closing, then capture. Capture is idempotent server-
+    // side, and an abandoned approval simply leaves the order unpaid.
+    const timer = setInterval(async () => {
+      if (!popup.closed) return;
+      clearInterval(timer);
+      try {
+        await capturePaypalOrder.mutateAsync({ orderId: order.id, paypalOrderId });
+        router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`);
+      } catch {
+        toast.error("PayPal did not confirm the payment. Your order has not been charged.");
+      }
+    }, 800);
   }
 
   if (!cart || cart.items.length === 0) {
     return <div className="container py-16 text-center text-muted-foreground">Your cart is empty.</div>;
   }
 
-  const stepNumber = step === "address" ? 2 : step === "payment" ? 3 : 4;
+  // Offset by one: step 1 in the stepper is the cart, which is its own page.
+  const stepNumber = step === "address" ? 2 : step === "delivery" ? 3 : step === "payment" ? 4 : 5;
 
   return (
     <div className="container max-w-xl space-y-6 py-6">
@@ -162,9 +324,92 @@ export default function CheckoutPage() {
                 </div>
               </div>
             </div>
-            <Button className="w-full" onClick={() => setStep("payment")}>
+            <Button className="w-full" onClick={() => setStep("delivery")}>
               Continue
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === "delivery" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Delivery</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Your order ships from {sellerGroups.length} seller{sellerGroups.length === 1 ? "" : "s"}. Choose how each
+              one reaches you.
+            </p>
+
+            {sellerGroups.map((group) => {
+              const choice = deliveryChoices[group.sellerId] ?? { method: "home_delivery" as const };
+              return (
+                <div key={group.sellerId} className="space-y-2 rounded-md border p-3">
+                  <p className="text-sm font-medium">{group.sellerName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {group.items.map((i) => `${i.productName} × ${i.quantity}`).join(", ")}
+                  </p>
+
+                  <div className="flex flex-wrap gap-3 pt-1 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`delivery-${group.sellerId}`}
+                        checked={choice.method === "home_delivery"}
+                        onChange={() =>
+                          setDeliveryChoices({ ...deliveryChoices, [group.sellerId]: { method: "home_delivery" } })
+                        }
+                      />
+                      Home delivery
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`delivery-${group.sellerId}`}
+                        disabled={!pickupPoints || pickupPoints.length === 0}
+                        checked={choice.method === "pickup_point"}
+                        onChange={() =>
+                          setDeliveryChoices({
+                            ...deliveryChoices,
+                            [group.sellerId]: { method: "pickup_point", pickupPointId: pickupPoints?.[0]?.id },
+                          })
+                        }
+                      />
+                      Collect from a pickup point
+                    </label>
+                  </div>
+
+                  {choice.method === "pickup_point" && (
+                    <select
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      value={choice.pickupPointId ?? ""}
+                      onChange={(e) =>
+                        setDeliveryChoices({
+                          ...deliveryChoices,
+                          [group.sellerId]: { method: "pickup_point", pickupPointId: e.target.value },
+                        })
+                      }
+                    >
+                      {(pickupPoints ?? []).map((point) => (
+                        <option key={point.id} value={point.id}>
+                          {point.name} — {point.address}, {point.city}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setStep("address")}>
+                Back
+              </Button>
+              <Button className="flex-1" onClick={() => setStep("payment")}>
+                Continue
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -189,7 +434,7 @@ export default function CheckoutPage() {
               ))}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep("address")}>
+              <Button variant="outline" onClick={() => setStep("delivery")}>
                 Back
               </Button>
               <Button className="flex-1" onClick={() => setStep("review")}>
@@ -224,21 +469,45 @@ export default function CheckoutPage() {
               </Button>
             </div>
 
+            {clubPoints && clubPoints.points >= clubPoints.minConvertPoints && (
+              <div className="space-y-1">
+                <Label htmlFor="club-points">Redeem club points (you have {clubPoints.points})</Label>
+                <Input
+                  id="club-points"
+                  type="number"
+                  min={0}
+                  max={clubPoints.points}
+                  value={pointsToSpend}
+                  onChange={(e) => setPointsToSpend(Math.min(clubPoints.points, Math.max(0, Number(e.target.value))))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Minimum {clubPoints.minConvertPoints} points. Worth {formatPrice(pointsDiscount, currency)}.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1 border-t pt-3 text-sm">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>{formatPrice(subtotal, cart.items[0]?.currency)}</span>
+                <span>{formatPrice(subtotal, currency)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-green-600">
-                  <span>Discount</span>
-                  <span>-{formatPrice(discount, cart.items[0]?.currency)}</span>
+                  <span>Coupon</span>
+                  <span>-{formatPrice(discount, currency)}</span>
+                </div>
+              )}
+              {pointsDiscount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Club points</span>
+                  <span>-{formatPrice(pointsDiscount, currency)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-semibold">
-                <span>Total</span>
-                <span>{formatPrice(total, cart.items[0]?.currency)}</span>
+                <span>Estimated total</span>
+                <span>{formatPrice(estimatedTotal, currency)}</span>
               </div>
+              <p className="text-xs text-muted-foreground">Tax and shipping are calculated when you place the order.</p>
             </div>
 
             <div className="flex gap-2">
@@ -254,4 +523,8 @@ export default function CheckoutPage() {
       )}
     </div>
   );
+}
+
+function apiError(err: unknown, fallback: string) {
+  return (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
 }

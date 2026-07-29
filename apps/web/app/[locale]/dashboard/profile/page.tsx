@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -19,6 +20,33 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const searchParams = useSearchParams();
+
+  const requestEmailChange = useMutation({
+    mutationFn: async () => api.post("/auth/email-change", { email: newEmail }),
+    onSuccess: () => {
+      setNewEmail("");
+      toast.success("Check your new inbox for a confirmation link");
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not start the email change"),
+  });
+
+  // The confirmation link lands back here with a token; consuming it once on
+  // mount completes the change without a dedicated page.
+  const confirmEmailChange = useMutation({
+    mutationFn: async (token: string) => (await api.post("/auth/email-change/confirm", { token })).data,
+    onSuccess: (data: { email: string }) => {
+      if (user) setSession({ ...user, email: data.email }, useAuthStore.getState().accessToken, useAuthStore.getState().refreshToken);
+      toast.success("Email address updated");
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "That confirmation link is not valid"),
+  });
+
+  useEffect(() => {
+    const token = searchParams.get("emailChangeToken");
+    if (token && confirmEmailChange.isIdle) confirmEmailChange.mutate(token);
+  }, [searchParams, confirmEmailChange]);
 
   const updateProfile = useMutation({
     mutationFn: async () => (await api.patch("/me/profile", { name, phone })).data,
@@ -52,15 +80,40 @@ export default function ProfilePage() {
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Email</Label>
-            <Input value={user?.email ?? ""} disabled />
-          </div>
-          <div className="space-y-2">
             <Label>Phone</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <Button onClick={() => updateProfile.mutate()} disabled={updateProfile.isPending}>
             Save changes
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Email address</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Currently <strong>{user?.email}</strong>. Changing it sends a confirmation link to the new address — your
+            sign-in stays on the current one until you follow that link.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="new-email">New email address</Label>
+            <Input
+              id="new-email"
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="you@example.com"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => requestEmailChange.mutate()}
+            disabled={!newEmail || requestEmailChange.isPending}
+          >
+            Send confirmation link
           </Button>
         </CardContent>
       </Card>

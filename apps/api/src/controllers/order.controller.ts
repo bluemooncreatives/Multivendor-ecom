@@ -23,6 +23,17 @@ export const checkoutSchema = z
     address: inlineAddressSchema.optional(),
     paymentMethod: z.enum(["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"]),
     couponCode: z.string().optional(),
+    // Per-seller home-delivery vs pickup choice from the delivery-info step.
+    // Keys are seller ids, or "__admin__" for In-House items.
+    deliveryChoices: z
+      .record(
+        z.object({
+          method: z.enum(["home_delivery", "pickup_point"]),
+          pickupPointId: z.string().optional(),
+        }),
+      )
+      .optional(),
+    clubPoints: z.number().int().min(0).optional(),
     // Client-generated per checkout-attempt key. Retrying the exact same attempt
     // (same key) returns the original order instead of creating a duplicate.
     idempotencyKey: z.string().min(10).optional(),
@@ -36,6 +47,12 @@ function ownerFromRequest(req: Request) {
   return { guestId };
 }
 
+export async function markOrderSeenHandler(req: Request, res: Response) {
+  const order = await orderService.getOrderForRequester(String(req.params.id), req.user!);
+  await Order.updateOne({ _id: order._id }, { deliveryViewed: true, paymentStatusViewed: true });
+  res.status(204).send();
+}
+
 export async function checkoutHandler(req: Request, res: Response) {
   const order = await checkoutService.createOrder({
     owner: ownerFromRequest(req),
@@ -43,6 +60,8 @@ export async function checkoutHandler(req: Request, res: Response) {
     address: req.body.address,
     paymentMethod: req.body.paymentMethod,
     couponCode: req.body.couponCode,
+    deliveryChoices: req.body.deliveryChoices,
+    clubPoints: req.body.clubPoints,
     idempotencyKey: req.body.idempotencyKey ?? randomUUID(),
   });
   res.status(201).json(order);
@@ -81,7 +100,13 @@ export async function trackOrderHandler(req: Request, res: Response) {
   res.json(order);
 }
 
+// The requester's role picks the template. getOrderForRequester already enforces
+// that a seller can only fetch orders containing their own lines, and the seller
+// variant then scopes the document to those lines.
 export async function downloadInvoiceHandler(req: Request, res: Response) {
   const order = await orderService.getOrderForRequester(String(req.params.id), req.user!);
-  streamOrderInvoice(order, res);
+  const role = req.user!.role;
+
+  const variant = role === "seller" ? "seller" : role === "admin" || role === "staff" ? "admin" : "customer";
+  await streamOrderInvoice(order, res, { variant, sellerId: req.user!.id });
 }

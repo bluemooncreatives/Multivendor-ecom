@@ -6,6 +6,8 @@ import { ApiError } from "../middleware/errorHandler.js";
 export const attributeSchema = z.object({
   name: z.string().min(1),
   values: z.array(z.string().min(1)).min(1),
+  // Empty = available on every category, matching the cascade endpoints' $or.
+  categoryIds: z.array(z.string()).default([]),
 });
 
 export async function listAttributesHandler(_req: Request, res: Response) {
@@ -32,10 +34,11 @@ export async function deleteAttributeHandler(req: Request, res: Response) {
 export const colorSchema = z.object({
   name: z.string().min(1),
   hex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  active: z.boolean().default(true),
 });
 
 export async function listColorsHandler(_req: Request, res: Response) {
-  res.json({ items: await Color.find().sort({ name: 1 }) });
+  res.json({ items: await Color.find({ active: true }).sort({ name: 1 }) });
 }
 
 export async function createColorHandler(req: Request, res: Response) {

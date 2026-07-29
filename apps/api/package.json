@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "seed": "tsx src/scripts/seed.ts",
+    "migrate:taxonomy": "tsx src/scripts/migrate-taxonomy.ts",
     "test": "vitest run"
   },
   "dependencies": {

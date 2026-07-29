@@ -25,7 +25,19 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
   const isNew = await recordPaymentEventOnce("stripe", event.id, event);
   if (!isNew) return res.status(200).json({ received: true, deduped: true });
 
-  if (event.type === "payment_intent.succeeded") {
+  // Checkout Sessions and raw PaymentIntents both carry the order id in metadata;
+  // settleOrderPayment is idempotent, so receiving both for one payment is safe.
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const orderId = session.metadata?.orderId;
+    if (orderId && session.payment_status === "paid") {
+      await settleOrderPayment(orderId, "stripe", String(session.payment_intent ?? session.id));
+    }
+  } else if (event.type === "checkout.session.expired") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const orderId = session.metadata?.orderId;
+    if (orderId) await failOrderPayment(orderId, "stripe");
+  } else if (event.type === "payment_intent.succeeded") {
     const intent = event.data.object as Stripe.PaymentIntent;
     const orderId = intent.metadata.orderId;
     if (orderId) await settleOrderPayment(orderId, "stripe", intent.id);

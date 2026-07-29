@@ -10,9 +10,14 @@ export interface CartLineDetail {
   productName?: string;
   productImage?: string;
   currency: string;
+  /** "__admin__" for In-House items; the checkout delivery step groups by this. */
+  sellerId: string;
+  sellerName: string;
   variantSku: string;
   variantAttributes: Record<string, string>;
   quantity: number;
+  /** Pre-discount price, shown struck through when it differs from unitPrice. */
+  listPrice: number;
   unitPrice: number;
   lineTotal: number;
   available: number;

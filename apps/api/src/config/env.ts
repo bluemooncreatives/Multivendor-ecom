@@ -60,6 +60,12 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   UPLOAD_DRIVER: z.enum(["local", "cloudinary", "s3"]).default("local"),
+
+  // Encrypts provider credentials that admins enter through the settings UI
+  // (SMTP password, S3 keys, social secrets, gateway keys) before they are
+  // written to MongoDB. Changing it makes every stored secret unreadable, so it
+  // must be treated as permanent for a given deployment.
+  SETTINGS_ENCRYPTION_KEY: z.string().min(32).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -5,6 +5,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   getPageBySlugHandler,
   listPagesHandler,
+  listPublishedPagesHandler,
   createPageHandler,
   updatePageHandler,
   deletePageHandler,
@@ -21,37 +22,39 @@ import {
 
 export const cmsRouter = Router();
 
-// Pages
+// Pages. The bare list is registered before /pages/:slug so "pages" alone is not
+// treated as a slug lookup.
+cmsRouter.get("/pages", asyncHandler(listPublishedPagesHandler));
 cmsRouter.get("/pages/:slug", asyncHandler(getPageBySlugHandler));
-cmsRouter.get("/admin/pages", authenticate, requirePermission("settings.manage"), asyncHandler(listPagesHandler));
-cmsRouter.post("/admin/pages", authenticate, requirePermission("settings.manage"), validateBody(pageSchema), asyncHandler(createPageHandler));
+cmsRouter.get("/admin/pages", authenticate, requirePermission("frontend.manage"), asyncHandler(listPagesHandler));
+cmsRouter.post("/admin/pages", authenticate, requirePermission("frontend.manage"), validateBody(pageSchema), asyncHandler(createPageHandler));
 cmsRouter.patch(
   "/admin/pages/:id",
   authenticate,
-  requirePermission("settings.manage"),
+  requirePermission("frontend.manage"),
   validateBody(pageSchema.partial()),
   asyncHandler(updatePageHandler),
 );
-cmsRouter.delete("/admin/pages/:id", authenticate, requirePermission("settings.manage"), asyncHandler(deletePageHandler));
+cmsRouter.delete("/admin/pages/:id", authenticate, requirePermission("frontend.manage"), asyncHandler(deletePageHandler));
 
 // Policies
 cmsRouter.get("/policies/:type", asyncHandler(getPolicyHandler));
 cmsRouter.put(
   "/admin/policies/:type",
   authenticate,
-  requirePermission("settings.manage"),
+  requirePermission("frontend.manage"),
   validateBody(upsertPolicySchema),
   asyncHandler(upsertPolicyHandler),
 );
 
 // Links
 cmsRouter.get("/links", asyncHandler(listLinksHandler));
-cmsRouter.post("/admin/links", authenticate, requirePermission("settings.manage"), validateBody(linkSchema), asyncHandler(createLinkHandler));
+cmsRouter.post("/admin/links", authenticate, requirePermission("frontend.manage"), validateBody(linkSchema), asyncHandler(createLinkHandler));
 cmsRouter.patch(
   "/admin/links/:id",
   authenticate,
-  requirePermission("settings.manage"),
+  requirePermission("frontend.manage"),
   validateBody(linkSchema.partial()),
   asyncHandler(updateLinkHandler),
 );
-cmsRouter.delete("/admin/links/:id", authenticate, requirePermission("settings.manage"), asyncHandler(deleteLinkHandler));
+cmsRouter.delete("/admin/links/:id", authenticate, requirePermission("frontend.manage"), asyncHandler(deleteLinkHandler));

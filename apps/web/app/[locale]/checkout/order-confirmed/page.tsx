@@ -14,7 +14,7 @@ export default function OrderConfirmedPage() {
 
   return (
     <div className="container max-w-2xl space-y-6 py-6">
-      <CheckoutSteps current={5} />
+      <CheckoutSteps current={6} />
 
       <div className="flex flex-col items-center gap-4 rounded-lg bg-card p-10 text-center shadow-sm">
         <CheckCircle2 className="h-16 w-16 text-primary" />

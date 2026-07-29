@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { ProductFormInput } from "./useCatalogForm";
 
 // --- Coupons ---------------------------------------------------------------------
 
@@ -61,6 +62,9 @@ export interface Category {
   slug: string;
   parentId: string | null;
   level: 0 | 1 | 2;
+  ancestors: string[];
+  // Overrides the global commission when category-based commission is enabled.
+  commissionRate: number | null;
   featured: boolean;
   active: boolean;
   order: number;
@@ -71,6 +75,8 @@ export interface Brand {
   name: string;
   slug: string;
   logoUrl?: string;
+  // Categories this brand is offered under; empty means every category.
+  categoryIds: string[];
   featured: boolean;
   active: boolean;
 }
@@ -152,14 +158,40 @@ export interface AdminProduct {
   featured: boolean;
   todaysDeal: boolean;
   approvalStatus: "pending" | "approved" | "rejected";
-  sellerId: string;
+  // Null for admin-owned ("In House") listings, which have no vendor.
+  sellerId: string | null;
+  addedBy: "admin" | "seller";
+  currency: string;
 }
 
-export function useAdminProducts(params: { q?: string; approvalStatus?: string; published?: boolean; page?: number } = {}) {
+export function useAdminProducts(
+  params: { q?: string; approvalStatus?: string; published?: boolean; sellerId?: string; page?: number } = {},
+) {
   return useQuery({
     queryKey: ["admin", "products", params],
     queryFn: async () =>
       (await api.get<{ items: AdminProduct[]; total: number; page: number }>("/catalog/admin/products", { params })).data,
+  });
+}
+
+// In-House products: authored by staff, so they carry no seller, skip the
+// moderation queue and are published on creation.
+export function useCreateAdminProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ProductFormInput) => (await api.post("/catalog/admin/products", input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
+  });
+}
+
+// Staff edit of any listing, including sellers' — the seller-scoped endpoint
+// deliberately refuses to touch products the requester does not own.
+export function useUpdateAdminProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<ProductFormInput> & { id: string }) =>
+      (await api.patch(`/catalog/admin/products/${id}`, input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
   });
 }
 
@@ -175,7 +207,29 @@ export function useUpdateProductFlags() {
   });
 }
 
-// Streams the CSV straight to a download without routing it through React state.
+// Staff product import. Omitting sellerId creates admin-owned In-House rows.
+export function useImportAdminProducts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ file, sellerId }: { file: File; sellerId?: string }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return (
+        await api.post<{ created: number; skipped: { row: number; reason: string }[] }>(
+          "/catalog/admin/products/bulk-import",
+          formData,
+          { params: sellerId ? { sellerId } : {}, headers: { "Content-Type": "multipart/form-data" } },
+        )
+      ).data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
+  });
+}
+
+/** Alias for readability when the payload is a PDF (invoices) rather than a CSV. */
+export const downloadFile = downloadCsv;
+
+// Streams the response straight to a download without routing it through React state.
 export async function downloadCsv(path: string, filename: string) {
   const response = await api.get(path, { responseType: "blob" });
   const url = URL.createObjectURL(response.data as Blob);

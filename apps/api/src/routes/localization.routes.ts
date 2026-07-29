@@ -16,6 +16,12 @@ import {
   createCountryHandler,
   updateCountryHandler,
   deleteCountryHandler,
+  getTranslationsHandler,
+  listTranslationsHandler,
+  saveTranslationsHandler,
+  translationsSchema,
+  copyTranslationsHandler,
+  copyTranslationsSchema,
 } from "../controllers/localization.controller.js";
 
 export const localizationRouter = Router();
@@ -39,7 +45,20 @@ localizationRouter.get(
   }),
 );
 
+// Public: the web app merges these overrides over its bundled message files.
+localizationRouter.get("/translations/:code", asyncHandler(getTranslationsHandler));
+
 const manage = [authenticate, requirePermission("settings.manage")] as const;
+
+// Translation editor
+localizationRouter.get("/admin/translations", ...manage, asyncHandler(listTranslationsHandler));
+localizationRouter.put("/admin/translations", ...manage, validateBody(translationsSchema), asyncHandler(saveTranslationsHandler));
+localizationRouter.post(
+  "/admin/translations/copy",
+  ...manage,
+  validateBody(copyTranslationsSchema),
+  asyncHandler(copyTranslationsHandler),
+);
 
 localizationRouter.post("/admin/languages", ...manage, validateBody(languageSchema), asyncHandler(createLanguageHandler));
 localizationRouter.patch("/admin/languages/:id", ...manage, validateBody(languageSchema.partial()), asyncHandler(updateLanguageHandler));

@@ -7,6 +7,7 @@ import {
   classifiedSchema,
   moderateClassifiedSchema,
   listClassifiedsHandler,
+  getClassifiedBySlugHandler,
   createClassifiedHandler,
   listMyClassifiedsHandler,
   updateClassifiedHandler,
@@ -36,6 +37,8 @@ import {
   resolveAffiliateWithdrawSchema,
   resolveAffiliateWithdrawHandler,
   listAffiliatePaymentsHandler,
+  payAffiliateHandler,
+  payAffiliateSchema,
   listReferredUsersHandler,
 } from "../controllers/affiliate.controller.js";
 
@@ -101,7 +104,12 @@ import {
   enforceSellerProductLimitsHandler,
 } from "../controllers/package.controller.js";
 
-import { posSaleSchema, createPosSaleHandler } from "../controllers/pos.controller.js";
+import {
+  posSaleSchema,
+  createPosSaleHandler,
+  searchPosProductsHandler,
+  posReceiptHandler,
+} from "../controllers/pos.controller.js";
 
 export const addonRouter = Router();
 
@@ -109,6 +117,8 @@ export const addonRouter = Router();
 addonRouter.get("/classifieds", asyncHandler(listClassifiedsHandler));
 addonRouter.post("/classifieds", authenticate, validateBody(classifiedSchema), asyncHandler(createClassifiedHandler));
 addonRouter.get("/classifieds/mine", authenticate, asyncHandler(listMyClassifiedsHandler));
+// Before /:id, so "slug" is not captured as an id.
+addonRouter.get("/classifieds/slug/:slug", asyncHandler(getClassifiedBySlugHandler));
 addonRouter.patch("/classifieds/:id", authenticate, validateBody(classifiedSchema.partial()), asyncHandler(updateClassifiedHandler));
 addonRouter.delete("/classifieds/:id", authenticate, asyncHandler(deleteClassifiedHandler));
 addonRouter.post(
@@ -171,6 +181,14 @@ addonRouter.post(
   asyncHandler(resolveAffiliateWithdrawHandler),
 );
 addonRouter.get("/admin/affiliate/payments", authenticate, requirePermission("addons.manage"), asyncHandler(listAffiliatePaymentsHandler));
+// Direct payout, separate from resolving a withdrawal request.
+addonRouter.post(
+  "/admin/affiliate/users/:id/pay",
+  authenticate,
+  requirePermission("addons.manage"),
+  validateBody(payAffiliateSchema),
+  asyncHandler(payAffiliateHandler),
+);
 addonRouter.get("/admin/affiliate/referrals", authenticate, requirePermission("addons.manage"), asyncHandler(listReferredUsersHandler));
 
 // --- Club points (member-facing) ---
@@ -234,8 +252,8 @@ addonRouter.post(
   validateBody(resolveRefundSchema),
   asyncHandler(resolveRefundRequestHandler),
 );
-addonRouter.get("/admin/refunds", authenticate, requirePermission("orders.manage"), asyncHandler(listAllRefundRequestsHandler));
-addonRouter.get("/admin/refunds/paid", authenticate, requirePermission("orders.manage"), asyncHandler(listPaidRefundsHandler));
+addonRouter.get("/admin/refunds", authenticate, requirePermission("refunds.manage"), asyncHandler(listAllRefundRequestsHandler));
+addonRouter.get("/admin/refunds/paid", authenticate, requirePermission("refunds.manage"), asyncHandler(listPaidRefundsHandler));
 addonRouter.get("/admin/refunds/config", authenticate, requirePermission("addons.manage"), asyncHandler(getRefundConfigHandler));
 addonRouter.put(
   "/admin/refunds/config",
@@ -340,4 +358,11 @@ addonRouter.post(
 );
 
 // --- POS (seller point-of-sale) ---
-addonRouter.post("/pos/sales", authenticate, requireRole("seller"), validateBody(posSaleSchema), asyncHandler(createPosSaleHandler));
+// --- Point of sale ---
+// Admin and staff operate the admin till (any seller's stock); a seller operates
+// their own. The controller decides scope from the role, so one route serves both.
+const posOperator = [authenticate, requireRole("seller", "admin", "staff")] as const;
+
+addonRouter.get("/pos/products", ...posOperator, asyncHandler(searchPosProductsHandler));
+addonRouter.post("/pos/sales", ...posOperator, validateBody(posSaleSchema), asyncHandler(createPosSaleHandler));
+addonRouter.get("/pos/sales/:id/receipt", ...posOperator, asyncHandler(posReceiptHandler));

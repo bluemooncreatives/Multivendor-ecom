@@ -23,8 +23,10 @@ export function useDisplayCurrency() {
     return { amount: Math.round((amountInBase / to.rateToBase) * 100) / 100, code: to.code };
   }
 
-  function display(amount: number, fromCode: string): string {
-    const converted = convert(amount, fromCode);
+  // `fromCode` is optional because several records (classifieds, packages) leave
+  // currency unset and are priced in the store's base currency.
+  function display(amount: number, fromCode?: string): string {
+    const converted = convert(amount, fromCode ?? "INR");
     return formatPrice(converted.amount, converted.code, locale);
   }
 

@@ -1,10 +1,17 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { Product } from "../models/Product.js";
+import { Category } from "../models/Category.js";
 import { searchProducts } from "../services/product.service.js";
 import { recordSearch } from "../services/search.service.js";
 import { importProductsCsv } from "../services/bulkimport.service.js";
-import { exportProductsCsv, exportCategoriesCsv, exportSellersCsv } from "../services/bulkexport.service.js";
+import {
+  exportProductsCsv,
+  exportCategoriesCsv,
+  exportSellersCsv,
+  exportBrandsCsv,
+  exportCustomersCsv,
+} from "../services/bulkexport.service.js";
 import { assertSellerCanAddProduct } from "../services/quota.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
@@ -21,21 +28,47 @@ export const productSchema = z.object({
   name: z.string().min(1).max(200),
   slug: z.string().min(1).max(220),
   categoryId: z.string(),
-  brandId: z.string().optional(),
+  subCategoryId: z.string().nullable().optional(),
+  subSubCategoryId: z.string().nullable().optional(),
+  brandId: z.string().nullable().optional(),
   description: z.string().default(""),
   images: z.array(z.string().url()).default([]),
+  thumbnailUrl: z.string().url().nullable().optional(),
   basePrice: z.number().min(0),
+  purchasePrice: z.number().min(0).default(0),
   currency: z.string().default("INR"),
+  unit: z.string().max(20).default("pc"),
+  barcode: z.string().max(64).nullable().optional(),
+  discount: z.number().min(0).default(0),
+  discountType: z.enum(["flat", "percent"]).default("percent"),
+  tax: z.number().min(0).nullable().optional(),
+  taxType: z.enum(["flat", "percent"]).default("percent"),
+  shippingType: z.enum(["free", "flat_rate"]).default("free"),
+  shippingCost: z.number().min(0).default(0),
   variants: z.array(variantInput).min(1),
+  colors: z.array(z.string()).default([]),
+  choiceOptions: z.array(z.object({ name: z.string().min(1), values: z.array(z.string()).default([]) })).default([]),
   minOrderQty: z.number().int().min(1).default(1),
   isDigital: z.boolean().default(false),
-  digitalFileUrl: z.string().url().optional(),
+  digitalFileUrl: z.string().url().nullable().optional(),
+  refundable: z.boolean().default(true),
+  videoProvider: z.enum(["youtube", "dailymotion", "vimeo"]).nullable().optional(),
+  videoLink: z.string().url().nullable().optional(),
+  pdfSpecUrl: z.string().url().nullable().optional(),
+  metaTitle: z.string().max(200).nullable().optional(),
+  metaDescription: z.string().max(500).nullable().optional(),
+  metaImageUrl: z.string().url().nullable().optional(),
+  clubPoints: z.number().min(0).default(0),
   tags: z.array(z.string()).default([]),
 });
 
 export const searchQuerySchema = z.object({
   q: z.string().optional(),
   categoryId: z.string().optional(),
+  subCategoryId: z.string().optional(),
+  subSubCategoryId: z.string().optional(),
+  colorId: z.string().optional(),
+  attributes: z.record(z.string()).optional(),
   brandId: z.string().optional(),
   sellerId: z.string().optional(),
   minPrice: z.coerce.number().optional(),
@@ -73,15 +106,55 @@ export async function getProductHandler(req: Request, res: Response) {
   res.json(product);
 }
 
+// The form submits whichever levels the seller picked. `categoryId` is rewritten to
+// the deepest node so every search filter stays a single equality match, while the
+// coarser ids are kept for browse pages. Parentage is verified server-side: a client
+// could otherwise file a product under a sub-category of an unrelated root.
+async function normaliseTaxonomy(body: Record<string, unknown>) {
+  const { categoryId, subCategoryId, subSubCategoryId } = body as Record<string, string | null | undefined>;
+  if (!categoryId) return;
+
+  const deepestId = subSubCategoryId || subCategoryId || categoryId;
+  const deepest = await Category.findById(deepestId);
+  if (!deepest) throw new ApiError(400, "Category not found");
+
+  const chain = [...deepest.ancestors.map(String), String(deepest._id)];
+  for (const id of [categoryId, subCategoryId, subSubCategoryId].filter(Boolean) as string[]) {
+    if (!chain.includes(id)) throw new ApiError(400, "Selected categories are not in the same branch");
+  }
+
+  body.categoryId = chain[chain.length - 1];
+  body.subCategoryId = chain.length > 1 ? chain[1] : null;
+  body.subSubCategoryId = chain.length > 2 ? chain[2] : null;
+}
+
 export async function createProductHandler(req: Request, res: Response) {
   await assertSellerCanAddProduct(req.user!.id);
   assertUniqueSkus(req.body.variants);
+  await normaliseTaxonomy(req.body);
 
   const product = await Product.create({
     ...req.body,
     sellerId: req.user!.id,
+    addedBy: "seller",
     published: false,
     approvalStatus: "pending",
+  });
+  res.status(201).json(product);
+}
+
+// Admin-owned ("In House") listings: no seller, and no moderation queue to pass
+// through since staff authored them.
+export async function adminCreateProductHandler(req: Request, res: Response) {
+  assertUniqueSkus(req.body.variants);
+  await normaliseTaxonomy(req.body);
+
+  const product = await Product.create({
+    ...req.body,
+    sellerId: null,
+    addedBy: "admin",
+    published: true,
+    approvalStatus: "approved",
   });
   res.status(201).json(product);
 }
@@ -89,12 +162,34 @@ export async function createProductHandler(req: Request, res: Response) {
 // Edits that change what the shopper sees (name, images, description, pricing)
 // send the listing back through moderation. Stock-only edits do not, so a seller
 // can restock without their live listing disappearing from the storefront.
-const MODERATED_FIELDS = ["name", "description", "images", "categoryId", "brandId", "tags"] as const;
+const MODERATED_FIELDS = [
+  "name",
+  "description",
+  "images",
+  "thumbnailUrl",
+  "categoryId",
+  "subCategoryId",
+  "subSubCategoryId",
+  "brandId",
+  "tags",
+  // Pricing changes are moderated too: an approved listing must not be able to
+  // silently swap in a different discount or tax rate post-approval.
+  "basePrice",
+  "discount",
+  "discountType",
+  "tax",
+  "taxType",
+  "shippingType",
+  "shippingCost",
+  "videoLink",
+  "pdfSpecUrl",
+] as const;
 
 export async function updateProductHandler(req: Request, res: Response) {
   const product = await Product.findOne({ _id: req.params.id, sellerId: req.user!.id });
   if (!product) throw new ApiError(404, "Product not found");
   if (req.body.variants) assertUniqueSkus(req.body.variants);
+  await normaliseTaxonomy(req.body);
 
   const needsReview =
     product.approvalStatus === "approved" &&
@@ -134,21 +229,23 @@ export async function cloneProductHandler(req: Request, res: Response) {
   const original = await Product.findOne({ _id: req.params.id, sellerId: req.user!.id });
   if (!original) throw new ApiError(404, "Product not found");
 
+  // Copy every authored field, then override the identity/lifecycle ones. Listing
+  // fields explicitly (as the first version did) meant each new product field had
+  // to be remembered here too, and several were silently dropped on clone.
+  const { _id, createdAt, updatedAt, ...copyable } = original.toObject();
+  const stamp = Date.now();
+
   const clone = await Product.create({
-    sellerId: original.sellerId,
+    ...copyable,
     name: `${original.name} (Copy)`,
-    slug: `${original.slug}-copy-${Date.now()}`,
-    categoryId: original.categoryId,
-    brandId: original.brandId,
-    description: original.description,
-    images: original.images,
-    basePrice: original.basePrice,
-    currency: original.currency,
-    variants: original.variants.map((v) => ({ ...v.toObject(), sku: `${v.sku}-copy-${Date.now()}` })),
-    minOrderQty: original.minOrderQty,
-    isDigital: original.isDigital,
-    digitalFileUrl: original.digitalFileUrl,
-    tags: original.tags,
+    slug: `${original.slug}-copy-${stamp}`,
+    variants: original.variants.map((v) => ({ ...v.toObject(), sku: `${v.sku}-copy-${stamp}`, reserved: 0 })),
+    barcode: null, // barcodes are unique per physical item; a clone must not inherit one
+    numOfSale: 0,
+    ratingAverage: 0,
+    ratingCount: 0,
+    viewCount: 0,
+    wishlistCount: 0,
     published: false,
     approvalStatus: "pending",
   });
@@ -169,6 +266,17 @@ export const approveProductSchema = z.object({
 export async function bulkImportProductsHandler(req: Request, res: Response) {
   if (!req.file) throw new ApiError(400, "A CSV file is required");
   const result = await importProductsCsv(req.user!.id, req.file.buffer);
+  res.status(201).json(result);
+}
+
+// Staff import. `sellerId` may name a vendor to file the rows under; omitted, the
+// rows become admin-owned In-House products.
+export async function adminBulkImportProductsHandler(req: Request, res: Response) {
+  if (!req.file) throw new ApiError(400, "A CSV file is required");
+  const sellerId = (req.query.sellerId as string | undefined) ?? null;
+  const result = await importProductsCsv(sellerId, req.file.buffer, {
+    addedBy: sellerId ? "seller" : "admin",
+  });
   res.status(201).json(result);
 }
 
@@ -279,6 +387,20 @@ export async function exportSellersHandler(_req: Request, res: Response) {
   const csv = await exportSellersCsv();
   res.header("Content-Type", "text/csv");
   res.attachment("sellers.csv");
+  res.send(csv);
+}
+
+export async function exportBrandsHandler(_req: Request, res: Response) {
+  const csv = await exportBrandsCsv();
+  res.header("Content-Type", "text/csv");
+  res.attachment("brands.csv");
+  res.send(csv);
+}
+
+export async function exportCustomersHandler(_req: Request, res: Response) {
+  const csv = await exportCustomersCsv();
+  res.header("Content-Type", "text/csv");
+  res.attachment("customers.csv");
   res.send(csv);
 }
 

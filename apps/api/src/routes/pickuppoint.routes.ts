@@ -14,19 +14,19 @@ import {
 export const pickupPointRouter = Router();
 
 pickupPointRouter.get("/", asyncHandler(listActivePickupPointsHandler));
-pickupPointRouter.get("/admin", authenticate, requirePermission("settings.manage"), asyncHandler(listAdminPickupPointsHandler));
+pickupPointRouter.get("/admin", authenticate, requirePermission("pickuppoints.manage"), asyncHandler(listAdminPickupPointsHandler));
 pickupPointRouter.post(
   "/admin",
   authenticate,
-  requirePermission("settings.manage"),
+  requirePermission("pickuppoints.manage"),
   validateBody(pickupPointSchema),
   asyncHandler(createPickupPointHandler),
 );
 pickupPointRouter.patch(
   "/admin/:id",
   authenticate,
-  requirePermission("settings.manage"),
+  requirePermission("pickuppoints.manage"),
   validateBody(pickupPointSchema.partial()),
   asyncHandler(updatePickupPointHandler),
 );
-pickupPointRouter.delete("/admin/:id", authenticate, requirePermission("settings.manage"), asyncHandler(deletePickupPointHandler));
+pickupPointRouter.delete("/admin/:id", authenticate, requirePermission("pickuppoints.manage"), asyncHandler(deletePickupPointHandler));

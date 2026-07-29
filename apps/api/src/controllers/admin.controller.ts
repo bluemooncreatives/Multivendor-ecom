@@ -5,9 +5,12 @@ import { Shop } from "../models/Shop.js";
 import { Order } from "../models/Order.js";
 import { SellerWithdrawRequest, SellerLedger } from "../models/Ledger.js";
 import { Role, AdminAuditLog } from "../models/Rbac.js";
+import { RefreshToken } from "../models/RefreshToken.js";
 import { GeneralSetting, SeoSetting, BusinessSetting, Addon } from "../models/Settings.js";
 import { signAccessToken } from "../utils/jwt.js";
 import { invalidateDemoModeCache } from "../middleware/demoMode.js";
+import { invalidateMaintenanceCache } from "../middleware/maintenance.js";
+import { markUserBanned, markUserUnbanned } from "../middleware/auth.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 // --- Dashboard -------------------------------------------------------------
@@ -50,6 +53,17 @@ export const banUserSchema = z.object({ banned: z.boolean() });
 export async function banUserHandler(req: Request, res: Response) {
   const user = await User.findByIdAndUpdate(req.params.id, { banned: req.body.banned }, { new: true });
   if (!user) throw new ApiError(404, "User not found");
+
+  // Update the auth middleware's cache directly so the ban applies to the next
+  // request rather than waiting for the refresh interval, and revoke the refresh
+  // tokens so they cannot mint a fresh access token either.
+  if (req.body.banned) {
+    markUserBanned(String(user._id));
+    await RefreshToken.deleteMany({ userId: user._id });
+  } else {
+    markUserUnbanned(String(user._id));
+  }
+
   res.json(user);
 }
 
@@ -146,10 +160,42 @@ export async function resolveWithdrawRequestHandler(req: Request, res: Response)
 
 // --- Orders -------------------------------------------------------------------
 
+// The legacy admin order screen filtered by search term, date range, payment
+// status and delivery status; all four are restored here, paginated rather than
+// capped at a silent 200-row limit that hid older orders entirely.
 export async function listAllOrdersHandler(req: Request, res: Response) {
-  const { status } = req.query as { status?: string };
-  const orders = await Order.find(status ? { status } : {}).sort({ createdAt: -1 }).limit(200);
-  res.json({ items: orders });
+  const { status, paymentStatus, q, from, to } = req.query as Record<string, string | undefined>;
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const pageSize = Math.min(100, Number(req.query.pageSize) || 30);
+
+  const filter: Record<string, unknown> = {};
+  if (status) filter.status = status;
+  if (paymentStatus) filter.paymentStatus = paymentStatus;
+
+  // Matches the order code or the buyer's phone — the two identifiers support
+  // staff actually have when a customer calls about an order.
+  if (q) {
+    const term = q.slice(0, 80);
+    filter.$or = [
+      { code: { $regex: term, $options: "i" } },
+      { "addressSnapshot.phone": { $regex: term, $options: "i" } },
+    ];
+  }
+
+  if (from || to) {
+    filter.createdAt = {
+      ...(from ? { $gte: new Date(from) } : {}),
+      // `to` is a calendar day, so extend it to the end of that day rather than
+      // midnight, which would exclude everything placed on the chosen date.
+      ...(to ? { $lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } : {}),
+    };
+  }
+
+  const [items, total] = await Promise.all([
+    Order.find(filter).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize),
+    Order.countDocuments(filter),
+  ]);
+  res.json({ items, total, page, pageSize });
 }
 
 // --- Settings -------------------------------------------------------------------
@@ -193,9 +239,10 @@ export async function updateBusinessSettingsHandler(req: Request, res: Response)
     new: true,
     setDefaultsOnInsert: true,
   });
-  // The demo-mode guard caches this flag, so toggling it must take effect at once
+  // Both guards cache their flag, so toggling either must take effect at once
   // rather than after the cache window expires.
   invalidateDemoModeCache();
+  invalidateMaintenanceCache();
   res.json(settings);
 }
 

@@ -5,6 +5,7 @@ import { ApiError } from "../middleware/errorHandler.js";
 
 export const flashDealSchema = z.object({
   title: z.string().min(1),
+  slug: z.string().min(1).max(140),
   bannerUrl: z.string().url().optional(),
   startsAt: z.coerce.date(),
   endsAt: z.coerce.date(),
@@ -30,6 +31,21 @@ export async function listActiveFlashDealsHandler(_req: Request, res: Response) 
 
 export async function getFlashDealHandler(req: Request, res: Response) {
   const deal = await FlashDeal.findById(req.params.id).populate("products.productId");
+  if (!deal) throw new ApiError(404, "Flash deal not found");
+  res.json(deal);
+}
+
+// Public campaign page. Only returns a deal that is live right now — a scheduled
+// or finished campaign must not be reachable by guessing its URL.
+export async function getFlashDealBySlugHandler(req: Request, res: Response) {
+  const now = new Date();
+  const deal = await FlashDeal.findOne({
+    slug: req.params.slug,
+    active: true,
+    startsAt: { $lte: now },
+    endsAt: { $gte: now },
+  }).populate("products.productId");
+
   if (!deal) throw new ApiError(404, "Flash deal not found");
   res.json(deal);
 }

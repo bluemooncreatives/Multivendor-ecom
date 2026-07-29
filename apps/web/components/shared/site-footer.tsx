@@ -1,14 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import toast from "react-hot-toast";
 import { Facebook, Instagram, Twitter, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSubscribeNewsletter } from "@/lib/hooks/useStorefront";
 
 export function SiteFooter() {
   const t = useTranslations("footer");
   const locale = useLocale();
+  const [email, setEmail] = useState("");
+  const subscribe = useSubscribeNewsletter();
 
   return (
     <footer className="border-t bg-secondary/30">
@@ -36,10 +41,28 @@ export function SiteFooter() {
           <p className="text-sm text-muted-foreground">{t("tagline")}</p>
           <form
             className="flex gap-2"
-            onSubmit={(e) => e.preventDefault()}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await subscribe.mutateAsync(email);
+                setEmail("");
+                toast.success("You're subscribed");
+              } catch (err) {
+                const response = (err as { response?: { data?: { message?: string } } })?.response;
+                toast.error(response?.data?.message ?? "Could not subscribe");
+              }
+            }}
           >
-            <Input type="email" placeholder="Your email" required />
-            <Button type="submit">Subscribe</Button>
+            <Input
+              type="email"
+              placeholder="Your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <Button type="submit" disabled={subscribe.isPending}>
+              Subscribe
+            </Button>
           </form>
         </div>
 

@@ -10,6 +10,7 @@ import {
   cancelOrderHandler,
   trackOrderHandler,
   downloadInvoiceHandler,
+  markOrderSeenHandler,
   checkoutSchema,
   trackOrderSchema,
 } from "../controllers/order.controller.js";
@@ -23,3 +24,4 @@ orderRouter.get("/seller", authenticate, requireRole("seller"), asyncHandler(lis
 orderRouter.get("/:id", authenticate, asyncHandler(getOrderHandler));
 orderRouter.get("/:id/invoice", authenticate, asyncHandler(downloadInvoiceHandler));
 orderRouter.post("/:id/cancel", authenticate, asyncHandler(cancelOrderHandler));
+orderRouter.post("/:id/seen", authenticate, asyncHandler(markOrderSeenHandler));

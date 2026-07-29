@@ -14,13 +14,12 @@ export function SocialLoginButtons() {
           <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant="outline" onClick={() => signIn("google", { callbackUrl: "/" })}>
-          Google
-        </Button>
-        <Button type="button" variant="outline" onClick={() => signIn("facebook", { callbackUrl: "/" })}>
-          Facebook
-        </Button>
+      <div className="grid grid-cols-3 gap-2">
+        {(["google", "facebook", "twitter"] as const).map((provider) => (
+          <Button key={provider} type="button" variant="outline" onClick={() => signIn(provider, { callbackUrl: "/" })}>
+            {provider[0]!.toUpperCase() + provider.slice(1)}
+          </Button>
+        ))}
       </div>
     </div>
   );

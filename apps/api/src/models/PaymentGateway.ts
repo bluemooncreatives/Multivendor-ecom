@@ -10,10 +10,26 @@ const paymentGatewaySchema = new Schema(
       type: String,
       required: true,
       unique: true,
-      enum: ["sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"],
+      enum: [
+        "sslcommerz",
+        "instamojo",
+        "paystack",
+        "voguepay",
+        "payhere",
+        "ngenius",
+        "paytm",
+        "mpesa",
+        "flutterwave",
+        "twocheckout",
+      ],
     },
     enabled: { type: Boolean, default: false },
-    credentials: { type: Schema.Types.Mixed, default: {} },
+    // Most of these offer a test environment; the flag selects which host the
+    // service calls, so switching to live is a settings change not a redeploy.
+    sandbox: { type: Boolean, default: true },
+    // Encrypted at rest by utils/secrets before being written here, and never
+    // returned to the browser in plaintext.
+    credentials: { type: Schema.Types.Mixed, default: {}, select: false },
   },
   { timestamps: true },
 );

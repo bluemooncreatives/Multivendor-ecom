@@ -16,6 +16,7 @@ import {
   fulfillOrderItemHandler,
   fulfillmentSchema,
   applyForShopVerificationHandler,
+  getVerificationFormHandler,
   shopVerificationSchema,
 } from "../controllers/seller.controller.js";
 
@@ -23,6 +24,13 @@ export const sellerRouter = Router();
 
 sellerRouter.get("/shop", authenticate, requireRole("seller"), asyncHandler(getMyShopHandler));
 sellerRouter.put("/shop", authenticate, requireRole("seller"), validateBody(shopSchema), asyncHandler(createOrUpdateShopHandler));
+// The admin-composed field list the seller's verification page renders.
+sellerRouter.get(
+  "/shop/verification-form",
+  authenticate,
+  requireRole("seller"),
+  asyncHandler(getVerificationFormHandler),
+);
 sellerRouter.post(
   "/shop/verification",
   authenticate,

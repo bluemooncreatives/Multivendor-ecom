@@ -42,6 +42,57 @@ export async function awardClubPointsForOrder(orderId: string, session?: mongoos
   await creditPoints(String(order.userId), points, "Order delivered", `order-award:${orderId}`, orderId, session);
 }
 
+/**
+ * Value in currency of `points`, or 0 when the programme is off or the amount is
+ * below the configured minimum. Read-only — call spendPointsForOrder to debit.
+ */
+export async function quotePointsDiscount(points: number): Promise<number> {
+  if (points <= 0 || !(await isEnabled())) return 0;
+
+  const config = await getClubPointConfig();
+  if (config.convertRate <= 0 || points < config.minConvertPoints) return 0;
+
+  return Math.round(points * config.convertRate * 100) / 100;
+}
+
+/**
+ * Debits club points as payment towards an order. Guarded on the balance in the
+ * same update that decrements it, so two concurrent checkouts cannot both spend
+ * the same points, and idempotent on the order id so a retried checkout does not
+ * charge twice.
+ */
+export async function spendPointsForOrder(
+  userId: string,
+  points: number,
+  orderId: string,
+  session?: mongoose.ClientSession,
+): Promise<number> {
+  const discount = await quotePointsDiscount(points);
+  if (discount <= 0) throw new ApiError(400, "Those club points cannot be redeemed");
+
+  const user = await User.findOneAndUpdate(
+    { _id: userId, clubPoints: { $gte: points } },
+    { $inc: { clubPoints: -points } },
+    { session, new: true },
+  );
+  if (!user) throw new ApiError(400, "You do not have enough club points");
+
+  await ClubPointTransaction.create(
+    [
+      {
+        userId,
+        points: -points,
+        reason: "Redeemed against an order",
+        orderId,
+        idempotencyKey: `order-spend:${orderId}`,
+      },
+    ],
+    { session },
+  );
+
+  return discount;
+}
+
 async function creditPoints(
   userId: string,
   points: number,
