@@ -234,8 +234,8 @@ addonRouter.post(
   validateBody(resolveRefundSchema),
   asyncHandler(resolveRefundRequestHandler),
 );
-addonRouter.get("/admin/refunds", authenticate, requirePermission("orders.manage"), asyncHandler(listAllRefundRequestsHandler));
-addonRouter.get("/admin/refunds/paid", authenticate, requirePermission("orders.manage"), asyncHandler(listPaidRefundsHandler));
+addonRouter.get("/admin/refunds", authenticate, requirePermission("refunds.manage"), asyncHandler(listAllRefundRequestsHandler));
+addonRouter.get("/admin/refunds/paid", authenticate, requirePermission("refunds.manage"), asyncHandler(listPaidRefundsHandler));
 addonRouter.get("/admin/refunds/config", authenticate, requirePermission("addons.manage"), asyncHandler(getRefundConfigHandler));
 addonRouter.put(
   "/admin/refunds/config",

@@ -21,6 +21,8 @@ const shopSchema = new Schema(
       default: "pending",
     },
     verificationDocs: { type: [String], default: [] },
+    // Answers to the admin-composed verification form, keyed by field id.
+    verificationAnswers: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: true },
 );

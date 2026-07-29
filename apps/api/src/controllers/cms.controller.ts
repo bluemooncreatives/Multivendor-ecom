@@ -11,6 +11,8 @@ export const pageSchema = z.object({
   body: z.string().min(1),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
+  seoKeywords: z.array(z.string()).optional(),
+  seoImageUrl: z.string().url().optional(),
   published: z.boolean().optional(),
 });
 
@@ -43,7 +45,9 @@ export async function deletePageHandler(req: Request, res: Response) {
 
 // --- Policies (single doc per type) -----------------------------------------
 
-const POLICY_TYPES = ["privacy", "terms", "refund", "shipping", "seller_agreement"] as const;
+// Must stay in step with the Policy model's enum, and covers the five policy
+// pages the storefront links to plus the seller agreement.
+const POLICY_TYPES = ["privacy", "terms", "refund", "return", "shipping", "support", "seller_agreement"] as const;
 
 export async function getPolicyHandler(req: Request, res: Response) {
   const type = req.params.type as (typeof POLICY_TYPES)[number];

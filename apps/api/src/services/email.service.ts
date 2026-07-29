@@ -1,16 +1,65 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
+import { getDecryptedGroup } from "./settings.service.js";
 
-const transporter =
-  env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD
-    ? nodemailer.createTransport({
+interface MailConfig {
+  transporter: nodemailer.Transporter;
+  fromAddress: string;
+  fromName: string;
+}
+
+let cached: { config: MailConfig | null; at: number } | null = null;
+const CACHE_MS = 60_000;
+
+/**
+ * SMTP configured through the admin UI takes precedence over the .env fallback,
+ * so operators can change mail settings without a redeploy. Cached briefly
+ * because every outbound mail would otherwise cost a settings read plus a
+ * decrypt; `resetMailTransport()` clears it when the settings are saved.
+ */
+async function getMailConfig(): Promise<MailConfig | null> {
+  if (cached && Date.now() - cached.at < CACHE_MS) return cached.config;
+
+  let config: MailConfig | null = null;
+  try {
+    const smtp = await getDecryptedGroup("smtp");
+    if (smtp.host && smtp.username && smtp.password) {
+      config = {
+        transporter: nodemailer.createTransport({
+          host: String(smtp.host),
+          port: Number(smtp.port ?? 587),
+          secure: smtp.encryption === "ssl",
+          auth: { user: String(smtp.username), pass: String(smtp.password) },
+        }),
+        fromAddress: String(smtp.fromAddress ?? smtp.username),
+        fromName: String(smtp.fromName ?? "PHPStore"),
+      };
+    }
+  } catch (err) {
+    logger.error(`Could not read SMTP settings, falling back to environment: ${String(err)}`);
+  }
+
+  if (!config && env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD) {
+    config = {
+      transporter: nodemailer.createTransport({
         host: env.SMTP_HOST,
         port: env.SMTP_PORT ?? 587,
         secure: env.SMTP_SECURE,
         auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD },
-      })
-    : null;
+      }),
+      fromAddress: env.MAIL_FROM ?? env.SMTP_USER,
+      fromName: env.MAIL_FROM_NAME ?? "PHPStore",
+    };
+  }
+
+  cached = { config, at: Date.now() };
+  return config;
+}
+
+export function resetMailTransport() {
+  cached = null;
+}
 
 // Email delivery is best-effort: a downed/misconfigured SMTP provider must never
 // fail the request that triggered it (registration already committed the user
@@ -22,13 +71,14 @@ interface Attachment {
 }
 
 async function send(to: string, subject: string, html: string, attachments?: Attachment[]) {
-  if (!transporter) {
+  const config = await getMailConfig();
+  if (!config) {
     logger.warn(`SMTP not configured; skipping email to ${to}: ${subject}`);
     return;
   }
   try {
-    await transporter.sendMail({
-      from: `"${env.MAIL_FROM_NAME ?? "PHPStore"}" <${env.MAIL_FROM ?? env.SMTP_USER}>`,
+    await config.transporter.sendMail({
+      from: `"${config.fromName}" <${config.fromAddress}>`,
       to,
       subject,
       html,

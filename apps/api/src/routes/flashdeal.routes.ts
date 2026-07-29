@@ -16,19 +16,19 @@ export const flashDealRouter = Router();
 
 flashDealRouter.get("/", asyncHandler(listActiveFlashDealsHandler));
 flashDealRouter.get("/:id", asyncHandler(getFlashDealHandler));
-flashDealRouter.get("/admin/all", authenticate, requirePermission("marketing.manage"), asyncHandler(listAdminFlashDealsHandler));
+flashDealRouter.get("/admin/all", authenticate, requirePermission("flashdeals.manage"), asyncHandler(listAdminFlashDealsHandler));
 flashDealRouter.post(
   "/admin",
   authenticate,
-  requirePermission("marketing.manage"),
+  requirePermission("flashdeals.manage"),
   validateBody(flashDealSchema),
   asyncHandler(createFlashDealHandler),
 );
 flashDealRouter.patch(
   "/admin/:id",
   authenticate,
-  requirePermission("marketing.manage"),
+  requirePermission("flashdeals.manage"),
   validateBody(flashDealSchema.partial()),
   asyncHandler(updateFlashDealHandler),
 );
-flashDealRouter.delete("/admin/:id", authenticate, requirePermission("marketing.manage"), asyncHandler(deleteFlashDealHandler));
+flashDealRouter.delete("/admin/:id", authenticate, requirePermission("flashdeals.manage"), asyncHandler(deleteFlashDealHandler));

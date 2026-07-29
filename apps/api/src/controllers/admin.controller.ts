@@ -8,6 +8,7 @@ import { Role, AdminAuditLog } from "../models/Rbac.js";
 import { GeneralSetting, SeoSetting, BusinessSetting, Addon } from "../models/Settings.js";
 import { signAccessToken } from "../utils/jwt.js";
 import { invalidateDemoModeCache } from "../middleware/demoMode.js";
+import { invalidateMaintenanceCache } from "../middleware/maintenance.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 // --- Dashboard -------------------------------------------------------------
@@ -225,9 +226,10 @@ export async function updateBusinessSettingsHandler(req: Request, res: Response)
     new: true,
     setDefaultsOnInsert: true,
   });
-  // The demo-mode guard caches this flag, so toggling it must take effect at once
+  // Both guards cache their flag, so toggling either must take effect at once
   // rather than after the cache window expires.
   invalidateDemoModeCache();
+  invalidateMaintenanceCache();
   res.json(settings);
 }
 

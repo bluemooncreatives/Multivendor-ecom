@@ -10,8 +10,27 @@ const generalSettingSchema = new Schema(
     defaultLanguage: { type: String, default: "en" },
     defaultCurrency: { type: String, default: "INR" },
     defaultTimezone: { type: String, default: "Asia/Kolkata" },
+    // Six distinct logo slots, matching the legacy general-settings screen.
     logoUrl: String,
+    footerLogoUrl: String,
+    adminLogoUrl: String,
     faviconUrl: String,
+    loginBackgroundUrl: String,
+    loginSidebarUrl: String,
+    themeColor: { type: String, default: "#2563eb" },
+    address: String,
+    footerText: String,
+    socialProfiles: {
+      type: {
+        facebook: String,
+        twitter: String,
+        instagram: String,
+        youtube: String,
+        linkedin: String,
+      },
+      default: () => ({}),
+      _id: false,
+    },
     supportEmail: String,
     supportPhone: String,
   },
@@ -26,8 +45,19 @@ const seoSettingSchema = new Schema(
     key: { type: String, required: true, unique: true, default: "seo" },
     metaTitle: String,
     metaDescription: String,
+    metaKeywords: { type: [String], default: [] },
+    metaImageUrl: String,
+    author: String,
+    revisitAfterDays: { type: Number, default: 7 },
+    sitemapUrl: String,
+    // Each tracker has its own switch: the legacy screen let an operator keep the
+    // id on file while turning the tracker off.
+    googleAnalyticsEnabled: { type: Boolean, default: false },
     googleAnalyticsId: String,
+    facebookPixelEnabled: { type: Boolean, default: false },
     facebookPixelId: String,
+    facebookChatEnabled: { type: Boolean, default: false },
+    facebookPageId: String,
   },
   { timestamps: true },
 );
@@ -74,6 +104,14 @@ const businessSettingSchema = new Schema(
     adminShippingCost: { type: Number, default: 0 },
     minOrderForFreeShipping: { type: Number, default: null },
     activation: { type: activationSchema, default: () => ({}) },
+    // Credential-bearing groups. Every secret inside is AES-GCM encrypted by
+    // utils/secrets before it is written, and `select: false` keeps them out of
+    // any query that forgets to mask — the legacy app rendered these values
+    // straight into the settings form's HTML.
+    smtp: { type: Schema.Types.Mixed, default: {}, select: false },
+    storage: { type: Schema.Types.Mixed, default: {}, select: false },
+    socialLogin: { type: Schema.Types.Mixed, default: {}, select: false },
+    recaptcha: { type: Schema.Types.Mixed, default: {}, select: false },
     demoMode: { type: Boolean, default: false },
   },
   { timestamps: true },
@@ -145,3 +183,22 @@ const smsLogSchema = new Schema(
 
 withJsonId(smsLogSchema);
 export const SmsLog = model("SmsLog", smsLogSchema);
+
+// Admin-defined fields on the seller verification form. The legacy app let an
+// admin compose this form from text/select/multi-select/radio/file inputs; the
+// seller's submitted answers are stored against their shop.
+const sellerVerificationFieldSchema = new Schema(
+  {
+    label: { type: String, required: true, trim: true },
+    type: { type: String, enum: ["text", "select", "multi_select", "radio", "file"], required: true },
+    // Only meaningful for the choice types.
+    options: { type: [String], default: [] },
+    required: { type: Boolean, default: false },
+    order: { type: Number, default: 0 },
+    active: { type: Boolean, default: true },
+  },
+  { timestamps: true },
+);
+
+withJsonId(sellerVerificationFieldSchema);
+export const SellerVerificationField = model("SellerVerificationField", sellerVerificationFieldSchema);

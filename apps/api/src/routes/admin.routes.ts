@@ -30,6 +30,16 @@ import {
   impersonateUserHandler,
 } from "../controllers/admin.controller.js";
 import {
+  getSettingsGroupHandler,
+  updateSettingsGroupHandler,
+  listAllVerificationFieldsHandler,
+  createVerificationFieldHandler,
+  updateVerificationFieldHandler,
+  deleteVerificationFieldHandler,
+  verificationFieldSchema,
+  verificationFieldPatchSchema,
+} from "../controllers/settings.controller.js";
+import {
   listAdminRechargeRequestsHandler,
   resolveRechargeRequestHandler,
   resolveRechargeRequestSchema,
@@ -149,7 +159,7 @@ adminRouter.patch(
 
 // --- Orders ---
 adminRouter.get("/orders", requirePermission("orders.manage"), asyncHandler(listAllOrdersHandler));
-adminRouter.get("/orders/by-pickup-point", requirePermission("orders.manage"), asyncHandler(listOrdersByPickupPointHandler));
+adminRouter.get("/orders/by-pickup-point", requirePermission("pickuppoints.manage"), asyncHandler(listOrdersByPickupPointHandler));
 adminRouter.patch(
   "/orders/:id/status",
   requirePermission("orders.manage"),
@@ -165,17 +175,17 @@ adminRouter.patch(
 adminRouter.post("/orders/:id/cancel", requirePermission("orders.manage"), asyncHandler(cancelOrderAsAdminHandler));
 
 // --- Support tickets ---
-adminRouter.get("/tickets", requirePermission("orders.manage"), asyncHandler(listAdminTicketsHandler));
-adminRouter.get("/tickets/:id", requirePermission("orders.manage"), asyncHandler(getTicketHandler));
+adminRouter.get("/tickets", requirePermission("tickets.manage"), asyncHandler(listAdminTicketsHandler));
+adminRouter.get("/tickets/:id", requirePermission("tickets.manage"), asyncHandler(getTicketHandler));
 adminRouter.patch(
   "/tickets/:id",
-  requirePermission("orders.manage"),
+  requirePermission("tickets.manage"),
   validateBody(updateTicketSchema),
   asyncHandler(updateTicketHandler),
 );
 adminRouter.post(
   "/tickets/:id/reply",
-  requirePermission("orders.manage"),
+  requirePermission("tickets.manage"),
   validateBody(replyTicketSchema),
   asyncHandler(replyTicketHandler),
 );
@@ -190,10 +200,39 @@ adminRouter.patch(
 
 adminRouter.get("/settings/general", requirePermission("settings.manage"), asyncHandler(getGeneralSettingsHandler));
 adminRouter.put("/settings/general", requirePermission("settings.manage"), asyncHandler(updateGeneralSettingsHandler));
-adminRouter.get("/settings/seo", requirePermission("settings.manage"), asyncHandler(getSeoSettingsHandler));
-adminRouter.put("/settings/seo", requirePermission("settings.manage"), asyncHandler(updateSeoSettingsHandler));
+adminRouter.get("/settings/seo", requirePermission("seo.manage"), asyncHandler(getSeoSettingsHandler));
+adminRouter.put("/settings/seo", requirePermission("seo.manage"), asyncHandler(updateSeoSettingsHandler));
 adminRouter.get("/settings/business", requirePermission("settings.manage"), asyncHandler(getBusinessSettingsHandler));
 adminRouter.put("/settings/business", requirePermission("settings.manage"), asyncHandler(updateBusinessSettingsHandler));
+
+// Credential-bearing groups (smtp / storage / socialLogin / recaptcha). Secrets
+// are returned as {configured, hint} only and are never sent to the browser.
+adminRouter.get("/settings/groups/:group", requirePermission("settings.manage"), asyncHandler(getSettingsGroupHandler));
+adminRouter.put("/settings/groups/:group", requirePermission("settings.manage"), asyncHandler(updateSettingsGroupHandler));
+
+// Seller verification form builder
+adminRouter.get(
+  "/settings/verification-fields",
+  requirePermission("settings.manage"),
+  asyncHandler(listAllVerificationFieldsHandler),
+);
+adminRouter.post(
+  "/settings/verification-fields",
+  requirePermission("settings.manage"),
+  validateBody(verificationFieldSchema),
+  asyncHandler(createVerificationFieldHandler),
+);
+adminRouter.patch(
+  "/settings/verification-fields/:id",
+  requirePermission("settings.manage"),
+  validateBody(verificationFieldPatchSchema),
+  asyncHandler(updateVerificationFieldHandler),
+);
+adminRouter.delete(
+  "/settings/verification-fields/:id",
+  requirePermission("settings.manage"),
+  asyncHandler(deleteVerificationFieldHandler),
+);
 
 // --- SMS / OTP configuration ---
 adminRouter.get("/settings/otp", requirePermission("settings.manage"), asyncHandler(getOtpSettingsHandler));

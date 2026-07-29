@@ -27,7 +27,7 @@ export const homepageRouter = Router();
 
 homepageRouter.get("/", asyncHandler(getHomepageSectionsHandler));
 
-const manage = [authenticate, requirePermission("settings.manage")] as const;
+const manage = [authenticate, requirePermission("frontend.manage")] as const;
 
 homepageRouter.get("/admin/sliders", ...manage, asyncHandler(listAdminSlidersHandler));
 homepageRouter.post("/admin/sliders", ...manage, validateBody(sliderSchema), asyncHandler(createSliderHandler));

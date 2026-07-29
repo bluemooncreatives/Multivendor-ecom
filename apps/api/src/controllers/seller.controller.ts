@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import mongoose from "mongoose";
 import { Shop } from "../models/Shop.js";
+import { SellerVerificationField } from "../models/Settings.js";
 import { SellerLedger, SellerWithdrawRequest } from "../models/Ledger.js";
 import { Order } from "../models/Order.js";
 import { awardClubPointsForOrder } from "../services/clubpoints.service.js";
@@ -15,6 +16,8 @@ export const shopSchema = z.object({
   description: z.string().optional(),
   address: z.string().optional(),
   socialLinks: z.record(z.string()).optional(),
+  // Charged once per order when the store runs seller-wise shipping.
+  shippingCost: z.number().min(0).optional(),
 });
 
 export async function getMyShopHandler(req: Request, res: Response) {
@@ -141,8 +144,16 @@ export async function fulfillOrderItemHandler(req: Request, res: Response) {
 // --- Shop verification --------------------------------------------------------
 
 export const shopVerificationSchema = z.object({
-  verificationDocs: z.array(z.string().url()).min(1).max(10),
+  verificationDocs: z.array(z.string().url()).max(10).default([]),
+  // Answers to the admin-defined form, keyed by field id. Values are a string for
+  // text/select/radio, a string array for multi-select, and a URL for file fields.
+  answers: z.record(z.union([z.string(), z.array(z.string())])).default({}),
 });
+
+/** The form an admin composed, for the seller's verification page to render. */
+export async function getVerificationFormHandler(_req: Request, res: Response) {
+  res.json({ items: await SellerVerificationField.find({ active: true }).sort({ order: 1, createdAt: 1 }) });
+}
 
 // Submitting documents resets the shop to "pending" for re-review. A shop that is
 // already approved keeps its `verified` flag until an admin actually decides,
@@ -154,6 +165,25 @@ export async function applyForShopVerificationHandler(req: Request, res: Respons
     throw new ApiError(409, "A verification request is already under review");
   }
 
+  // Required fields are enforced against the live form definition rather than a
+  // fixed schema, since an admin can add or remove questions at any time.
+  const fields = await SellerVerificationField.find({ active: true });
+  const answers = req.body.answers as Record<string, string | string[]>;
+
+  for (const field of fields) {
+    if (!field.required) continue;
+    const answer = answers[String(field._id)];
+    const empty = answer === undefined || answer === "" || (Array.isArray(answer) && answer.length === 0);
+    if (empty) throw new ApiError(422, `"${field.label}" is required`);
+  }
+
+  // Only answers to fields that currently exist are stored — a client cannot
+  // smuggle arbitrary keys into the shop document.
+  const knownIds = new Set(fields.map((f) => String(f._id)));
+  shop.set(
+    "verificationAnswers",
+    Object.fromEntries(Object.entries(answers).filter(([id]) => knownIds.has(id))),
+  );
   shop.verificationDocs = req.body.verificationDocs;
   shop.verificationStatus = "pending";
   await shop.save();

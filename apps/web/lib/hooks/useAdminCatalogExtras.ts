@@ -159,10 +159,16 @@ export function useSendNewsletter() {
 export interface Currency {
   id: string;
   code: string;
+  name: string;
   symbol: string;
   rateToBase: number;
+  decimals: number;
+  /** Whether the symbol renders before or after the amount. */
+  symbolPosition: "before" | "after";
   active: boolean;
 }
+
+export type CurrencyInput = Omit<Currency, "id" | "active"> & { active?: boolean };
 
 export function useCurrencies() {
   return useQuery({
@@ -174,9 +180,26 @@ export function useCurrencies() {
 export function useCreateCurrency() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { code: string; symbol: string; rateToBase: number }) =>
-      (await api.post("/localization/admin/currencies", input)).data,
+    mutationFn: async (input: CurrencyInput) => (await api.post("/localization/admin/currencies", input)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["currencies"] }),
+  });
+}
+
+export function useUpdateCurrency() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<CurrencyInput> & { id: string }) =>
+      (await api.patch(`/localization/admin/currencies/${id}`, input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["currencies"] }),
+  });
+}
+
+export function useUpdateLanguage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id: string; rtl?: boolean; active?: boolean; name?: string }) =>
+      (await api.patch(`/localization/admin/languages/${id}`, input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["languages"] }),
   });
 }
 
@@ -337,6 +360,15 @@ export function useCreateSlider() {
   });
 }
 
+export function useUpdateSlider() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id: string; imageUrl?: string; linkUrl?: string; order?: number; active?: boolean }) =>
+      (await api.patch(`/homepage/admin/sliders/${id}`, input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "sliders"] }),
+  });
+}
+
 export function useDeleteSlider() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -365,6 +397,15 @@ export function useCreateBanner() {
   return useMutation({
     mutationFn: async (input: { imageUrl: string; linkUrl?: string; placement: string }) =>
       (await api.post("/homepage/admin/banners", input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "banners"] }),
+  });
+}
+
+export function useUpdateBanner() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id: string; imageUrl?: string; linkUrl?: string; placement?: string; active?: boolean }) =>
+      (await api.patch(`/homepage/admin/banners/${id}`, input)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "banners"] }),
   });
 }
