@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { demoModeGuard } from "../middleware/demoMode.js";
 import { authRouter } from "./auth.routes.js";
 import { catalogRouter } from "./catalog.routes.js";
 import { cartRouter } from "./cart.routes.js";
@@ -27,6 +28,10 @@ export const apiRouter = Router();
 apiRouter.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "api", timestamp: new Date().toISOString() });
 });
+
+// No-op unless an admin has switched the store into demo mode, in which case every
+// state-changing request below is refused (see middleware/demoMode.ts).
+apiRouter.use(demoModeGuard);
 
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/catalog", catalogRouter);

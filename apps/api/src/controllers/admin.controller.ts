@@ -7,6 +7,7 @@ import { SellerWithdrawRequest, SellerLedger } from "../models/Ledger.js";
 import { Role, AdminAuditLog } from "../models/Rbac.js";
 import { GeneralSetting, SeoSetting, BusinessSetting, Addon } from "../models/Settings.js";
 import { signAccessToken } from "../utils/jwt.js";
+import { invalidateDemoModeCache } from "../middleware/demoMode.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 // --- Dashboard -------------------------------------------------------------
@@ -192,6 +193,9 @@ export async function updateBusinessSettingsHandler(req: Request, res: Response)
     new: true,
     setDefaultsOnInsert: true,
   });
+  // The demo-mode guard caches this flag, so toggling it must take effect at once
+  // rather than after the cache window expires.
+  invalidateDemoModeCache();
   res.json(settings);
 }
 
