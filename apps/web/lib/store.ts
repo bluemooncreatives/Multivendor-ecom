@@ -67,3 +67,16 @@ export const useCompareStore = create<CompareState>()(
     { name: "compare-store" },
   ),
 );
+
+// Display-only currency preference for browsing (product cards/detail). Orders,
+// wallet, and admin financial records intentionally never use this — they stay
+// in whatever currency they were actually transacted in, so history doesn't
+// silently reprice itself as exchange rates move.
+interface CurrencyState {
+  code: string;
+  setCode: (code: string) => void;
+}
+
+export const useCurrencyStore = create<CurrencyState>()(
+  persist((set) => ({ code: "INR", setCode: (code) => set({ code }) }), { name: "currency-store" }),
+);

@@ -11,6 +11,7 @@ import { useAuthStore, useCompareStore } from "@/lib/store";
 import { useCart } from "@/lib/hooks/useCart";
 import { useCategories } from "@/lib/hooks/useProducts";
 import { useWishlist } from "@/lib/hooks/useWishlist";
+import { useDisplayCurrency } from "@/lib/hooks/useDisplayCurrency";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { locales } from "@/i18n";
 
@@ -24,6 +25,7 @@ export function SiteHeader() {
   const { data: categories } = useCategories();
   const { data: wishlist } = useWishlist();
   const compareIds = useCompareStore((s) => s.productIds);
+  const { code: currencyCode, setCode: setCurrencyCode, currencies } = useDisplayCurrency();
   const [menuOpen, setMenuOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
 
@@ -54,6 +56,20 @@ export function SiteHeader() {
             ))}
           </select>
           <div className="flex items-center gap-4">
+            {currencies.length > 0 && (
+              <select
+                aria-label="Currency"
+                className="bg-transparent text-xs"
+                value={currencyCode}
+                onChange={(e) => setCurrencyCode(e.target.value)}
+              >
+                {currencies.map((c) => (
+                  <option key={c.id} value={c.code}>
+                    {c.code}
+                  </option>
+                ))}
+              </select>
+            )}
             <Link href={`/${locale}/track-order`} className="hover:text-primary">
               Track Order
             </Link>

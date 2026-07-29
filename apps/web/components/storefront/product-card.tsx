@@ -6,15 +6,16 @@ import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Heart, Scale } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatPrice } from "@/lib/format";
 import { useAuthStore, useCompareStore } from "@/lib/store";
 import { useWishlist, useAddWishlistItem, useRemoveWishlistItem } from "@/lib/hooks/useWishlist";
+import { useDisplayCurrency } from "@/lib/hooks/useDisplayCurrency";
 import type { Product } from "@ecommercemultivendor/types";
 
 export function ProductCard({ product }: { product: Product }) {
   const locale = useLocale();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const { display } = useDisplayCurrency();
   const { data: wishlist } = useWishlist();
   const addWishlist = useAddWishlistItem();
   const removeWishlist = useRemoveWishlistItem();
@@ -85,10 +86,10 @@ export function ProductCard({ product }: { product: Product }) {
           <div className="flex items-baseline gap-2">
             {hasDiscount && (
               <span className="text-xs text-muted-foreground line-through">
-                {formatPrice(comparePrice as number, product.currency, locale)}
+                {display(comparePrice as number, product.currency)}
               </span>
             )}
-            <span className="text-sm font-semibold">{formatPrice(price, product.currency, locale)}</span>
+            <span className="text-sm font-semibold">{display(price, product.currency)}</span>
           </div>
           <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
         </CardContent>

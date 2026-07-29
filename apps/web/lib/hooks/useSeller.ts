@@ -101,6 +101,20 @@ export function usePublicShop(slug: string) {
   });
 }
 
+export function useShopBySellerId(sellerId?: string) {
+  return useQuery({
+    queryKey: ["shop", "by-seller", sellerId],
+    queryFn: async () => {
+      try {
+        return (await api.get<Shop>(`/seller/shops/by-seller/${sellerId}`)).data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!sellerId,
+  });
+}
+
 export function useSaveShop() {
   const queryClient = useQueryClient();
   return useMutation({

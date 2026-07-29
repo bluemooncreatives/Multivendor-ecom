@@ -7,6 +7,7 @@ import {
   getMyShopHandler,
   createOrUpdateShopHandler,
   getPublicShopHandler,
+  getShopBySellerIdHandler,
   getSellerLedgerSummaryHandler,
   listSellerLedgerHandler,
   createWithdrawRequestHandler,
@@ -20,6 +21,7 @@ export const sellerRouter = Router();
 sellerRouter.get("/shop", authenticate, requireRole("seller"), asyncHandler(getMyShopHandler));
 sellerRouter.put("/shop", authenticate, requireRole("seller"), validateBody(shopSchema), asyncHandler(createOrUpdateShopHandler));
 sellerRouter.get("/shops/:slug", asyncHandler(getPublicShopHandler));
+sellerRouter.get("/shops/by-seller/:sellerId", asyncHandler(getShopBySellerIdHandler));
 
 sellerRouter.get("/ledger/summary", authenticate, requireRole("seller"), asyncHandler(getSellerLedgerSummaryHandler));
 sellerRouter.get("/ledger", authenticate, requireRole("seller"), asyncHandler(listSellerLedgerHandler));

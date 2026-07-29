@@ -2,21 +2,29 @@
 
 import { use, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
+import { Heart, Scale, Store, CheckCircle2 } from "lucide-react";
 import { useProduct, useProducts } from "@/lib/hooks/useProducts";
 import { useSetCartItem } from "@/lib/hooks/useCart";
+import { useShopBySellerId } from "@/lib/hooks/useSeller";
+import { useWishlist, useAddWishlistItem, useRemoveWishlistItem } from "@/lib/hooks/useWishlist";
+import { useAuthStore, useCompareStore } from "@/lib/store";
+import { useDisplayCurrency } from "@/lib/hooks/useDisplayCurrency";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ProductCard } from "@/components/storefront/product-card";
 import { ProductReviews } from "@/components/storefront/product-reviews";
 import { StorefrontSection } from "@/components/storefront/section";
-import { formatPrice } from "@/lib/format";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const locale = useLocale();
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const { data: product, isLoading } = useProduct(slug);
   const setCartItem = useSetCartItem();
   const [variantSku, setVariantSku] = useState<string | null>(null);
@@ -30,6 +38,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   );
 
   const { data: related } = useProducts({ categoryId: product?.categoryId, sort: "newest" });
+  const { data: shop } = useShopBySellerId(product?.sellerId);
+  const { data: wishlist } = useWishlist();
+  const addWishlist = useAddWishlistItem();
+  const removeWishlist = useRemoveWishlistItem();
+  const compareIds = useCompareStore((s) => s.productIds);
+  const toggleCompare = useCompareStore((s) => s.toggle);
+  const { display } = useDisplayCurrency();
 
   if (isLoading) return <div className="container py-10 text-muted-foreground">Loading…</div>;
   if (!product) return <div className="container py-10">Product not found.</div>;
@@ -39,6 +54,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const price = variant?.price ?? product.basePrice;
   const hasDiscount = !!comparePrice && comparePrice > price;
   const relatedProducts = (related?.items ?? []).filter((p) => p.id !== product.id).slice(0, 5);
+  const isWishlisted = !!wishlist?.find((item) => item.productId.id === product.id);
+  const isComparing = compareIds.includes(product.id);
+
+  function toggleWishlist() {
+    if (!user) {
+      router.push(`/${locale}/login`);
+      return;
+    }
+    if (isWishlisted) removeWishlist.mutate(product.id);
+    else addWishlist.mutate(product.id);
+  }
 
   async function handleAddToCart() {
     if (!product || !variant) return;
@@ -85,10 +111,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           <div className="flex items-baseline gap-3 border-t pt-4">
             {hasDiscount && (
               <span className="text-lg text-muted-foreground line-through">
-                {formatPrice(comparePrice as number, product.currency, locale)}
+                {display(comparePrice as number, product.currency)}
               </span>
             )}
-            <span className="text-2xl font-bold text-primary">{formatPrice(price, product.currency, locale)}</span>
+            <span className="text-2xl font-bold text-primary">{display(price, product.currency)}</span>
           </div>
 
           {product.variants.length > 1 && (
@@ -118,7 +144,31 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             <Button onClick={handleAddToCart} disabled={available <= 0 || setCartItem.isPending}>
               Add to Cart
             </Button>
+            <Button variant="outline" size="icon" onClick={toggleWishlist} aria-label="Toggle wishlist">
+              <Heart className={isWishlisted ? "h-4 w-4 fill-primary text-primary" : "h-4 w-4"} />
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => toggleCompare(product.id)} aria-label="Toggle compare">
+              <Scale className={isComparing ? "h-4 w-4 text-primary" : "h-4 w-4"} />
+            </Button>
           </div>
+
+          {shop && (
+            <Link
+              href={`/${locale}/store/${shop.slug}`}
+              className="flex items-center gap-3 rounded-md border p-3 hover:bg-accent"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <Store className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="flex items-center gap-1 text-sm font-medium">
+                  {shop.name}
+                  {shop.verified && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
+                </p>
+                <p className="text-xs text-muted-foreground">Visit store</p>
+              </div>
+            </Link>
+          )}
         </div>
       </div>
 

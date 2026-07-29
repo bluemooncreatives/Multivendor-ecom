@@ -37,6 +37,12 @@ export async function getPublicShopHandler(req: Request, res: Response) {
   res.json(shop);
 }
 
+export async function getShopBySellerIdHandler(req: Request, res: Response) {
+  const shop = await Shop.findOne({ sellerId: req.params.sellerId, verified: true });
+  if (!shop) throw new ApiError(404, "Shop not found");
+  res.json(shop);
+}
+
 // Authoritative "how much does the platform owe this seller" — summed straight
 // from the immutable ledger, never from a mutable cached balance field.
 export async function getSellerLedgerSummaryHandler(req: Request, res: Response) {
