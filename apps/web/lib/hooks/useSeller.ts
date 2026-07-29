@@ -4,18 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Product } from "@ecommercemultivendor/types";
 
-export interface SellerProductInput {
-  name: string;
-  slug: string;
-  categoryId: string;
-  description: string;
-  images: string[];
-  basePrice: number;
-  variants: { sku: string; attributes: Record<string, string>; price: number; stock: number }[];
-  tags: string[];
-  isDigital?: boolean;
-  digitalFileUrl?: string;
-}
+import type { ProductFormInput } from "./useCatalogForm";
+
+/** @deprecated Use ProductFormInput — the form now sends the full legacy field set. */
+export type SellerProductInput = ProductFormInput;
 
 export function useSellerProducts() {
   return useQuery({
@@ -24,10 +16,26 @@ export function useSellerProducts() {
   });
 }
 
+// The seller list endpoint returns every field, so the edit page reads its
+// product from that cache-shared list rather than needing a by-id endpoint.
+export function useSellerProduct(id: string) {
+  const { data, ...rest } = useSellerProducts();
+  return { ...rest, data: data?.find((p) => p.id === id) };
+}
+
 export function useCreateSellerProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: SellerProductInput) => (await api.post("/catalog/seller/products", input)).data,
+    mutationFn: async (input: ProductFormInput) => (await api.post("/catalog/seller/products", input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seller", "products"] }),
+  });
+}
+
+export function useUpdateSellerProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: ProductFormInput & { id: string }) =>
+      (await api.patch(`/catalog/seller/products/${id}`, input)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seller", "products"] }),
   });
 }

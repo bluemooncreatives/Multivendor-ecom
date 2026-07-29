@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { ProductFormInput } from "./useCatalogForm";
 
 // --- Coupons ---------------------------------------------------------------------
 
@@ -157,14 +158,40 @@ export interface AdminProduct {
   featured: boolean;
   todaysDeal: boolean;
   approvalStatus: "pending" | "approved" | "rejected";
-  sellerId: string;
+  // Null for admin-owned ("In House") listings, which have no vendor.
+  sellerId: string | null;
+  addedBy: "admin" | "seller";
+  currency: string;
 }
 
-export function useAdminProducts(params: { q?: string; approvalStatus?: string; published?: boolean; page?: number } = {}) {
+export function useAdminProducts(
+  params: { q?: string; approvalStatus?: string; published?: boolean; sellerId?: string; page?: number } = {},
+) {
   return useQuery({
     queryKey: ["admin", "products", params],
     queryFn: async () =>
       (await api.get<{ items: AdminProduct[]; total: number; page: number }>("/catalog/admin/products", { params })).data,
+  });
+}
+
+// In-House products: authored by staff, so they carry no seller, skip the
+// moderation queue and are published on creation.
+export function useCreateAdminProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ProductFormInput) => (await api.post("/catalog/admin/products", input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
+  });
+}
+
+// Staff edit of any listing, including sellers' — the seller-scoped endpoint
+// deliberately refuses to touch products the requester does not own.
+export function useUpdateAdminProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<ProductFormInput> & { id: string }) =>
+      (await api.patch(`/catalog/admin/products/${id}`, input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
   });
 }
 

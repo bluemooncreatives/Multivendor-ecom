@@ -22,6 +22,7 @@ import { digitalProductRouter } from "./digitalproduct.routes.js";
 import { reportRouter } from "./report.routes.js";
 import { homepageRouter } from "./homepage.routes.js";
 import { extraGatewayRouter } from "./extragateway.routes.js";
+import { uploadRouter } from "./upload.routes.js";
 
 export const apiRouter = Router();
 
@@ -55,3 +56,4 @@ apiRouter.use("/digital-products", digitalProductRouter);
 apiRouter.use("/admin/reports", reportRouter);
 apiRouter.use("/homepage", homepageRouter);
 apiRouter.use("/payments", extraGatewayRouter);
+apiRouter.use("/uploads", uploadRouter);
