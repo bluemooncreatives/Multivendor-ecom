@@ -48,6 +48,9 @@ import {
   generateSkuCombinationsHandler,
   getVariantPriceHandler,
   adminCreateProductHandler,
+  adminBulkImportProductsHandler,
+  exportBrandsHandler,
+  exportCustomersHandler,
 } from "../controllers/product.controller.js";
 import { suggestionsHandler, popularSearchesHandler } from "../controllers/search.controller.js";
 import { optionalAuthenticate } from "../middleware/auth.js";
@@ -192,7 +195,16 @@ catalogRouter.patch(
 );
 catalogRouter.get("/admin/products/export", authenticate, requirePermission("catalog.manage"), asyncHandler(exportProductsHandler));
 catalogRouter.get("/admin/categories/export", authenticate, requirePermission("catalog.manage"), asyncHandler(exportCategoriesHandler));
+catalogRouter.get("/admin/brands/export", authenticate, requirePermission("catalog.manage"), asyncHandler(exportBrandsHandler));
 catalogRouter.get("/admin/sellers/export", authenticate, requirePermission("sellers.manage"), asyncHandler(exportSellersHandler));
+catalogRouter.get("/admin/customers/export", authenticate, requirePermission("users.manage"), asyncHandler(exportCustomersHandler));
+catalogRouter.post(
+  "/admin/products/bulk-import",
+  authenticate,
+  requirePermission("catalog.manage"),
+  upload.single("file"),
+  asyncHandler(adminBulkImportProductsHandler),
+);
 catalogRouter.get(
   "/admin/products/pending",
   authenticate,

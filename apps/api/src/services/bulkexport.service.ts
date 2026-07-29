@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import { Category } from "../models/Category.js";
+import { Category, Brand } from "../models/Category.js";
 import { Product } from "../models/Product.js";
 import { User } from "../models/User.js";
 
@@ -11,36 +11,89 @@ export async function exportProductsCsv(filter: { sellerId?: string } = {}): Pro
     .sort({ createdAt: -1 })
     .lean();
 
-  const categoryIds = [...new Set(products.map((p) => String(p.categoryId)))];
-  const categories = await Category.find({ _id: { $in: categoryIds } }, { slug: 1 }).lean();
-  const slugById = new Map(categories.map((c) => [String(c._id), c.slug]));
+  // A product stores only its deepest category; the coarser levels are recovered
+  // from that node's ancestors, so one lookup table covers all three columns.
+  const categories = await Category.find({}, { slug: 1, ancestors: 1 }).lean();
+  const categoryById = new Map(categories.map((c) => [String(c._id), c]));
 
-  const rows = products.flatMap((product) =>
-    product.variants.map((variant) => ({
+  const brandIds = [...new Set(products.map((p) => p.brandId).filter(Boolean).map(String))];
+  const brands = await Brand.find({ _id: { $in: brandIds } }, { slug: 1 }).lean();
+  const brandSlugById = new Map(brands.map((b) => [String(b._id), b.slug]));
+
+  /** Root -> ... -> chosen node, as slugs. */
+  function taxonomySlugs(categoryId: unknown): [string, string, string] {
+    const node = categoryById.get(String(categoryId));
+    if (!node) return ["", "", ""];
+    const chain = [...(node.ancestors ?? []).map(String), String(node._id)].map(
+      (id) => categoryById.get(id)?.slug ?? "",
+    );
+    return [chain[0] ?? "", chain[1] ?? "", chain[2] ?? ""];
+  }
+
+  const rows = products.flatMap((product) => {
+    const [categorySlug, subCategorySlug, subSubCategorySlug] = taxonomySlugs(product.categoryId);
+
+    return product.variants.map((variant) => ({
       name: product.name,
       slug: product.slug,
-      categorySlug: slugById.get(String(product.categoryId)) ?? "",
+      // Coarsest-first, matching the import header exactly.
+      categorySlug,
+      subCategorySlug,
+      subSubCategorySlug,
+      brandSlug: product.brandId ? (brandSlugById.get(String(product.brandId)) ?? "") : "",
       description: product.description ?? "",
       basePrice: product.basePrice,
+      purchasePrice: product.purchasePrice ?? 0,
       stock: variant.stock,
       sku: variant.sku,
+      unit: product.unit ?? "",
+      barcode: product.barcode ?? "",
+      discount: product.discount ?? 0,
+      discountType: product.discountType ?? "",
+      tax: product.tax ?? "",
+      taxType: product.taxType ?? "",
+      shippingType: product.shippingType ?? "",
+      shippingCost: product.shippingCost ?? 0,
+      minOrderQty: product.minOrderQty ?? 1,
+      videoProvider: product.videoProvider ?? "",
+      videoLink: product.videoLink ?? "",
+      metaTitle: product.metaTitle ?? "",
+      metaDescription: product.metaDescription ?? "",
       tags: (product.tags ?? []).join(","),
       variantPrice: variant.price,
       published: product.published ? "yes" : "no",
       approvalStatus: product.approvalStatus,
-    })),
-  );
+    }));
+  });
 
   return Papa.unparse(rows, {
     columns: [
       "name",
       "slug",
       "categorySlug",
+      "subCategorySlug",
+      "subSubCategorySlug",
+      "brandSlug",
       "description",
       "basePrice",
+      "purchasePrice",
       "stock",
       "sku",
+      "unit",
+      "barcode",
+      "discount",
+      "discountType",
+      "tax",
+      "taxType",
+      "shippingType",
+      "shippingCost",
+      "minOrderQty",
+      "videoProvider",
+      "videoLink",
+      "metaTitle",
+      "metaDescription",
       "tags",
+      // Read-only columns: the importer ignores these, they are for reference.
       "variantPrice",
       "published",
       "approvalStatus",
@@ -65,16 +118,44 @@ export async function exportCategoriesCsv(): Promise<string> {
   );
 }
 
-export async function exportSellersCsv(): Promise<string> {
-  const sellers = await User.find({ role: "seller" }).select("name email phone createdAt").sort({ name: 1 }).lean();
+// Brand reference sheet, so the importer's brandSlug column can be filled from a
+// known-good list rather than guessed.
+export async function exportBrandsCsv(): Promise<string> {
+  const brands = await Brand.find().sort({ name: 1 }).lean();
+  const categories = await Category.find({}, { name: 1 }).lean();
+  const nameById = new Map(categories.map((c) => [String(c._id), c.name]));
+
   return Papa.unparse(
-    sellers.map((s) => ({
-      id: String(s._id),
-      name: s.name,
-      email: s.email,
-      phone: s.phone ?? "",
-      joinedAt: s.createdAt?.toISOString() ?? "",
+    brands.map((b) => ({
+      id: String(b._id),
+      name: b.name,
+      slug: b.slug,
+      categories: (b.categoryIds ?? []).map((id) => nameById.get(String(id)) ?? "").filter(Boolean).join(" | "),
+      active: b.active ? "yes" : "no",
     })),
-    { columns: ["id", "name", "email", "phone", "joinedAt"] },
+    { columns: ["id", "name", "slug", "categories", "active"] },
+  );
+}
+
+export async function exportSellersCsv(): Promise<string> {
+  return exportUsersCsv("seller");
+}
+
+export async function exportCustomersCsv(): Promise<string> {
+  return exportUsersCsv("customer");
+}
+
+async function exportUsersCsv(role: "seller" | "customer"): Promise<string> {
+  const users = await User.find({ role }).select("name email phone banned createdAt").sort({ name: 1 }).lean();
+  return Papa.unparse(
+    users.map((u) => ({
+      id: String(u._id),
+      name: u.name,
+      email: u.email,
+      phone: u.phone ?? "",
+      banned: u.banned ? "yes" : "no",
+      joinedAt: u.createdAt?.toISOString() ?? "",
+    })),
+    { columns: ["id", "name", "email", "phone", "banned", "joinedAt"] },
   );
 }

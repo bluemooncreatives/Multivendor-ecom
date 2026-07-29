@@ -207,6 +207,25 @@ export function useUpdateProductFlags() {
   });
 }
 
+// Staff product import. Omitting sellerId creates admin-owned In-House rows.
+export function useImportAdminProducts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ file, sellerId }: { file: File; sellerId?: string }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return (
+        await api.post<{ created: number; skipped: { row: number; reason: string }[] }>(
+          "/catalog/admin/products/bulk-import",
+          formData,
+          { params: sellerId ? { sellerId } : {}, headers: { "Content-Type": "multipart/form-data" } },
+        )
+      ).data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
+  });
+}
+
 // Streams the CSV straight to a download without routing it through React state.
 export async function downloadCsv(path: string, filename: string) {
   const response = await api.get(path, { responseType: "blob" });

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useBulkImportProducts, type BulkImportResult } from "@/lib/hooks/useSeller";
+import { downloadCsv } from "@/lib/hooks/useAdminCommerce";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -32,15 +33,39 @@ export default function BulkUploadPage() {
         <CardHeader>
           <CardTitle className="text-base">CSV format</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>Upload a CSV with these columns:</p>
-          <code className="block rounded-md bg-muted p-2 text-xs">
-            name,slug,categorySlug,description,basePrice,stock,sku,tags
+          <code className="block overflow-x-auto rounded-md bg-muted p-2 text-xs">
+            name,slug,categorySlug,subCategorySlug,subSubCategorySlug,brandSlug,description,basePrice,purchasePrice,stock,sku,unit,barcode,discount,discountType,tax,taxType,shippingType,shippingCost,minOrderQty,videoProvider,videoLink,metaTitle,metaDescription,tags
           </code>
           <p>
-            <code>categorySlug</code> must match an existing category's slug. <code>tags</code> is optional,
-            comma-separated inside the cell. Each row becomes one product with a single variant.
+            Only <code>name</code>, <code>slug</code>, <code>categorySlug</code>, <code>basePrice</code> and{" "}
+            <code>sku</code> are required — leave any other column blank to take the default. The sub-category columns
+            must name categories in the same branch as <code>categorySlug</code>. <code>tags</code> is comma-separated
+            inside the cell. Each row becomes one product with a single variant.
           </p>
+          <p>
+            Exporting your catalog produces this exact header, so you can export, edit and re-upload without reshaping
+            anything.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Reference sheets</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {/* Look up the exact slugs the importer expects rather than guessing them. */}
+          <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/admin/categories/export", "categories.csv")}>
+            Categories
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/admin/brands/export", "brands.csv")}>
+            Brands
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/seller/products/export", "my-products.csv")}>
+            My current catalog
+          </Button>
         </CardContent>
       </Card>
 

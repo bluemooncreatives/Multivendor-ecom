@@ -5,7 +5,13 @@ import { Category } from "../models/Category.js";
 import { searchProducts } from "../services/product.service.js";
 import { recordSearch } from "../services/search.service.js";
 import { importProductsCsv } from "../services/bulkimport.service.js";
-import { exportProductsCsv, exportCategoriesCsv, exportSellersCsv } from "../services/bulkexport.service.js";
+import {
+  exportProductsCsv,
+  exportCategoriesCsv,
+  exportSellersCsv,
+  exportBrandsCsv,
+  exportCustomersCsv,
+} from "../services/bulkexport.service.js";
 import { assertSellerCanAddProduct } from "../services/quota.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
@@ -263,6 +269,17 @@ export async function bulkImportProductsHandler(req: Request, res: Response) {
   res.status(201).json(result);
 }
 
+// Staff import. `sellerId` may name a vendor to file the rows under; omitted, the
+// rows become admin-owned In-House products.
+export async function adminBulkImportProductsHandler(req: Request, res: Response) {
+  if (!req.file) throw new ApiError(400, "A CSV file is required");
+  const sellerId = (req.query.sellerId as string | undefined) ?? null;
+  const result = await importProductsCsv(sellerId, req.file.buffer, {
+    addedBy: sellerId ? "seller" : "admin",
+  });
+  res.status(201).json(result);
+}
+
 export async function listPendingProductsHandler(_req: Request, res: Response) {
   const products = await Product.find({ approvalStatus: "pending" }).sort({ createdAt: -1 });
   res.json({ items: products });
@@ -370,6 +387,20 @@ export async function exportSellersHandler(_req: Request, res: Response) {
   const csv = await exportSellersCsv();
   res.header("Content-Type", "text/csv");
   res.attachment("sellers.csv");
+  res.send(csv);
+}
+
+export async function exportBrandsHandler(_req: Request, res: Response) {
+  const csv = await exportBrandsCsv();
+  res.header("Content-Type", "text/csv");
+  res.attachment("brands.csv");
+  res.send(csv);
+}
+
+export async function exportCustomersHandler(_req: Request, res: Response) {
+  const csv = await exportCustomersCsv();
+  res.header("Content-Type", "text/csv");
+  res.attachment("customers.csv");
   res.send(csv);
 }
 
