@@ -6,6 +6,7 @@ import { DashboardNav } from "@/components/shared/dashboard-nav";
 const LINKS = [
   { href: "", label: "Overview" },
   { href: "/orders", label: "Orders" },
+  { href: "/refunds", label: "Refunds" },
   { href: "/wallet", label: "Wallet" },
   { href: "/addresses", label: "Addresses" },
   { href: "/wishlist", label: "Wishlist" },
