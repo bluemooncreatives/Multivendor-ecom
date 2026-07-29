@@ -35,14 +35,45 @@ const seoSettingSchema = new Schema(
 withJsonId(seoSettingSchema);
 export const SeoSetting = model("SeoSetting", seoSettingSchema);
 
+// The legacy "activation" screen: a flat list of feature switches that gate whole
+// subsystems. Kept as a named sub-document rather than loose booleans so a single
+// `settings.activation` read tells a caller everything that is switched on.
+const activationSchema = new Schema(
+  {
+    vendorSystem: { type: Boolean, default: true },
+    conversation: { type: Boolean, default: true },
+    couponSystem: { type: Boolean, default: true },
+    walletSystem: { type: Boolean, default: true },
+    pickupPoint: { type: Boolean, default: true },
+    guestCheckout: { type: Boolean, default: true },
+    classifiedProduct: { type: Boolean, default: false },
+    maintenanceMode: { type: Boolean, default: false },
+    forceHttps: { type: Boolean, default: false },
+    emailVerification: { type: Boolean, default: true },
+    categoryBasedCommission: { type: Boolean, default: false },
+    cashOnDelivery: { type: Boolean, default: true },
+    reviewSystem: { type: Boolean, default: true },
+  },
+  { _id: false },
+);
+
 const businessSettingSchema = new Schema(
   {
     key: { type: String, required: true, unique: true, default: "business" },
     taxPercent: { type: Number, default: 0 },
     commissionPercent: { type: Number, default: 10 },
-    shippingMode: { type: String, enum: ["flat", "weight_based", "area_based", "free"], default: "flat" },
+    // `product_wise` and `seller_wise` restore the legacy shipping models: cost
+    // taken from each product, or from each seller's shop, rather than one rate.
+    shippingMode: {
+      type: String,
+      enum: ["flat", "product_wise", "seller_wise", "free"],
+      default: "flat",
+    },
     flatShippingCost: { type: Number, default: 0 },
+    // Applied to admin-owned products under seller_wise, which have no shop row.
+    adminShippingCost: { type: Number, default: 0 },
     minOrderForFreeShipping: { type: Number, default: null },
+    activation: { type: activationSchema, default: () => ({}) },
     demoMode: { type: Boolean, default: false },
   },
   { timestamps: true },

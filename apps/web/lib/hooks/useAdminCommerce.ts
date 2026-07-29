@@ -61,6 +61,9 @@ export interface Category {
   slug: string;
   parentId: string | null;
   level: 0 | 1 | 2;
+  ancestors: string[];
+  // Overrides the global commission when category-based commission is enabled.
+  commissionRate: number | null;
   featured: boolean;
   active: boolean;
   order: number;
@@ -71,6 +74,8 @@ export interface Brand {
   name: string;
   slug: string;
   logoUrl?: string;
+  // Categories this brand is offered under; empty means every category.
+  categoryIds: string[];
   featured: boolean;
   active: boolean;
 }

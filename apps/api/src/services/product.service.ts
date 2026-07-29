@@ -1,9 +1,14 @@
 import { FilterQuery } from "mongoose";
 import { Product } from "../models/Product.js";
+import { Category } from "../models/Category.js";
 
 export interface ProductSearchParams {
   q?: string;
   categoryId?: string;
+  subCategoryId?: string;
+  subSubCategoryId?: string;
+  colorId?: string;
+  attributes?: Record<string, string>;
   brandId?: string;
   sellerId?: string;
   minPrice?: number;
@@ -24,7 +29,23 @@ export async function searchProducts(params: ProductSearchParams) {
     approvalStatus: "approved",
   };
 
-  if (params.categoryId) filter.categoryId = params.categoryId;
+  // Browsing a root or mid-level category must include everything filed beneath it.
+  // Products store only their deepest node in categoryId, so the filter expands to
+  // that node plus its whole subtree, found via the ancestors index in one query.
+  if (params.subSubCategoryId) {
+    filter.categoryId = params.subSubCategoryId;
+  } else if (params.subCategoryId || params.categoryId) {
+    const rootId = params.subCategoryId ?? params.categoryId!;
+    const descendants = await Category.find({ ancestors: rootId }, { _id: 1 });
+    filter.categoryId = { $in: [rootId, ...descendants.map((c) => c._id)] };
+  }
+
+  if (params.colorId) filter.colors = params.colorId;
+  // Variant attribute facets (size, material, …): a product matches if any one of
+  // its variants carries the requested value.
+  for (const [name, value] of Object.entries(params.attributes ?? {})) {
+    filter[`variants.attributes.${name}`] = value;
+  }
   if (params.brandId) filter.brandId = params.brandId;
   if (params.sellerId) filter.sellerId = params.sellerId;
   if (params.tags?.length) filter.tags = { $all: params.tags };

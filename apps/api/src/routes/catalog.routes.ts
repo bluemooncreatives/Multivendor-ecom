@@ -19,6 +19,9 @@ import {
   featureToggleSchema,
   updateCategoryFeaturedHandler,
   updateBrandFeaturedHandler,
+  listChildCategoriesHandler,
+  listBrandsForCategoryHandler,
+  listAttributesForCategoryHandler,
 } from "../controllers/category.controller.js";
 import {
   productSchema,
@@ -44,6 +47,7 @@ import {
   skuCombinationSchema,
   generateSkuCombinationsHandler,
   getVariantPriceHandler,
+  adminCreateProductHandler,
 } from "../controllers/product.controller.js";
 import { suggestionsHandler, popularSearchesHandler } from "../controllers/search.controller.js";
 import { optionalAuthenticate } from "../middleware/auth.js";
@@ -52,6 +56,10 @@ export const catalogRouter = Router();
 
 // Public reads
 catalogRouter.get("/categories", asyncHandler(listCategoriesHandler));
+// Cascade lookups for the product form (category -> sub -> sub-sub -> brands/attributes).
+catalogRouter.get("/categories/children", asyncHandler(listChildCategoriesHandler));
+catalogRouter.get("/categories/brands", asyncHandler(listBrandsForCategoryHandler));
+catalogRouter.get("/categories/attributes", asyncHandler(listAttributesForCategoryHandler));
 catalogRouter.get("/brands", asyncHandler(listBrandsHandler));
 catalogRouter.get("/search/suggestions", asyncHandler(suggestionsHandler));
 catalogRouter.get("/search/popular", asyncHandler(popularSearchesHandler));
@@ -160,6 +168,21 @@ catalogRouter.patch(
 
 // Admin catalog & moderation queue
 catalogRouter.get("/admin/products", authenticate, requirePermission("catalog.manage"), asyncHandler(listAllProductsHandler));
+// Admin-owned "In House" listings, which have no seller and skip moderation.
+catalogRouter.post(
+  "/admin/products",
+  authenticate,
+  requirePermission("catalog.manage"),
+  validateBody(productSchema),
+  asyncHandler(adminCreateProductHandler),
+);
+catalogRouter.post(
+  "/admin/products/sku-combinations",
+  authenticate,
+  requirePermission("catalog.manage"),
+  validateBody(skuCombinationSchema),
+  asyncHandler(generateSkuCombinationsHandler),
+);
 catalogRouter.patch(
   "/admin/products/:id",
   authenticate,

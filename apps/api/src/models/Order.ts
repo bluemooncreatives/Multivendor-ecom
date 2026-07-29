@@ -18,7 +18,9 @@ const orderItemSchema = new Schema(
 // ever sees/manages their own line items and fulfillment status.
 const orderDetailSchema = new Schema(
   {
-    sellerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    // Null for admin-owned ("In House") products: the platform is the seller, so
+    // there is no vendor to pay out and no commission to deduct.
+    sellerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     items: { type: [orderItemSchema], required: true },
     subtotal: { type: Number, required: true, min: 0 },
     commissionRate: { type: Number, required: true, min: 0 },

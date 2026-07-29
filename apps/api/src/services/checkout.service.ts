@@ -66,7 +66,14 @@ export async function createOrder(input: CheckoutInput) {
 
       // Snapshot every product/variant inside the transaction so pricing can never
       // drift between "what the shopper saw" and "what they're charged" mid-checkout.
-      const bySeller = new Map<string, { items: (typeof Order extends never ? never : any)[]; subtotal: number }>();
+      // Admin-owned products have no seller, so they group under a reserved key and
+      // settle with zero commission — the platform is both merchant and payee.
+      const ADMIN_BUCKET = "__admin__";
+      const bySeller = new Map<
+        string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { items: any[]; subtotal: number; categoryId: string | null }
+      >();
       const stockLines: StockLine[] = [];
 
       for (const cartItem of cart.items) {
@@ -75,8 +82,8 @@ export async function createOrder(input: CheckoutInput) {
         const variant = product.variants.find((v) => v.sku === cartItem.variantSku);
         if (!variant) throw new ApiError(409, "One of the selected variants is no longer available");
 
-        const sellerId = String(product.sellerId);
-        const bucket = bySeller.get(sellerId) ?? { items: [], subtotal: 0 };
+        const sellerId = product.sellerId ? String(product.sellerId) : ADMIN_BUCKET;
+        const bucket = bySeller.get(sellerId) ?? { items: [], subtotal: 0, categoryId: String(product.categoryId) };
         const lineTotal = variant.price * cartItem.quantity;
         bucket.items.push({
           productId: product._id,
@@ -101,8 +108,9 @@ export async function createOrder(input: CheckoutInput) {
 
       const details = [];
       let subtotalSum = 0;
-      for (const [sellerId, bucket] of bySeller) {
-        const { rate, amount } = await calculateCommission(sellerId, bucket.subtotal);
+      for (const [sellerKey, bucket] of bySeller) {
+        const sellerId = sellerKey === ADMIN_BUCKET ? null : sellerKey;
+        const { rate, amount } = await calculateCommission(sellerId, bucket.subtotal, bucket.categoryId);
         details.push({
           sellerId,
           items: bucket.items,
@@ -155,6 +163,8 @@ export async function createOrder(input: CheckoutInput) {
         await confirmReservation(stockLines, String(orderId), session);
         for (const detail of details) {
           detail.status = "confirmed";
+          // Admin-owned lines have no vendor account to credit.
+          if (!detail.sellerId) continue;
           await SellerLedger.create(
             [
               { sellerId: detail.sellerId, orderId, type: "sale", amount: detail.subtotal, note: "Order confirmed" },

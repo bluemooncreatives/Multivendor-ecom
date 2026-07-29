@@ -38,12 +38,11 @@ export default function AdminTaxonomyPage() {
   const deleteBrand = useDeleteBrand();
   const toggleBrandFeatured = useToggleBrandFeatured();
 
-  const [category, setCategory] = useState<{ id?: string; name: string; slug: string; parentId: string | null }>({
-    name: "",
-    slug: "",
-    parentId: null,
-  });
-  const [brand, setBrand] = useState<{ id?: string; name: string; slug: string; logoUrl?: string }>({ name: "", slug: "" });
+  const emptyCategory = { name: "", slug: "", parentId: null as string | null, commissionRate: null as number | null };
+  const emptyBrand = { name: "", slug: "", logoUrl: "", categoryIds: [] as string[] };
+
+  const [category, setCategory] = useState<typeof emptyCategory & { id?: string }>(emptyCategory);
+  const [brand, setBrand] = useState<typeof emptyBrand & { id?: string }>(emptyBrand);
 
   // Only levels 0 and 1 can take children — level 2 is the deepest the API allows.
   const parentOptions = useMemo(() => (categories ?? []).filter((c) => c.level < 2), [categories]);
@@ -72,7 +71,19 @@ export default function AdminTaxonomyPage() {
             >
               {c.featured ? "Unfeature" : "Feature"}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setCategory({ id: c.id, name: c.name, slug: c.slug, parentId: c.parentId })}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setCategory({
+                  id: c.id,
+                  name: c.name,
+                  slug: c.slug,
+                  parentId: c.parentId,
+                  commissionRate: c.commissionRate,
+                })
+              }
+            >
               Edit
             </Button>
             <Button variant="ghost" size="sm" onClick={() => deleteCategory.mutate(c.id)}>
@@ -100,10 +111,10 @@ export default function AdminTaxonomyPage() {
         </CardHeader>
         <CardContent>
           <form
-            className="grid gap-4 md:grid-cols-4"
+            className="grid gap-4 md:grid-cols-5"
             onSubmit={(e) => {
               e.preventDefault();
-              saveCategory.mutate(category, { onSuccess: () => setCategory({ name: "", slug: "", parentId: null }) });
+              saveCategory.mutate(category, { onSuccess: () => setCategory(emptyCategory) });
             }}
           >
             <div className="space-y-1">
@@ -143,12 +154,27 @@ export default function AdminTaxonomyPage() {
                 ))}
               </select>
             </div>
+            <div className="space-y-1">
+              <Label htmlFor="cat-commission">Commission %</Label>
+              <Input
+                id="cat-commission"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                placeholder="Global rate"
+                value={category.commissionRate ?? ""}
+                onChange={(e) =>
+                  setCategory({ ...category, commissionRate: e.target.value === "" ? null : Number(e.target.value) })
+                }
+              />
+            </div>
             <div className="flex items-end gap-2">
               <Button type="submit" disabled={saveCategory.isPending}>
                 {category.id ? "Save" : "Add"}
               </Button>
               {category.id && (
-                <Button type="button" variant="outline" onClick={() => setCategory({ name: "", slug: "", parentId: null })}>
+                <Button type="button" variant="outline" onClick={() => setCategory(emptyCategory)}>
                   Cancel
                 </Button>
               )}
@@ -170,10 +196,10 @@ export default function AdminTaxonomyPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <form
-            className="grid gap-4 md:grid-cols-4"
+            className="grid gap-4 md:grid-cols-5"
             onSubmit={(e) => {
               e.preventDefault();
-              saveBrand.mutate(brand, { onSuccess: () => setBrand({ name: "", slug: "" }) });
+              saveBrand.mutate(brand, { onSuccess: () => setBrand(emptyBrand) });
             }}
           >
             <div className="space-y-1">
@@ -199,12 +225,32 @@ export default function AdminTaxonomyPage() {
               <Label htmlFor="brand-logo">Logo URL</Label>
               <Input id="brand-logo" value={brand.logoUrl ?? ""} onChange={(e) => setBrand({ ...brand, logoUrl: e.target.value })} />
             </div>
+            <div className="space-y-1">
+              <Label htmlFor="brand-categories">Categories</Label>
+              <select
+                id="brand-categories"
+                multiple
+                className="h-24 w-full rounded-md border bg-background px-3 py-1 text-sm"
+                value={brand.categoryIds}
+                onChange={(e) =>
+                  setBrand({ ...brand, categoryIds: Array.from(e.target.selectedOptions, (o) => o.value) })
+                }
+              >
+                {(categories ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {"— ".repeat(c.level)}
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">Leave empty to offer this brand everywhere.</p>
+            </div>
             <div className="flex items-end gap-2">
               <Button type="submit" disabled={saveBrand.isPending}>
                 {brand.id ? "Save" : "Add"}
               </Button>
               {brand.id && (
-                <Button type="button" variant="outline" onClick={() => setBrand({ name: "", slug: "" })}>
+                <Button type="button" variant="outline" onClick={() => setBrand(emptyBrand)}>
                   Cancel
                 </Button>
               )}
@@ -220,7 +266,19 @@ export default function AdminTaxonomyPage() {
                   <Button variant="ghost" size="sm" onClick={() => toggleBrandFeatured.mutate({ id: b.id, featured: !b.featured })}>
                     {b.featured ? "Unfeature" : "Feature"}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setBrand({ id: b.id, name: b.name, slug: b.slug, logoUrl: b.logoUrl })}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setBrand({
+                        id: b.id,
+                        name: b.name,
+                        slug: b.slug,
+                        logoUrl: b.logoUrl ?? "",
+                        categoryIds: b.categoryIds ?? [],
+                      })
+                    }
+                  >
                     Edit
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => deleteBrand.mutate(b.id)}>

@@ -82,7 +82,8 @@ export async function cancelOrder(orderId: string, requester: AuthenticatedUser)
         }
         detail.status = "cancelled";
 
-        if (wasConfirmed) {
+        // Admin-owned lines never produced a ledger entry, so there is none to reverse.
+        if (wasConfirmed && detail.sellerId) {
           await SellerLedger.create(
             [
               { sellerId: detail.sellerId, orderId: order._id, type: "refund", amount: -detail.subtotal, note: "Order cancelled" },

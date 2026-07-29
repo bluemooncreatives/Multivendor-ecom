@@ -95,6 +95,7 @@ export async function settleOrderPayment(orderId: string, method: string, provid
 
       for (const detail of order.details) {
         detail.status = "confirmed";
+        if (!detail.sellerId) continue; // admin-owned line: no vendor to credit
         await SellerLedger.create(
           [
             { sellerId: detail.sellerId, orderId: order._id, type: "sale", amount: detail.subtotal, note: "Order paid" },
