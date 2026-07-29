@@ -4,6 +4,7 @@ import { Address } from "../models/Address.js";
 import { Wishlist } from "../models/Address.js";
 import { Ticket } from "../models/Support.js";
 import { User } from "../models/User.js";
+import { importCustomersCsv } from "../services/customerimport.service.js";
 import { comparePassword, hashPassword } from "../utils/password.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
@@ -122,8 +123,22 @@ export async function listMyTicketsHandler(req: Request, res: Response) {
   res.json({ items: await Ticket.find({ userId: req.user!.id }).sort({ updatedAt: -1 }) });
 }
 
-export async function listAdminTicketsHandler(_req: Request, res: Response) {
-  res.json({ items: await Ticket.find().populate("userId", "name email").sort({ updatedAt: -1 }) });
+export async function listAdminTicketsHandler(req: Request, res: Response) {
+  const { status } = req.query as { status?: string };
+  res.json({
+    items: await Ticket.find(status ? { status } : {})
+      .populate("userId", "name email")
+      .sort({ updatedAt: -1 }),
+  });
+}
+
+export async function getTicketHandler(req: Request, res: Response) {
+  const filter = req.user!.role === "customer" ? { _id: req.params.id, userId: req.user!.id } : { _id: req.params.id };
+  const ticket = await Ticket.findOne(filter)
+    .populate("userId", "name email")
+    .populate("replies.authorId", "name role avatarUrl");
+  if (!ticket) throw new ApiError(404, "Ticket not found");
+  res.json(ticket);
 }
 
 export const replyTicketSchema = z.object({ message: z.string().min(1) });
@@ -132,9 +147,38 @@ export async function replyTicketHandler(req: Request, res: Response) {
   const filter = req.user!.role === "customer" ? { _id: req.params.id, userId: req.user!.id } : { _id: req.params.id };
   const ticket = await Ticket.findOne(filter);
   if (!ticket) throw new ApiError(404, "Ticket not found");
+  if (ticket.status === "closed") throw new ApiError(409, "This ticket is closed. Open a new one to continue.");
 
   ticket.replies.push({ authorId: req.user!.id, message: req.body.message } as never);
   ticket.status = req.user!.role === "customer" ? "open" : "answered";
   await ticket.save();
   res.json(ticket);
+}
+
+export const updateTicketSchema = z.object({
+  status: z.enum(["open", "answered", "closed"]).optional(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
+});
+
+// A customer may close their own ticket but cannot reopen or reprioritise it —
+// triage stays with support, so nobody can jump the queue by setting "high".
+export async function updateTicketHandler(req: Request, res: Response) {
+  const isStaff = req.user!.role === "admin" || req.user!.role === "staff";
+  if (!isStaff) {
+    if (req.body.priority !== undefined) throw new ApiError(403, "Only support staff can set ticket priority");
+    if (req.body.status !== "closed") throw new ApiError(403, "You can only close your own ticket");
+  }
+
+  const filter = isStaff ? { _id: req.params.id } : { _id: req.params.id, userId: req.user!.id };
+  const ticket = await Ticket.findOneAndUpdate(filter, req.body, { new: true });
+  if (!ticket) throw new ApiError(404, "Ticket not found");
+  res.json(ticket);
+}
+
+// --- Admin: customer import ------------------------------------------------------
+
+export async function bulkImportCustomersHandler(req: Request, res: Response) {
+  if (!req.file) throw new ApiError(400, "A CSV file is required");
+  const result = await importCustomersCsv(req.file.buffer);
+  res.status(201).json(result);
 }

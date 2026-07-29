@@ -14,12 +14,22 @@ import {
   listMyWithdrawRequestsHandler,
   withdrawRequestSchema,
   fulfillOrderItemHandler,
+  fulfillmentSchema,
+  applyForShopVerificationHandler,
+  shopVerificationSchema,
 } from "../controllers/seller.controller.js";
 
 export const sellerRouter = Router();
 
 sellerRouter.get("/shop", authenticate, requireRole("seller"), asyncHandler(getMyShopHandler));
 sellerRouter.put("/shop", authenticate, requireRole("seller"), validateBody(shopSchema), asyncHandler(createOrUpdateShopHandler));
+sellerRouter.post(
+  "/shop/verification",
+  authenticate,
+  requireRole("seller"),
+  validateBody(shopVerificationSchema),
+  asyncHandler(applyForShopVerificationHandler),
+);
 sellerRouter.get("/shops/:slug", asyncHandler(getPublicShopHandler));
 sellerRouter.get("/shops/by-seller/:sellerId", asyncHandler(getShopBySellerIdHandler));
 
@@ -35,4 +45,10 @@ sellerRouter.post(
 );
 sellerRouter.get("/withdrawals", authenticate, requireRole("seller"), asyncHandler(listMyWithdrawRequestsHandler));
 
-sellerRouter.patch("/orders/:orderId/fulfillment", authenticate, requireRole("seller"), asyncHandler(fulfillOrderItemHandler));
+sellerRouter.patch(
+  "/orders/:orderId/fulfillment",
+  authenticate,
+  requireRole("seller"),
+  validateBody(fulfillmentSchema),
+  asyncHandler(fulfillOrderItemHandler),
+);

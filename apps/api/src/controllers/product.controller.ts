@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { Product } from "../models/Product.js";
 import { searchProducts } from "../services/product.service.js";
+import { recordSearch } from "../services/search.service.js";
 import { importProductsCsv } from "../services/bulkimport.service.js";
 import { exportProductsCsv, exportCategoriesCsv, exportSellersCsv } from "../services/bulkexport.service.js";
 import { assertSellerCanAddProduct } from "../services/quota.service.js";
@@ -51,6 +52,8 @@ export const searchQuerySchema = z.object({
 export async function searchProductsHandler(req: Request, res: Response) {
   const params = searchQuerySchema.parse(req.query);
   const result = await searchProducts(params);
+  // Analytics only — deliberately not awaited so a slow write never delays results.
+  if (params.q) recordSearch(params.q, result.total, req.user?.id);
   res.json(result);
 }
 

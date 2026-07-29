@@ -34,7 +34,55 @@ import {
   resolveRechargeRequestHandler,
   resolveRechargeRequestSchema,
 } from "../controllers/wallet.controller.js";
-import { listAdminTicketsHandler, replyTicketHandler, replyTicketSchema } from "../controllers/customer.controller.js";
+import {
+  listAdminTicketsHandler,
+  replyTicketHandler,
+  replyTicketSchema,
+  getTicketHandler,
+  updateTicketHandler,
+  updateTicketSchema,
+  bulkImportCustomersHandler,
+} from "../controllers/customer.controller.js";
+import {
+  listSellersHandler,
+  getSellerDetailHandler,
+  getSellerPaymentHistoryHandler,
+  payToSellerHandler,
+  payoutSchema,
+  listAllPayoutsHandler,
+  listPendingShopVerificationsHandler,
+} from "../controllers/sellermanage.controller.js";
+import {
+  updateRoleHandler,
+  deleteRoleHandler,
+  listPermissionsHandler,
+  listStaffHandler,
+  createStaffHandler,
+  createStaffSchema,
+  updateStaffHandler,
+  updateStaffSchema,
+  deleteStaffHandler,
+} from "../controllers/staff.controller.js";
+import {
+  updateOrderStatusHandler,
+  updateOrderStatusSchema,
+  updateOrderPaymentStatusHandler,
+  updatePaymentStatusSchema,
+  cancelOrderAsAdminHandler,
+  listOrdersByPickupPointHandler,
+} from "../controllers/adminorder.controller.js";
+import {
+  getOtpSettingsHandler,
+  updateOtpSettingsHandler,
+  otpSettingsSchema,
+  updateOtpCredentialsHandler,
+  otpCredentialsSchema,
+  sendBulkSmsHandler,
+  sendSmsSchema,
+  listSmsLogsHandler,
+} from "../controllers/sms.controller.js";
+import { searchReportHandler } from "../controllers/search.controller.js";
+import { upload } from "../middleware/upload.js";
 
 export const adminRouter = Router();
 
@@ -53,9 +101,37 @@ adminRouter.patch(
 
 adminRouter.post("/users/:id/impersonate", requireRole("admin"), asyncHandler(impersonateUserHandler));
 
+adminRouter.post(
+  "/users/import",
+  requirePermission("users.manage"),
+  upload.single("file"),
+  asyncHandler(bulkImportCustomersHandler),
+);
+
+// --- Roles, permissions & staff ---
 adminRouter.get("/roles", requirePermission("staff.manage"), asyncHandler(listRolesHandler));
 adminRouter.post("/roles", requirePermission("staff.manage"), validateBody(roleSchema), asyncHandler(createRoleHandler));
+adminRouter.patch("/roles/:id", requirePermission("staff.manage"), validateBody(roleSchema.partial()), asyncHandler(updateRoleHandler));
+adminRouter.delete("/roles/:id", requirePermission("staff.manage"), asyncHandler(deleteRoleHandler));
+adminRouter.get("/permissions", requirePermission("staff.manage"), asyncHandler(listPermissionsHandler));
 
+adminRouter.get("/staff", requirePermission("staff.manage"), asyncHandler(listStaffHandler));
+adminRouter.post("/staff", requireRole("admin"), validateBody(createStaffSchema), asyncHandler(createStaffHandler));
+adminRouter.patch("/staff/:id", requireRole("admin"), validateBody(updateStaffSchema), asyncHandler(updateStaffHandler));
+adminRouter.delete("/staff/:id", requireRole("admin"), asyncHandler(deleteStaffHandler));
+
+// --- Sellers ---
+adminRouter.get("/sellers", requirePermission("sellers.manage"), asyncHandler(listSellersHandler));
+adminRouter.get("/sellers/verifications", requirePermission("sellers.manage"), asyncHandler(listPendingShopVerificationsHandler));
+adminRouter.get("/sellers/payouts", requirePermission("payments.manage"), asyncHandler(listAllPayoutsHandler));
+adminRouter.get("/sellers/:id", requirePermission("sellers.manage"), asyncHandler(getSellerDetailHandler));
+adminRouter.get("/sellers/:id/payments", requirePermission("payments.manage"), asyncHandler(getSellerPaymentHistoryHandler));
+adminRouter.post(
+  "/sellers/:id/payouts",
+  requirePermission("payments.manage"),
+  validateBody(payoutSchema),
+  asyncHandler(payToSellerHandler),
+);
 adminRouter.patch(
   "/sellers/:id/verify",
   requirePermission("sellers.manage"),
@@ -71,9 +147,32 @@ adminRouter.patch(
   asyncHandler(resolveWithdrawRequestHandler),
 );
 
+// --- Orders ---
 adminRouter.get("/orders", requirePermission("orders.manage"), asyncHandler(listAllOrdersHandler));
+adminRouter.get("/orders/by-pickup-point", requirePermission("orders.manage"), asyncHandler(listOrdersByPickupPointHandler));
+adminRouter.patch(
+  "/orders/:id/status",
+  requirePermission("orders.manage"),
+  validateBody(updateOrderStatusSchema),
+  asyncHandler(updateOrderStatusHandler),
+);
+adminRouter.patch(
+  "/orders/:id/payment-status",
+  requirePermission("orders.manage"),
+  validateBody(updatePaymentStatusSchema),
+  asyncHandler(updateOrderPaymentStatusHandler),
+);
+adminRouter.post("/orders/:id/cancel", requirePermission("orders.manage"), asyncHandler(cancelOrderAsAdminHandler));
 
+// --- Support tickets ---
 adminRouter.get("/tickets", requirePermission("orders.manage"), asyncHandler(listAdminTicketsHandler));
+adminRouter.get("/tickets/:id", requirePermission("orders.manage"), asyncHandler(getTicketHandler));
+adminRouter.patch(
+  "/tickets/:id",
+  requirePermission("orders.manage"),
+  validateBody(updateTicketSchema),
+  asyncHandler(updateTicketHandler),
+);
 adminRouter.post(
   "/tickets/:id/reply",
   requirePermission("orders.manage"),
@@ -95,6 +194,25 @@ adminRouter.get("/settings/seo", requirePermission("settings.manage"), asyncHand
 adminRouter.put("/settings/seo", requirePermission("settings.manage"), asyncHandler(updateSeoSettingsHandler));
 adminRouter.get("/settings/business", requirePermission("settings.manage"), asyncHandler(getBusinessSettingsHandler));
 adminRouter.put("/settings/business", requirePermission("settings.manage"), asyncHandler(updateBusinessSettingsHandler));
+
+// --- SMS / OTP configuration ---
+adminRouter.get("/settings/otp", requirePermission("settings.manage"), asyncHandler(getOtpSettingsHandler));
+adminRouter.put(
+  "/settings/otp",
+  requirePermission("settings.manage"),
+  validateBody(otpSettingsSchema),
+  asyncHandler(updateOtpSettingsHandler),
+);
+adminRouter.put(
+  "/settings/otp/credentials",
+  requireRole("admin"),
+  validateBody(otpCredentialsSchema),
+  asyncHandler(updateOtpCredentialsHandler),
+);
+adminRouter.post("/sms/send", requirePermission("settings.manage"), validateBody(sendSmsSchema), asyncHandler(sendBulkSmsHandler));
+adminRouter.get("/sms/logs", requirePermission("settings.manage"), asyncHandler(listSmsLogsHandler));
+
+adminRouter.get("/reports/searches", requirePermission("reports.view"), asyncHandler(searchReportHandler));
 
 adminRouter.get("/addons", requirePermission("settings.manage"), asyncHandler(listAddonsHandler));
 adminRouter.patch(

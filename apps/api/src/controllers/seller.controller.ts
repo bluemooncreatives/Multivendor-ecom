@@ -97,6 +97,10 @@ const FULFILLMENT_FLOW: Record<string, string[]> = {
   refunded: [],
 };
 
+export const fulfillmentSchema = z.object({
+  status: z.enum(["confirmed", "processing", "shipped", "delivered", "cancelled"]),
+});
+
 export async function fulfillOrderItemHandler(req: Request, res: Response) {
   const { orderId } = req.params;
   const { status } = req.body as { status: string };

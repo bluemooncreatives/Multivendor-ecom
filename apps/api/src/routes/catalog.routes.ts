@@ -12,6 +12,13 @@ import {
   deleteCategoryHandler,
   listBrandsHandler,
   createBrandHandler,
+  updateBrandHandler,
+  deleteBrandHandler,
+  listAllCategoriesHandler,
+  listAllBrandsHandler,
+  featureToggleSchema,
+  updateCategoryFeaturedHandler,
+  updateBrandFeaturedHandler,
 } from "../controllers/category.controller.js";
 import {
   productSchema,
@@ -27,15 +34,32 @@ import {
   listPendingProductsHandler,
   moderateProductHandler,
   approveProductSchema,
+  productFlagsSchema,
+  updateProductFlagsHandler,
+  listAllProductsHandler,
+  adminUpdateProductHandler,
+  exportProductsHandler,
+  exportCategoriesHandler,
+  exportSellersHandler,
+  skuCombinationSchema,
+  generateSkuCombinationsHandler,
+  getVariantPriceHandler,
 } from "../controllers/product.controller.js";
+import { suggestionsHandler, popularSearchesHandler } from "../controllers/search.controller.js";
+import { optionalAuthenticate } from "../middleware/auth.js";
 
 export const catalogRouter = Router();
 
 // Public reads
 catalogRouter.get("/categories", asyncHandler(listCategoriesHandler));
 catalogRouter.get("/brands", asyncHandler(listBrandsHandler));
-catalogRouter.get("/products", asyncHandler(searchProductsHandler));
+catalogRouter.get("/search/suggestions", asyncHandler(suggestionsHandler));
+catalogRouter.get("/search/popular", asyncHandler(popularSearchesHandler));
+// optionalAuthenticate so a signed-in shopper's searches are attributed to them,
+// while guests can still search.
+catalogRouter.get("/products", optionalAuthenticate, asyncHandler(searchProductsHandler));
 catalogRouter.get("/products/by-ids", asyncHandler(getProductsByIdsHandler));
+catalogRouter.get("/products/:id/variant-price", asyncHandler(getVariantPriceHandler));
 catalogRouter.get("/products/:slug", asyncHandler(getProductHandler));
 
 // Admin/staff taxonomy management
@@ -59,12 +83,36 @@ catalogRouter.delete(
   requirePermission("catalog.manage"),
   asyncHandler(deleteCategoryHandler),
 );
+catalogRouter.get("/admin/categories", authenticate, requirePermission("catalog.manage"), asyncHandler(listAllCategoriesHandler));
+catalogRouter.patch(
+  "/categories/:id/featured",
+  authenticate,
+  requirePermission("catalog.manage"),
+  validateBody(featureToggleSchema),
+  asyncHandler(updateCategoryFeaturedHandler),
+);
 catalogRouter.post(
   "/brands",
   authenticate,
   requirePermission("catalog.manage"),
   validateBody(brandSchema),
   asyncHandler(createBrandHandler),
+);
+catalogRouter.get("/admin/brands", authenticate, requirePermission("catalog.manage"), asyncHandler(listAllBrandsHandler));
+catalogRouter.patch(
+  "/brands/:id",
+  authenticate,
+  requirePermission("catalog.manage"),
+  validateBody(brandSchema.partial()),
+  asyncHandler(updateBrandHandler),
+);
+catalogRouter.delete("/brands/:id", authenticate, requirePermission("catalog.manage"), asyncHandler(deleteBrandHandler));
+catalogRouter.patch(
+  "/brands/:id/featured",
+  authenticate,
+  requirePermission("catalog.manage"),
+  validateBody(featureToggleSchema),
+  asyncHandler(updateBrandFeaturedHandler),
 );
 
 // Seller product management (ownership enforced inside the controllers via sellerId scoping)
@@ -93,7 +141,35 @@ catalogRouter.post(
   asyncHandler(bulkImportProductsHandler),
 );
 
-// Admin moderation queue
+catalogRouter.post(
+  "/seller/products/sku-combinations",
+  authenticate,
+  requireRole("seller"),
+  validateBody(skuCombinationSchema),
+  asyncHandler(generateSkuCombinationsHandler),
+);
+catalogRouter.get("/seller/products/export", authenticate, requireRole("seller"), asyncHandler(exportProductsHandler));
+
+// Flag toggles are shared: sellers may publish their own, staff may also feature.
+catalogRouter.patch(
+  "/products/:id/flags",
+  authenticate,
+  validateBody(productFlagsSchema),
+  asyncHandler(updateProductFlagsHandler),
+);
+
+// Admin catalog & moderation queue
+catalogRouter.get("/admin/products", authenticate, requirePermission("catalog.manage"), asyncHandler(listAllProductsHandler));
+catalogRouter.patch(
+  "/admin/products/:id",
+  authenticate,
+  requirePermission("catalog.manage"),
+  validateBody(productSchema.partial()),
+  asyncHandler(adminUpdateProductHandler),
+);
+catalogRouter.get("/admin/products/export", authenticate, requirePermission("catalog.manage"), asyncHandler(exportProductsHandler));
+catalogRouter.get("/admin/categories/export", authenticate, requirePermission("catalog.manage"), asyncHandler(exportCategoriesHandler));
+catalogRouter.get("/admin/sellers/export", authenticate, requirePermission("sellers.manage"), asyncHandler(exportSellersHandler));
 catalogRouter.get(
   "/admin/products/pending",
   authenticate,

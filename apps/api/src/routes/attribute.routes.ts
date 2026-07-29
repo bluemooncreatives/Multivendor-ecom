@@ -9,6 +9,7 @@ import {
   deleteAttributeHandler,
   listColorsHandler,
   createColorHandler,
+  updateColorHandler,
   deleteColorHandler,
   attributeSchema,
   colorSchema,
@@ -40,5 +41,12 @@ attributeRouter.post(
   requirePermission("catalog.manage"),
   validateBody(colorSchema),
   asyncHandler(createColorHandler),
+);
+attributeRouter.patch(
+  "/colors/:id",
+  authenticate,
+  requirePermission("catalog.manage"),
+  validateBody(colorSchema.partial()),
+  asyncHandler(updateColorHandler),
 );
 attributeRouter.delete("/colors/:id", authenticate, requirePermission("catalog.manage"), asyncHandler(deleteColorHandler));

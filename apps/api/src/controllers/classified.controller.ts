@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { CustomerProduct } from "../models/CustomerProduct.js";
+import { assertCustomerCanAddClassified } from "../services/quota.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 export const classifiedSchema = z.object({
@@ -24,6 +25,7 @@ export async function listClassifiedsHandler(req: Request, res: Response) {
 }
 
 export async function createClassifiedHandler(req: Request, res: Response) {
+  await assertCustomerCanAddClassified(req.user!.id);
   const item = await CustomerProduct.create({ ...req.body, userId: req.user!.id, status: "pending" });
   res.status(201).json(item);
 }
