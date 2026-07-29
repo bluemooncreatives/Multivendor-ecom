@@ -21,6 +21,18 @@ import {
   listGatewayConfigsHandler,
   upsertGatewayConfigHandler,
   gatewayConfigSchema,
+  createPaytmSessionHandler,
+  paytmCallbackHandler,
+  createMpesaPushHandler,
+  mpesaPushSchema,
+  mpesaCallbackHandler,
+  createFlutterwaveSessionHandler,
+  flutterwaveCallbackHandler,
+  flutterwaveWebhookHandler,
+  createTwoCheckoutSessionHandler,
+  twoCheckoutCallbackHandler,
+  createGatewayIntentHandler,
+  createIntentSchema,
 } from "../controllers/extragateway.controller.js";
 
 export const extraGatewayRouter = Router();
@@ -48,6 +60,34 @@ extraGatewayRouter.get("/instamojo/redirect/:orderId", asyncHandler(instamojoRed
 extraGatewayRouter.get("/paystack/callback/:orderId", asyncHandler(paystackCallbackHandler));
 extraGatewayRouter.post("/voguepay/notify/:orderId", asyncHandler(voguePayNotifyHandler));
 extraGatewayRouter.post("/payhere/notify/:orderId", asyncHandler(payhereNotifyHandler));
+
+// Paytm, M-Pesa, Flutterwave and 2Checkout
+extraGatewayRouter.post("/paytm/:orderId/session", optionalAuthenticate, asyncHandler(createPaytmSessionHandler));
+extraGatewayRouter.post("/paytm/callback/:orderId", asyncHandler(paytmCallbackHandler));
+
+extraGatewayRouter.post(
+  "/mpesa/:orderId/session",
+  optionalAuthenticate,
+  validateBody(mpesaPushSchema),
+  asyncHandler(createMpesaPushHandler),
+);
+extraGatewayRouter.post("/mpesa/callback/:orderId", asyncHandler(mpesaCallbackHandler));
+
+extraGatewayRouter.post("/flutterwave/:orderId/session", optionalAuthenticate, asyncHandler(createFlutterwaveSessionHandler));
+extraGatewayRouter.get("/flutterwave/callback/:orderId", asyncHandler(flutterwaveCallbackHandler));
+extraGatewayRouter.post("/flutterwave/webhook", asyncHandler(flutterwaveWebhookHandler));
+
+extraGatewayRouter.post("/twocheckout/:orderId/session", optionalAuthenticate, asyncHandler(createTwoCheckoutSessionHandler));
+extraGatewayRouter.post("/twocheckout/callback/:orderId", asyncHandler(twoCheckoutCallbackHandler));
+
+// Wallet top-ups and package purchases become a payable, which the gateway
+// session endpoints above then accept in place of an order id.
+extraGatewayRouter.post(
+  "/intents",
+  authenticate,
+  validateBody(createIntentSchema),
+  asyncHandler(createGatewayIntentHandler),
+);
 
 // Admin credential management
 extraGatewayRouter.get("/admin/gateways", authenticate, requirePermission("payments.manage"), asyncHandler(listGatewayConfigsHandler));

@@ -4,6 +4,7 @@ import { validateBody } from "../middleware/validate.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   createStripeIntentHandler,
+  createStripeCheckoutHandler,
   createRazorpayOrderHandler,
   createPaypalOrderHandler,
   capturePaypalOrderHandler,
@@ -44,6 +45,7 @@ paymentRouter.patch(
 );
 
 paymentRouter.post("/:orderId/stripe/intent", optionalAuthenticate, asyncHandler(createStripeIntentHandler));
+paymentRouter.post("/:orderId/stripe/checkout", optionalAuthenticate, asyncHandler(createStripeCheckoutHandler));
 paymentRouter.post("/:orderId/razorpay/order", optionalAuthenticate, asyncHandler(createRazorpayOrderHandler));
 paymentRouter.post("/:orderId/paypal/order", optionalAuthenticate, asyncHandler(createPaypalOrderHandler));
 paymentRouter.post(

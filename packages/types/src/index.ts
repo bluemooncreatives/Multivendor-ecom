@@ -28,7 +28,11 @@ export type PaymentMethod =
   | "paystack"
   | "voguepay"
   | "payhere"
-  | "ngenius";
+  | "ngenius"
+  | "paytm"
+  | "mpesa"
+  | "flutterwave"
+  | "twocheckout";
 
 export type StockReservationStatus = "reserved" | "confirmed" | "released";
 

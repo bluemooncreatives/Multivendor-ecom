@@ -3,10 +3,13 @@ import { withJsonId } from "./plugins.js";
 
 const paymentSchema = new Schema(
   {
-    orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true, index: true },
+    // Exactly one of these is set: `orderId` for a checkout, `intentId` for a
+    // wallet top-up or package purchase (see models/GatewayIntent).
+    orderId: { type: Schema.Types.ObjectId, ref: "Order", default: null, index: true },
+    intentId: { type: Schema.Types.ObjectId, ref: "GatewayIntent", default: null, index: true },
     method: {
       type: String,
-      enum: ["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"],
+      enum: ["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius", "paytm", "mpesa", "flutterwave", "twocheckout"],
       required: true,
     },
     amount: { type: Number, required: true, min: 0 },

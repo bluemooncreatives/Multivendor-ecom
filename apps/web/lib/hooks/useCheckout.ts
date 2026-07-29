@@ -3,6 +3,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuthStore, useGuestStore } from "@/lib/store";
+import type { PaymentMethod } from "@ecommercemultivendor/types";
 
 export interface InlineAddress {
   line1: string;
@@ -16,19 +17,9 @@ export interface InlineAddress {
 
 export interface CheckoutInput {
   address: InlineAddress;
-  paymentMethod:
-    | "stripe"
-    | "razorpay"
-    | "paypal"
-    | "cod"
-    | "wallet"
-    | "manual"
-    | "sslcommerz"
-    | "instamojo"
-    | "paystack"
-    | "voguepay"
-    | "payhere"
-    | "ngenius";
+  // Shared with the API so the two lists cannot drift — a method the server
+  // accepts but the client does not know about is how gateways get skipped.
+  paymentMethod: PaymentMethod;
   couponCode?: string;
   /** Per-seller home-delivery vs pickup choice, keyed by seller id. */
   deliveryChoices?: Record<string, { method: "home_delivery" | "pickup_point"; pickupPointId?: string }>;

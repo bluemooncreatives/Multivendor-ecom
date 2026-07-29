@@ -45,6 +45,13 @@ export async function createStripeIntentHandler(req: Request, res: Response) {
   res.json(result);
 }
 
+// Hosted Checkout, which the storefront uses — no card data reaches this app.
+export async function createStripeCheckoutHandler(req: Request, res: Response) {
+  await assertOrderOwnership(String(req.params.orderId), req);
+  const result = await paymentService.createStripeCheckoutSession(String(req.params.orderId));
+  res.json(result);
+}
+
 export async function createRazorpayOrderHandler(req: Request, res: Response) {
   await assertOrderOwnership(String(req.params.orderId), req);
   const result = await paymentService.createRazorpayOrder(String(req.params.orderId));

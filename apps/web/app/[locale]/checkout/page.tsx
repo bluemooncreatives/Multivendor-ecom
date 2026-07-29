@@ -17,7 +17,18 @@ import {
   type InlineAddress,
   type CheckoutInput,
 } from "@/lib/hooks/useCheckout";
-import { useCreateGatewaySession, useCreatePayhereSession, submitAutoForm, type RedirectGateway } from "@/lib/hooks/useExtraGateways";
+import {
+  useCreateGatewaySession,
+  useCreateFormPostSession,
+  useCreateRazorpayOrder,
+  useCreateMpesaPush,
+  useCreatePaypalOrder,
+  useCapturePaypalOrder,
+  submitAutoForm,
+  loadScript,
+  type RedirectGateway,
+  type FormPostGateway,
+} from "@/lib/hooks/useExtraGateways";
 import { useAuthStore } from "@/lib/store";
 import { formatPrice } from "@/lib/format";
 import { CheckoutSteps } from "@/components/storefront/checkout-steps";
@@ -40,9 +51,27 @@ const PAYMENT_METHODS: { value: CheckoutInput["paymentMethod"]; label: string }[
   { value: "voguepay", label: "VoguePay" },
   { value: "payhere", label: "Payhere" },
   { value: "ngenius", label: "N-Genius" },
+  { value: "paytm", label: "Paytm" },
+  { value: "mpesa", label: "M-Pesa" },
+  { value: "flutterwave", label: "Flutterwave" },
+  { value: "twocheckout", label: "2Checkout" },
 ];
 
-const REDIRECT_GATEWAYS: RedirectGateway[] = ["sslcommerz", "instamojo", "paystack", "voguepay", "ngenius"];
+const REDIRECT_GATEWAYS: RedirectGateway[] = [
+  "sslcommerz",
+  "instamojo",
+  "paystack",
+  "voguepay",
+  "ngenius",
+  "flutterwave",
+  // Stripe uses a hosted Checkout Session, so it redirects like the others.
+  "stripe",
+];
+
+const FORM_POST_GATEWAYS: FormPostGateway[] = ["payhere", "paytm", "twocheckout"];
+
+// Settled at order-creation time, with no gateway round trip.
+const SYNCHRONOUS_METHODS = ["cod", "wallet", "manual"];
 
 type DeliveryChoice = { method: "home_delivery" | "pickup_point"; pickupPointId?: string };
 
@@ -63,7 +92,17 @@ export default function CheckoutPage() {
   const createPaystackSession = useCreateGatewaySession("paystack");
   const createVoguePaySession = useCreateGatewaySession("voguepay");
   const createNgeniusSession = useCreateGatewaySession("ngenius");
-  const createPayhereSession = useCreatePayhereSession();
+  const createFlutterwaveSession = useCreateGatewaySession("flutterwave");
+  const createStripeSession = useCreateGatewaySession("stripe");
+
+  const createPayhereSession = useCreateFormPostSession("payhere");
+  const createPaytmSession = useCreateFormPostSession("paytm");
+  const createTwoCheckoutSession = useCreateFormPostSession("twocheckout");
+
+  const createRazorpayOrder = useCreateRazorpayOrder();
+  const createMpesaPush = useCreateMpesaPush();
+  const createPaypalOrder = useCreatePaypalOrder();
+  const capturePaypalOrder = useCapturePaypalOrder();
 
   const redirectSessionByGateway: Record<RedirectGateway, typeof createSslcommerzSession> = {
     sslcommerz: createSslcommerzSession,
@@ -71,6 +110,14 @@ export default function CheckoutPage() {
     paystack: createPaystackSession,
     voguepay: createVoguePaySession,
     ngenius: createNgeniusSession,
+    flutterwave: createFlutterwaveSession,
+    stripe: createStripeSession,
+  };
+
+  const formPostByGateway: Record<FormPostGateway, typeof createPayhereSession> = {
+    payhere: createPayhereSession,
+    paytm: createPaytmSession,
+    twocheckout: createTwoCheckoutSession,
   };
 
   const [step, setStep] = useState<Step>("address");
@@ -132,8 +179,8 @@ export default function CheckoutPage() {
         idempotencyKey,
       });
 
-      if (paymentMethod === "payhere") {
-        const session = await createPayhereSession.mutateAsync(order.id);
+      if ((FORM_POST_GATEWAYS as string[]).includes(paymentMethod)) {
+        const session = await formPostByGateway[paymentMethod as FormPostGateway].mutateAsync(order.id);
         submitAutoForm(session.actionUrl, session.fields);
         return;
       }
@@ -144,12 +191,91 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Card gateways (Stripe/Razorpay/PayPal) are handled by the payment step's
-      // widget before this point; anything reaching here has settled server-side.
+      if (paymentMethod === "razorpay") {
+        await payWithRazorpay(order);
+        return;
+      }
+
+      if (paymentMethod === "paypal") {
+        await payWithPaypal(order);
+        return;
+      }
+
+      if (paymentMethod === "mpesa") {
+        if (!address.phone) return toast.error("A phone number is required for M-Pesa");
+        const push = await createMpesaPush.mutateAsync({ orderId: order.id, phone: address.phone });
+        toast.success(push.message);
+        router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`);
+        return;
+      }
+
+      // Only COD, wallet and manual reach here — every gateway is dispatched
+      // above. Falling through to the confirmation page for a card method is
+      // what previously produced confirmed-looking but unpaid orders.
+      if (!SYNCHRONOUS_METHODS.includes(paymentMethod)) {
+        toast.error("That payment method could not be started. Your order has not been charged.");
+        return;
+      }
+
       router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`);
     } catch (err) {
       toast.error(apiError(err, "Could not place order"));
     }
+  }
+
+  /** Razorpay Checkout opens over this page rather than redirecting away. */
+  async function payWithRazorpay(order: { id: string; code: string }) {
+    const rzp = await createRazorpayOrder.mutateAsync(order.id);
+    await loadScript("https://checkout.razorpay.com/v1/checkout.js");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Razorpay = (window as any).Razorpay;
+    if (!Razorpay) throw new Error("Razorpay could not be loaded");
+
+    new Razorpay({
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      order_id: rzp.razorpayOrderId,
+      amount: rzp.amount,
+      currency: rzp.currency,
+      name: "Order payment",
+      prefill: { contact: address.phone },
+      // The webhook is what actually settles the order; this callback only moves
+      // the shopper along once the modal reports success.
+      handler: () => router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`),
+      modal: {
+        ondismiss: () => toast.error("Payment cancelled — your order has not been charged."),
+      },
+    }).open();
+  }
+
+  /**
+   * PayPal's SDK renders its own buttons, which needs a container in the DOM.
+   * Rather than restructure the review step around that, the order is created
+   * server-side and approved in a popup window opened from this click — which
+   * browsers allow because it is still within the user gesture.
+   */
+  async function payWithPaypal(order: { id: string; code: string }) {
+    const { paypalOrderId } = await createPaypalOrder.mutateAsync(order.id);
+    const approvalUrl = `https://www.paypal.com/checkoutnow?token=${paypalOrderId}`;
+
+    const popup = window.open(approvalUrl, "paypal", "width=500,height=650");
+    if (!popup) {
+      toast.error("Allow pop-ups to pay with PayPal. Your order has not been charged.");
+      return;
+    }
+
+    // Poll for the window closing, then capture. Capture is idempotent server-
+    // side, and an abandoned approval simply leaves the order unpaid.
+    const timer = setInterval(async () => {
+      if (!popup.closed) return;
+      clearInterval(timer);
+      try {
+        await capturePaypalOrder.mutateAsync({ orderId: order.id, paypalOrderId });
+        router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`);
+      } catch {
+        toast.error("PayPal did not confirm the payment. Your order has not been charged.");
+      }
+    }, 800);
   }
 
   if (!cart || cart.items.length === 0) {
