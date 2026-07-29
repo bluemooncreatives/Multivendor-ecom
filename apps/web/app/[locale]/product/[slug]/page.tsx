@@ -62,8 +62,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       router.push(`/${locale}/login`);
       return;
     }
-    if (isWishlisted) removeWishlist.mutate(product.id);
-    else addWishlist.mutate(product.id);
+    if (isWishlisted) removeWishlist.mutate(product!.id);
+    else addWishlist.mutate(product!.id);
   }
 
   async function handleAddToCart() {

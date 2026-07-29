@@ -10,24 +10,35 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCart } from "@/lib/hooks/useCart";
 import { useCheckout, useValidateCoupon, type InlineAddress, type CheckoutInput } from "@/lib/hooks/useCheckout";
+import { useCreateGatewaySession, useCreatePayhereSession, submitAutoForm, type RedirectGateway } from "@/lib/hooks/useExtraGateways";
 import { formatPrice } from "@/lib/format";
 import { CheckoutSteps } from "@/components/storefront/checkout-steps";
 
 type Step = "address" | "payment" | "review";
 
-const PAYMENT_METHODS: { value: CheckoutInput["paymentMethod"]; labelKey: string }[] = [
-  { value: "cod", labelKey: "cod" },
-  { value: "wallet", labelKey: "wallet" },
-  { value: "manual", labelKey: "manual" },
-  { value: "stripe", labelKey: "stripe" },
-  { value: "razorpay", labelKey: "razorpay" },
-  { value: "paypal", labelKey: "paypal" },
+const PAYMENT_METHODS: { value: CheckoutInput["paymentMethod"]; label: string }[] = [
+  { value: "cod", label: "Cash on delivery" },
+  { value: "wallet", label: "Wallet" },
+  { value: "manual", label: "Manual / bank transfer" },
+  { value: "stripe", label: "Card (Stripe)" },
+  { value: "razorpay", label: "Razorpay" },
+  { value: "paypal", label: "PayPal" },
+  { value: "sslcommerz", label: "SSLCommerz" },
+  { value: "instamojo", label: "Instamojo" },
+  { value: "paystack", label: "PayStack" },
+  { value: "voguepay", label: "VoguePay" },
+  { value: "payhere", label: "Payhere" },
+  { value: "ngenius", label: "N-Genius" },
 ];
 
-// Gateway checkout (Stripe/Razorpay/PayPal) creates the order first (synchronously
-// settled methods like COD/Wallet/Manual finish here), then hands off to that
-// gateway's hosted widget — wiring the actual Stripe Elements / Razorpay
-// Checkout.js / PayPal Buttons SDK is the next increment on top of this flow.
+const REDIRECT_GATEWAYS: RedirectGateway[] = ["sslcommerz", "instamojo", "paystack", "voguepay", "ngenius"];
+
+// Synchronously-settled methods (COD/Wallet/Manual) finish right here. The
+// redirect-based regional gateways create a session against the just-created
+// order and hand the browser off to that gateway's hosted payment page — the
+// gateway's own callback settles the order server-side once payment completes.
+// Stripe/Razorpay/PayPal's hosted-widget (Elements / Checkout.js / Buttons SDK)
+// integration remains the acknowledged next increment on top of this flow.
 export default function CheckoutPage() {
   const t = useTranslations("checkout");
   const locale = useLocale();
@@ -35,6 +46,20 @@ export default function CheckoutPage() {
   const { data: cart } = useCart();
   const checkout = useCheckout();
   const validateCoupon = useValidateCoupon();
+  const createSslcommerzSession = useCreateGatewaySession("sslcommerz");
+  const createInstamojoSession = useCreateGatewaySession("instamojo");
+  const createPaystackSession = useCreateGatewaySession("paystack");
+  const createVoguePaySession = useCreateGatewaySession("voguepay");
+  const createNgeniusSession = useCreateGatewaySession("ngenius");
+  const createPayhereSession = useCreatePayhereSession();
+
+  const redirectSessionByGateway: Record<RedirectGateway, typeof createSslcommerzSession> = {
+    sslcommerz: createSslcommerzSession,
+    instamojo: createInstamojoSession,
+    paystack: createPaystackSession,
+    voguepay: createVoguePaySession,
+    ngenius: createNgeniusSession,
+  };
 
   const [step, setStep] = useState<Step>("address");
   const [address, setAddress] = useState<InlineAddress>({
@@ -73,6 +98,19 @@ export default function CheckoutPage() {
         couponCode: discount > 0 ? couponCode : undefined,
         idempotencyKey,
       });
+
+      if (paymentMethod === "payhere") {
+        const session = await createPayhereSession.mutateAsync(order.id);
+        submitAutoForm(session.actionUrl, session.fields);
+        return;
+      }
+
+      if ((REDIRECT_GATEWAYS as string[]).includes(paymentMethod)) {
+        const session = await redirectSessionByGateway[paymentMethod as RedirectGateway].mutateAsync(order.id);
+        window.location.href = session.redirectUrl;
+        return;
+      }
+
       router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? "Could not place order");
@@ -146,7 +184,7 @@ export default function CheckoutPage() {
                     checked={paymentMethod === method.value}
                     onChange={() => setPaymentMethod(method.value)}
                   />
-                  {t(method.labelKey)}
+                  {method.label}
                 </label>
               ))}
             </div>

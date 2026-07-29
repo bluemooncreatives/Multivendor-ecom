@@ -448,6 +448,31 @@ export function useWishlistReport() {
   });
 }
 
+// --- Extra payment gateway credentials --------------------------------------------
+
+export interface PaymentGatewayConfig {
+  id: string;
+  code: string;
+  enabled: boolean;
+  credentials: Record<string, unknown>;
+}
+
+export function useGatewayConfigs() {
+  return useQuery({
+    queryKey: ["admin", "gateways"],
+    queryFn: async () => (await api.get<{ items: PaymentGatewayConfig[] }>("/payments/admin/gateways")).data.items,
+  });
+}
+
+export function useSaveGatewayConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { code: string; enabled: boolean; credentials: Record<string, unknown> }) =>
+      (await api.put(`/payments/admin/gateways/${input.code}`, { enabled: input.enabled, credentials: input.credentials })).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "gateways"] }),
+  });
+}
+
 // --- Impersonation -----------------------------------------------------------------
 
 export function useImpersonateUser() {

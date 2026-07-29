@@ -24,6 +24,7 @@ const LINKS = [
   { href: "/localization", label: "Currencies & languages" },
   { href: "/pickup-points", label: "Pickup points" },
   { href: "/newsletter", label: "Newsletter" },
+  { href: "/payment-gateways", label: "Payment gateways" },
   { href: "/addons", label: "Add-ons" },
   { href: "/settings", label: "Settings" },
 ];

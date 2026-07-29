@@ -16,7 +16,19 @@ export interface InlineAddress {
 
 export interface CheckoutInput {
   address: InlineAddress;
-  paymentMethod: "stripe" | "razorpay" | "paypal" | "cod" | "wallet" | "manual";
+  paymentMethod:
+    | "stripe"
+    | "razorpay"
+    | "paypal"
+    | "cod"
+    | "wallet"
+    | "manual"
+    | "sslcommerz"
+    | "instamojo"
+    | "paystack"
+    | "voguepay"
+    | "payhere"
+    | "ngenius";
   couponCode?: string;
   idempotencyKey: string;
 }
