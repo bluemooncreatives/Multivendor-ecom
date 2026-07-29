@@ -10,8 +10,10 @@ const LINKS = [
   { href: "/pos", label: "POS" },
   { href: "/reviews", label: "Reviews" },
   { href: "/conversations", label: "Messages" },
+  { href: "/refunds", label: "Refund requests" },
   { href: "/ledger", label: "Ledger" },
   { href: "/withdrawals", label: "Withdrawals" },
+  { href: "/package", label: "Your package" },
   { href: "/shop", label: "Shop settings" },
 ];
 

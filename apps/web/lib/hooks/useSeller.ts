@@ -78,6 +78,8 @@ export interface Shop {
   bannerUrl?: string;
   description?: string;
   verified?: boolean;
+  verificationStatus?: "pending" | "approved" | "rejected";
+  verificationDocs?: string[];
 }
 
 export function useMyShop() {
@@ -119,6 +121,15 @@ export function useSaveShop() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: Shop) => (await api.put<Shop>("/seller/shop", input)).data,
+    onSuccess: (shop) => queryClient.setQueryData(["seller", "shop"], shop),
+  });
+}
+
+export function useApplyForVerification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (verificationDocs: string[]) =>
+      (await api.post<Shop>("/seller/shop/verification", { verificationDocs })).data,
     onSuccess: (shop) => queryClient.setQueryData(["seller", "shop"], shop),
   });
 }
