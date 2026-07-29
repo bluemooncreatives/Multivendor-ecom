@@ -3,7 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { Zap } from "lucide-react";
 import { useProducts, useCategories } from "@/lib/hooks/useProducts";
+import { useActiveFlashDeals } from "@/lib/hooks/useStorefront";
 import { ProductCard } from "@/components/storefront/product-card";
 import { StorefrontSection } from "@/components/storefront/section";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,7 @@ export default function HomePage() {
   const locale = useLocale();
   const { data: products, isLoading } = useProducts({ sort: "newest" });
   const { data: categories } = useCategories();
+  const { data: flashDeals } = useActiveFlashDeals();
 
   const topCategories = (categories ?? []).filter((c) => c.level === 0);
 
@@ -44,6 +47,32 @@ export default function HomePage() {
           </Button>
         </div>
       </section>
+
+      {/* Live flash-deal campaigns. Hidden entirely when none are running, so the
+          home page never shows an empty promo band. */}
+      {(flashDeals ?? []).length > 0 && (
+        <section className="space-y-3">
+          {flashDeals!.map((deal) => (
+            <Link
+              key={deal.id}
+              href={`/${locale}/flash-deal/${deal.slug}`}
+              className="flex items-center justify-between gap-4 rounded-lg bg-gradient-to-r from-destructive to-destructive/80 p-4 text-destructive-foreground shadow-sm transition hover:opacity-95"
+            >
+              <div className="flex items-center gap-3">
+                <Zap className="h-6 w-6" />
+                <div>
+                  <p className="font-bold">{deal.title}</p>
+                  <p className="text-sm opacity-90">
+                    {deal.products.length} deal{deal.products.length === 1 ? "" : "s"} · ends{" "}
+                    {new Date(deal.endsAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 text-sm font-semibold underline">Shop the deals</span>
+            </Link>
+          ))}
+        </section>
+      )}
 
       {/* Category strip */}
       {topCategories.length > 0 && (

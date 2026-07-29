@@ -104,6 +104,8 @@ export const Product = model("Product", productSchema);
 const flashDealSchema = new Schema(
   {
     title: { type: String, required: true },
+    // The public campaign page is /flash-deal/{slug}, matching the legacy route.
+    slug: { type: String, required: true, unique: true, index: true },
     bannerUrl: String,
     startsAt: { type: Date, required: true },
     endsAt: { type: Date, required: true },

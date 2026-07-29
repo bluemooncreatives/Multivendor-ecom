@@ -5,6 +5,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   getPageBySlugHandler,
   listPagesHandler,
+  listPublishedPagesHandler,
   createPageHandler,
   updatePageHandler,
   deletePageHandler,
@@ -21,7 +22,9 @@ import {
 
 export const cmsRouter = Router();
 
-// Pages
+// Pages. The bare list is registered before /pages/:slug so "pages" alone is not
+// treated as a slug lookup.
+cmsRouter.get("/pages", asyncHandler(listPublishedPagesHandler));
 cmsRouter.get("/pages/:slug", asyncHandler(getPageBySlugHandler));
 cmsRouter.get("/admin/pages", authenticate, requirePermission("frontend.manage"), asyncHandler(listPagesHandler));
 cmsRouter.post("/admin/pages", authenticate, requirePermission("frontend.manage"), validateBody(pageSchema), asyncHandler(createPageHandler));

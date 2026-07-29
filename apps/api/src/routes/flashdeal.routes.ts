@@ -5,6 +5,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   listActiveFlashDealsHandler,
   getFlashDealHandler,
+  getFlashDealBySlugHandler,
   listAdminFlashDealsHandler,
   createFlashDealHandler,
   updateFlashDealHandler,
@@ -15,6 +16,8 @@ import {
 export const flashDealRouter = Router();
 
 flashDealRouter.get("/", asyncHandler(listActiveFlashDealsHandler));
+// Registered before /:id so "slug" is not swallowed by the id matcher.
+flashDealRouter.get("/slug/:slug", asyncHandler(getFlashDealBySlugHandler));
 flashDealRouter.get("/:id", asyncHandler(getFlashDealHandler));
 flashDealRouter.get("/admin/all", authenticate, requirePermission("flashdeals.manage"), asyncHandler(listAdminFlashDealsHandler));
 flashDealRouter.post(

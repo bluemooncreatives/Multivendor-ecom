@@ -26,6 +26,14 @@ export async function listPagesHandler(_req: Request, res: Response) {
   res.json({ items: await Page.find().sort({ title: 1 }) });
 }
 
+// Public: published pages only, and only the fields the sitemap and any nav menu
+// need — the body is fetched per page, not listed in bulk.
+export async function listPublishedPagesHandler(_req: Request, res: Response) {
+  res.json({
+    items: await Page.find({ published: true }, { slug: 1, title: 1, updatedAt: 1 }).sort({ title: 1 }),
+  });
+}
+
 export async function createPageHandler(req: Request, res: Response) {
   const page = await Page.create(req.body);
   res.status(201).json(page);

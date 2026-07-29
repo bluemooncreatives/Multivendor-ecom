@@ -7,6 +7,7 @@ import {
   classifiedSchema,
   moderateClassifiedSchema,
   listClassifiedsHandler,
+  getClassifiedBySlugHandler,
   createClassifiedHandler,
   listMyClassifiedsHandler,
   updateClassifiedHandler,
@@ -109,6 +110,8 @@ export const addonRouter = Router();
 addonRouter.get("/classifieds", asyncHandler(listClassifiedsHandler));
 addonRouter.post("/classifieds", authenticate, validateBody(classifiedSchema), asyncHandler(createClassifiedHandler));
 addonRouter.get("/classifieds/mine", authenticate, asyncHandler(listMyClassifiedsHandler));
+// Before /:id, so "slug" is not captured as an id.
+addonRouter.get("/classifieds/slug/:slug", asyncHandler(getClassifiedBySlugHandler));
 addonRouter.patch("/classifieds/:id", authenticate, validateBody(classifiedSchema.partial()), asyncHandler(updateClassifiedHandler));
 addonRouter.delete("/classifieds/:id", authenticate, asyncHandler(deleteClassifiedHandler));
 addonRouter.post(
