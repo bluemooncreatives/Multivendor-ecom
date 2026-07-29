@@ -16,3 +16,18 @@ const clubPointTransactionSchema = new Schema(
 
 withJsonId(clubPointTransactionSchema);
 export const ClubPointTransaction = model("ClubPointTransaction", clubPointTransactionSchema);
+
+// Singleton admin configuration for the loyalty add-on.
+const clubPointConfigSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true, default: "club_points" },
+    // How much wallet currency one point is worth when converted.
+    convertRate: { type: Number, required: true, default: 1, min: 0 },
+    // Points below this cannot be converted (mirrors legacy "minimum convert point").
+    minConvertPoints: { type: Number, required: true, default: 0, min: 0 },
+  },
+  { timestamps: true },
+);
+
+withJsonId(clubPointConfigSchema);
+export const ClubPointConfig = model("ClubPointConfig", clubPointConfigSchema);

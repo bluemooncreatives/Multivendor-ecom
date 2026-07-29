@@ -80,3 +80,37 @@ const manualPaymentMethodSchema = new Schema(
 
 withJsonId(manualPaymentMethodSchema);
 export const ManualPaymentMethod = model("ManualPaymentMethod", manualPaymentMethodSchema);
+
+// Singleton SMS/OTP configuration. Provider secrets live in `credentials` and are
+// `select: false`, so the admin list endpoint can never leak them to the browser —
+// the legacy app rendered the raw API keys straight into the settings form.
+const otpSettingSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true, default: "otp" },
+    provider: { type: String, enum: ["twilio", "nexmo", "msg91", "ssl_wireless", "none"], default: "none" },
+    otpOnRegistration: { type: Boolean, default: false },
+    otpOnForgotPassword: { type: Boolean, default: false },
+    otpOnOrderPlacement: { type: Boolean, default: false },
+    senderId: String,
+    credentials: { type: Schema.Types.Mixed, default: {}, select: false },
+  },
+  { timestamps: true },
+);
+
+withJsonId(otpSettingSchema);
+export const OtpSetting = model("OtpSetting", otpSettingSchema);
+
+// Audit record of every admin-triggered bulk SMS blast.
+const smsLogSchema = new Schema(
+  {
+    sentBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    message: { type: String, required: true },
+    audience: { type: String, enum: ["all", "customers", "sellers"], required: true },
+    recipientCount: { type: Number, required: true, min: 0 },
+    provider: { type: String, required: true },
+  },
+  { timestamps: true },
+);
+
+withJsonId(smsLogSchema);
+export const SmsLog = model("SmsLog", smsLogSchema);

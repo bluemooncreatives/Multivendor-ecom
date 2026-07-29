@@ -10,6 +10,7 @@ export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(72),
   role: z.enum(["customer", "seller"]).optional(),
+  referralCode: z.string().trim().min(1).max(64).optional(),
 });
 
 export const loginSchema = z.object({

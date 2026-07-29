@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { Shop } from "../models/Shop.js";
 import { SellerLedger, SellerWithdrawRequest } from "../models/Ledger.js";
 import { Order } from "../models/Order.js";
+import { awardClubPointsForOrder } from "../services/clubpoints.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 export const shopSchema = z.object({
@@ -83,6 +84,19 @@ export async function listMyWithdrawRequestsHandler(req: Request, res: Response)
   res.json({ items });
 }
 
+// Sellers may only move their own shipment forward through the fulfillment chain.
+// Jumping backwards (delivered -> processing) or out of a terminal state is rejected,
+// because downstream side effects (club points, refund windows) already fired.
+const FULFILLMENT_FLOW: Record<string, string[]> = {
+  pending: ["confirmed", "processing", "cancelled"],
+  confirmed: ["processing", "shipped", "cancelled"],
+  processing: ["shipped", "cancelled"],
+  shipped: ["delivered"],
+  delivered: [],
+  cancelled: [],
+  refunded: [],
+};
+
 export async function fulfillOrderItemHandler(req: Request, res: Response) {
   const { orderId } = req.params;
   const { status } = req.body as { status: string };
@@ -93,8 +107,51 @@ export async function fulfillOrderItemHandler(req: Request, res: Response) {
   const detail = order.details.find((d) => String(d.sellerId) === req.user!.id);
   if (!detail) throw new ApiError(404, "You do not have items on this order");
 
+  if (!FULFILLMENT_FLOW[detail.status]?.includes(status)) {
+    throw new ApiError(409, `Cannot move a ${detail.status} shipment to ${status}`);
+  }
+
   detail.status = status as never;
   if (status === "delivered") detail.deliveredAt = new Date();
+  if (status === "cancelled") detail.cancelledAt = new Date();
+
+  // Roll the per-seller shipment states up into one order-level status, so a
+  // multi-vendor order only reads "delivered" once every seller has delivered.
+  const statuses = order.details.map((d) => d.status);
+  if (statuses.every((s) => s === "delivered")) order.status = "delivered";
+  else if (statuses.every((s) => s === "cancelled")) order.status = "cancelled";
+  else if (statuses.some((s) => s === "shipped" || s === "delivered")) order.status = "shipped";
+  else if (statuses.some((s) => s === "processing")) order.status = "processing";
+
   await order.save();
+
+  // Loyalty points are awarded from the order-level "delivered" transition and are
+  // idempotent on the order id, so a repeated delivered-write cannot award twice.
+  if (order.status === "delivered") {
+    await awardClubPointsForOrder(String(order._id));
+  }
+
   res.json(order);
+}
+
+// --- Shop verification --------------------------------------------------------
+
+export const shopVerificationSchema = z.object({
+  verificationDocs: z.array(z.string().url()).min(1).max(10),
+});
+
+// Submitting documents resets the shop to "pending" for re-review. A shop that is
+// already approved keeps its `verified` flag until an admin actually decides,
+// so re-submitting extra paperwork never de-lists a live storefront mid-review.
+export async function applyForShopVerificationHandler(req: Request, res: Response) {
+  const shop = await Shop.findOne({ sellerId: req.user!.id });
+  if (!shop) throw new ApiError(404, "Create your shop before applying for verification");
+  if (shop.verificationStatus === "pending" && shop.verificationDocs.length > 0) {
+    throw new ApiError(409, "A verification request is already under review");
+  }
+
+  shop.verificationDocs = req.body.verificationDocs;
+  shop.verificationStatus = "pending";
+  await shop.save();
+  res.json(shop);
 }

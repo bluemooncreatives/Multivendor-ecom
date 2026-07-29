@@ -8,6 +8,10 @@ const affiliateUserSchema = new Schema(
     status: { type: String, enum: ["pending", "approved", "suspended"], default: "pending" },
     totalEarnings: { type: Number, default: 0 },
     availableBalance: { type: Number, default: 0 },
+    // Payout destination the affiliate maintains themselves (bank/PayPal details).
+    // Free-form because the required fields differ per country/method.
+    paymentSettings: { type: Schema.Types.Mixed, default: {} },
+    rejectionReason: String,
   },
   { timestamps: true },
 );
@@ -22,6 +26,15 @@ const affiliateConfigSchema = new Schema(
     commissionPercent: { type: Number, default: 5, min: 0, max: 100 },
     cookieDays: { type: Number, default: 30 },
     minWithdrawAmount: { type: Number, default: 500 },
+    // Legacy "affiliate options" — flat bonuses paid for referral actions other
+    // than a purchase. Stored as a map so new action types need no migration.
+    actionBonuses: {
+      type: Map,
+      of: Number,
+      default: () => ({ signup: 0, product_share: 0, category_share: 0, shop_share: 0 }),
+    },
+    // Payout methods the admin allows affiliates to select.
+    allowedMethods: { type: [String], default: ["bank_transfer", "wallet"] },
   },
   { timestamps: true },
 );
@@ -39,6 +52,9 @@ const affiliateEarningDetailSchema = new Schema(
   { timestamps: true },
 );
 
+// One commission row per affiliate per order — the DB-level guarantee that a
+// redelivered payment webhook cannot pay the same referral commission twice.
+affiliateEarningDetailSchema.index({ affiliateUserId: 1, orderId: 1 }, { unique: true });
 withJsonId(affiliateEarningDetailSchema);
 export const AffiliateEarningDetail = model("AffiliateEarningDetail", affiliateEarningDetailSchema);
 

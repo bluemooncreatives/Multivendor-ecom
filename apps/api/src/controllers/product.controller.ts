@@ -3,6 +3,8 @@ import { z } from "zod";
 import { Product } from "../models/Product.js";
 import { searchProducts } from "../services/product.service.js";
 import { importProductsCsv } from "../services/bulkimport.service.js";
+import { exportProductsCsv, exportCategoriesCsv, exportSellersCsv } from "../services/bulkexport.service.js";
+import { assertSellerCanAddProduct } from "../services/quota.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 const variantInput = z.object({
@@ -69,6 +71,9 @@ export async function getProductHandler(req: Request, res: Response) {
 }
 
 export async function createProductHandler(req: Request, res: Response) {
+  await assertSellerCanAddProduct(req.user!.id);
+  assertUniqueSkus(req.body.variants);
+
   const product = await Product.create({
     ...req.body,
     sellerId: req.user!.id,
@@ -78,12 +83,37 @@ export async function createProductHandler(req: Request, res: Response) {
   res.status(201).json(product);
 }
 
+// Edits that change what the shopper sees (name, images, description, pricing)
+// send the listing back through moderation. Stock-only edits do not, so a seller
+// can restock without their live listing disappearing from the storefront.
+const MODERATED_FIELDS = ["name", "description", "images", "categoryId", "brandId", "tags"] as const;
+
 export async function updateProductHandler(req: Request, res: Response) {
   const product = await Product.findOne({ _id: req.params.id, sellerId: req.user!.id });
   if (!product) throw new ApiError(404, "Product not found");
+  if (req.body.variants) assertUniqueSkus(req.body.variants);
+
+  const needsReview =
+    product.approvalStatus === "approved" &&
+    MODERATED_FIELDS.some((f) => req.body[f] !== undefined && JSON.stringify(req.body[f]) !== JSON.stringify(product.get(f)));
+
   Object.assign(product, req.body);
+  if (needsReview) {
+    product.approvalStatus = "pending";
+    product.published = false;
+  }
   await product.save();
   res.json(product);
+}
+
+// Duplicate SKUs inside one product would make variant-level stock updates
+// ambiguous (arrayFilters would match several entries), so they are rejected up front.
+function assertUniqueSkus(variants: { sku: string }[]) {
+  const seen = new Set<string>();
+  for (const variant of variants) {
+    if (seen.has(variant.sku)) throw new ApiError(422, `Duplicate variant SKU: ${variant.sku}`);
+    seen.add(variant.sku);
+  }
 }
 
 export async function deleteProductHandler(req: Request, res: Response) {
@@ -155,4 +185,151 @@ export async function moderateProductHandler(req: Request, res: Response) {
   );
   if (!product) throw new ApiError(404, "Product not found");
   res.json(product);
+}
+
+// --- Merchandising flags ------------------------------------------------------
+
+export const productFlagsSchema = z
+  .object({
+    featured: z.boolean().optional(),
+    todaysDeal: z.boolean().optional(),
+    published: z.boolean().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "Provide at least one flag to update" });
+
+// Sellers may only toggle `published` on their own listings; featured/todaysDeal
+// are merchandising decisions reserved for staff, since they place a product on
+// the storefront's paid-placement surfaces.
+export async function updateProductFlagsHandler(req: Request, res: Response) {
+  const isStaff = req.user!.role === "admin" || req.user!.role === "staff";
+  const update: Record<string, boolean> = {};
+
+  if (req.body.published !== undefined) update.published = req.body.published;
+  if (req.body.featured !== undefined || req.body.todaysDeal !== undefined) {
+    if (!isStaff) throw new ApiError(403, "Only staff can change featured or deal placement");
+    if (req.body.featured !== undefined) update.featured = req.body.featured;
+    if (req.body.todaysDeal !== undefined) update.todaysDeal = req.body.todaysDeal;
+  }
+
+  const filter = isStaff ? { _id: req.params.id } : { _id: req.params.id, sellerId: req.user!.id };
+  const product = await Product.findOne(filter);
+  if (!product) throw new ApiError(404, "Product not found");
+
+  // Publishing is gated on moderation: an unapproved listing can never be pushed
+  // live by flipping this flag (the legacy toggle bypassed approval entirely).
+  if (update.published && product.approvalStatus !== "approved") {
+    throw new ApiError(409, "This product must be approved before it can be published");
+  }
+
+  Object.assign(product, update);
+  await product.save();
+  res.json(product);
+}
+
+// --- Admin catalog ------------------------------------------------------------
+
+// Every product regardless of publish/approval state, so staff can find and edit
+// listings that never appear in the public search index.
+export async function listAllProductsHandler(req: Request, res: Response) {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const pageSize = Math.min(100, Number(req.query.pageSize) || 30);
+
+  const filter: Record<string, unknown> = {};
+  if (req.query.sellerId) filter.sellerId = req.query.sellerId;
+  if (req.query.approvalStatus) filter.approvalStatus = req.query.approvalStatus;
+  if (req.query.published !== undefined) filter.published = req.query.published === "true";
+  if (req.query.q) filter.name = { $regex: String(req.query.q).slice(0, 80), $options: "i" };
+
+  const [items, total] = await Promise.all([
+    Product.find(filter).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize),
+    Product.countDocuments(filter),
+  ]);
+  res.json({ items, total, page, pageSize });
+}
+
+// Staff edit of any seller's listing (the seller-scoped updateProductHandler
+// deliberately refuses to touch products the requester does not own).
+export async function adminUpdateProductHandler(req: Request, res: Response) {
+  if (req.body.variants) assertUniqueSkus(req.body.variants);
+  const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!product) throw new ApiError(404, "Product not found");
+  res.json(product);
+}
+
+export async function exportProductsHandler(req: Request, res: Response) {
+  // Sellers always export only their own catalog, whatever the query string says.
+  const sellerId = req.user!.role === "seller" ? req.user!.id : (req.query.sellerId as string | undefined);
+  const csv = await exportProductsCsv(sellerId ? { sellerId } : {});
+  res.header("Content-Type", "text/csv");
+  res.attachment("products.csv");
+  res.send(csv);
+}
+
+export async function exportCategoriesHandler(_req: Request, res: Response) {
+  const csv = await exportCategoriesCsv();
+  res.header("Content-Type", "text/csv");
+  res.attachment("categories.csv");
+  res.send(csv);
+}
+
+export async function exportSellersHandler(_req: Request, res: Response) {
+  const csv = await exportSellersCsv();
+  res.header("Content-Type", "text/csv");
+  res.attachment("sellers.csv");
+  res.send(csv);
+}
+
+// --- Variant helpers ----------------------------------------------------------
+
+export const skuCombinationSchema = z.object({
+  baseSku: z.string().min(1).max(40),
+  basePrice: z.number().min(0),
+  // e.g. { Color: ["Red","Blue"], Size: ["S","M"] } -> 4 variants
+  attributes: z.record(z.array(z.string().min(1)).min(1)),
+});
+
+// Expands the chosen attribute values into the full cartesian product of variants,
+// the way the legacy "generate SKU combinations" button did — but computed on the
+// server so the client cannot invent variants with mismatched attribute sets.
+export async function generateSkuCombinationsHandler(req: Request, res: Response) {
+  const entries = Object.entries(req.body.attributes as Record<string, string[]>);
+
+  const total = entries.reduce((n, [, values]) => n * values.length, 1);
+  if (total > 200) throw new ApiError(422, `That would generate ${total} variants; the limit is 200`);
+
+  let combos: Record<string, string>[] = [{}];
+  for (const [name, values] of entries) {
+    combos = combos.flatMap((combo) => values.map((value) => ({ ...combo, [name]: value })));
+  }
+
+  const variants = combos.map((attributes) => ({
+    sku: [req.body.baseSku, ...Object.values(attributes)]
+      .join("-")
+      .replace(/\s+/g, "")
+      .toUpperCase(),
+    attributes,
+    price: req.body.basePrice,
+    stock: 0,
+  }));
+
+  res.json({ variants });
+}
+
+// Resolves the live price/stock for one selected variant — used by the product
+// page when a shopper switches colour/size.
+export async function getVariantPriceHandler(req: Request, res: Response) {
+  const product = await Product.findOne({ _id: req.params.id, published: true });
+  if (!product) throw new ApiError(404, "Product not found");
+
+  const variant = product.variants.find((v) => v.sku === req.query.sku);
+  if (!variant) throw new ApiError(404, "Variant not found");
+
+  res.json({
+    sku: variant.sku,
+    price: variant.price,
+    comparePrice: variant.comparePrice,
+    // Reserved units are held for in-flight orders and are not purchasable.
+    available: Math.max(0, variant.stock - variant.reserved),
+    imageUrl: variant.imageUrl,
+  });
 }

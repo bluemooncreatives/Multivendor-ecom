@@ -15,6 +15,7 @@ import {
 } from "../utils/jwt.js";
 import { sha256Hex } from "../utils/hash.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "./email.service.js";
+import { attachReferral } from "./affiliate.service.js";
 import { env } from "../config/env.js";
 
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -39,7 +40,13 @@ async function issueTokenPair(userId: string, role: string, permissions?: string
   return { accessToken, refreshToken };
 }
 
-export async function register(input: { name: string; email: string; password: string; role?: "customer" | "seller" }) {
+export async function register(input: {
+  name: string;
+  email: string;
+  password: string;
+  role?: "customer" | "seller";
+  referralCode?: string;
+}) {
   const existing = await User.findOne({ email: input.email });
   if (existing) throw new ApiError(409, "An account with this email already exists");
 
@@ -52,6 +59,9 @@ export async function register(input: { name: string; email: string; password: s
   });
 
   await Wallet.create({ userId: user._id, balance: 0 });
+  // An unknown or inactive referral code is not an error — the account is still
+  // created, it simply earns nobody a commission.
+  await attachReferral(String(user._id), input.referralCode);
 
   const verifyToken = signEmailVerificationToken(String(user._id));
   await sendVerificationEmail(user.email, verifyToken);

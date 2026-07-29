@@ -66,3 +66,41 @@ export async function createBrandHandler(req: Request, res: Response) {
   const brand = await Brand.create(req.body);
   res.status(201).json(brand);
 }
+
+export async function updateBrandHandler(req: Request, res: Response) {
+  const brand = await Brand.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!brand) throw new ApiError(404, "Brand not found");
+  res.json(brand);
+}
+
+// Deactivated rather than deleted: products keep a brandId reference, and hard
+// deletion would leave those listings pointing at a missing document.
+export async function deleteBrandHandler(req: Request, res: Response) {
+  const brand = await Brand.findByIdAndUpdate(req.params.id, { active: false });
+  if (!brand) throw new ApiError(404, "Brand not found");
+  res.status(204).send();
+}
+
+// Full tree including inactive rows, for the admin category manager (the public
+// listCategoriesHandler intentionally hides deactivated branches).
+export async function listAllCategoriesHandler(_req: Request, res: Response) {
+  res.json({ items: await Category.find().sort({ level: 1, order: 1 }) });
+}
+
+export async function listAllBrandsHandler(_req: Request, res: Response) {
+  res.json({ items: await Brand.find().sort({ name: 1 }) });
+}
+
+export const featureToggleSchema = z.object({ featured: z.boolean() });
+
+export async function updateCategoryFeaturedHandler(req: Request, res: Response) {
+  const category = await Category.findByIdAndUpdate(req.params.id, { featured: req.body.featured }, { new: true });
+  if (!category) throw new ApiError(404, "Category not found");
+  res.json(category);
+}
+
+export async function updateBrandFeaturedHandler(req: Request, res: Response) {
+  const brand = await Brand.findByIdAndUpdate(req.params.id, { featured: req.body.featured }, { new: true });
+  if (!brand) throw new ApiError(404, "Brand not found");
+  res.json(brand);
+}

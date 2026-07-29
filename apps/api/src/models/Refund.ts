@@ -16,5 +16,22 @@ const refundRequestSchema = new Schema(
   { timestamps: true },
 );
 
+refundRequestSchema.index({ status: 1, createdAt: -1 });
 withJsonId(refundRequestSchema);
 export const RefundRequest = model("RefundRequest", refundRequestSchema);
+
+// Singleton admin configuration for the refund add-on.
+const refundConfigSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true, default: "refund" },
+    // Days after delivery during which a customer may still open a request.
+    requestWindowDays: { type: Number, required: true, default: 7, min: 0 },
+    // Show the "refundable" sticker on product/order pages.
+    showSticker: { type: Boolean, default: true },
+    stickerUrl: String,
+  },
+  { timestamps: true },
+);
+
+withJsonId(refundConfigSchema);
+export const RefundConfig = model("RefundConfig", refundConfigSchema);

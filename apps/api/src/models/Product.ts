@@ -33,6 +33,10 @@ const productSchema = new Schema(
     digitalFileUrl: { type: String, default: null }, // never served directly; gated by download token
     published: { type: Boolean, default: false },
     approvalStatus: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    featured: { type: Boolean, default: false, index: true },
+    todaysDeal: { type: Boolean, default: false, index: true },
+    // Club-points earned by the buyer per unit of this product (loyalty add-on).
+    clubPoints: { type: Number, default: 0, min: 0 },
     tags: { type: [String], default: [], index: true },
     ratingAverage: { type: Number, default: 0 },
     ratingCount: { type: Number, default: 0 },

@@ -6,6 +6,7 @@ import { Order } from "../models/Order.js";
 import { Payment, PaymentEvent } from "../models/Payment.js";
 import { SellerLedger } from "../models/Ledger.js";
 import { confirmReservation, releaseReservation, type StockLine } from "./inventory.service.js";
+import { creditAffiliateForOrder, reverseAffiliateForOrder } from "./affiliate.service.js";
 import { env } from "../config/env.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
@@ -82,6 +83,7 @@ export async function createRazorpayOrder(orderId: string) {
 // ledger entries, marks the order paid. Idempotent on the order's current status.
 export async function settleOrderPayment(orderId: string, method: string, providerRef?: string) {
   const session = await mongoose.startSession();
+  let settled = false;
   try {
     await session.withTransaction(async () => {
       const order = await Order.findById(orderId).session(session);
@@ -117,9 +119,16 @@ export async function settleOrderPayment(orderId: string, method: string, provid
         { status: "paid", providerRef },
         { session },
       );
+      settled = true;
     });
   } finally {
     await session.endSession();
+  }
+
+  // Referral commission runs after the payment transaction commits (it opens its
+  // own transaction) and only on the settling call, so webhook replays don't re-credit.
+  if (settled) {
+    await creditAffiliateForOrder(orderId);
   }
 }
 
@@ -142,6 +151,10 @@ export async function failOrderPayment(orderId: string, method: string) {
   } finally {
     await session.endSession();
   }
+
+  // A late failure after a provisional credit (e.g. a chargeback event) must claw
+  // the referral commission back; a no-op when nothing was ever credited.
+  await reverseAffiliateForOrder(orderId);
 }
 
 // Deduplicates webhook deliveries: the unique index on (provider, eventId) makes

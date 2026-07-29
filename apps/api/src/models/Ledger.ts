@@ -52,3 +52,24 @@ const sellerWithdrawRequestSchema = new Schema(
 
 withJsonId(sellerWithdrawRequestSchema);
 export const SellerWithdrawRequest = model("SellerWithdrawRequest", sellerWithdrawRequestSchema);
+
+// Admin-initiated commission settlement ("pay to seller"), which is distinct from
+// a seller-initiated withdrawal request. Each payout writes exactly one matching
+// `withdrawal` row to SellerLedger, so the ledger stays the single balance source.
+const sellerPayoutSchema = new Schema(
+  {
+    sellerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    amount: { type: Number, required: true, min: 0 },
+    method: { type: String, enum: ["bank_transfer", "wallet", "manual", "cash"], required: true },
+    reference: String, // bank txn id / cheque number
+    note: String,
+    paidBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    // Set from the ledger row id so a retried request cannot double-pay.
+    idempotencyKey: { type: String, required: true, unique: true },
+  },
+  { timestamps: true },
+);
+
+sellerPayoutSchema.index({ sellerId: 1, createdAt: -1 });
+withJsonId(sellerPayoutSchema);
+export const SellerPayout = model("SellerPayout", sellerPayoutSchema);

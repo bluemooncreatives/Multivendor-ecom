@@ -43,6 +43,12 @@ export async function createColorHandler(req: Request, res: Response) {
   res.status(201).json(color);
 }
 
+export async function updateColorHandler(req: Request, res: Response) {
+  const color = await Color.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!color) throw new ApiError(404, "Color not found");
+  res.json(color);
+}
+
 export async function deleteColorHandler(req: Request, res: Response) {
   const deleted = await Color.findByIdAndDelete(req.params.id);
   if (!deleted) throw new ApiError(404, "Color not found");

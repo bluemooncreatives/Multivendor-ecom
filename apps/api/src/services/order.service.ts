@@ -3,6 +3,7 @@ import { Order } from "../models/Order.js";
 import { Product } from "../models/Product.js";
 import { Wallet, WalletTransaction } from "../models/Wallet.js";
 import { SellerLedger, InventoryMovement } from "../models/Ledger.js";
+import { reverseAffiliateForOrder } from "./affiliate.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import type { AuthenticatedUser } from "../middleware/auth.js";
 
@@ -119,6 +120,11 @@ export async function cancelOrder(orderId: string, requester: AuthenticatedUser)
       await order.save({ session });
       result = order;
     });
+
+    // Referral commission is clawed back outside the transaction (it opens its own),
+    // and is a no-op when the order never earned any.
+    await reverseAffiliateForOrder(orderId);
+
     return result;
   } finally {
     await session.endSession();
