@@ -4,9 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { ShoppingCart, User as UserIcon, Search, Heart, Menu, X, ChevronRight, Scale } from "lucide-react";
+import { ShoppingCart, User as UserIcon, Heart, Menu, X, ChevronRight, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchBox } from "@/components/storefront/search-box";
 import { useAuthStore, useCompareStore } from "@/lib/store";
 import { useCart } from "@/lib/hooks/useCart";
 import { useCategories } from "@/lib/hooks/useProducts";
@@ -115,19 +115,7 @@ export function SiteHeader() {
           Categories
         </button>
 
-        <form
-          className="relative hidden max-w-xl flex-1 md:block"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const q = new FormData(e.currentTarget).get("q");
-            router.push(`/${locale}/products?q=${encodeURIComponent(String(q ?? ""))}`);
-          }}
-        >
-          <Input name="q" placeholder={t("searchPlaceholder")} className="pe-10" />
-          <button type="submit" className="absolute end-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-            <Search className="h-4 w-4" />
-          </button>
-        </form>
+        <SearchBox placeholder={t("searchPlaceholder")} className="relative hidden max-w-xl flex-1 md:block" />
 
         <nav className="ms-auto hidden gap-4 text-sm font-medium lg:flex">
           <Link href={`/${locale}/products`}>{t("shop")}</Link>
@@ -220,20 +208,7 @@ export function SiteHeader() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form
-              className="relative mb-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const q = new FormData(e.currentTarget).get("q");
-                setMenuOpen(false);
-                router.push(`/${locale}/products?q=${encodeURIComponent(String(q ?? ""))}`);
-              }}
-            >
-              <Input name="q" placeholder={t("searchPlaceholder")} className="pe-10" />
-              <button type="submit" className="absolute end-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <Search className="h-4 w-4" />
-              </button>
-            </form>
+            <SearchBox placeholder={t("searchPlaceholder")} className="relative mb-4" />
             <nav className="flex flex-col gap-1 text-sm font-medium">
               <Link href={`/${locale}/products`} onClick={() => setMenuOpen(false)} className="rounded-md px-2 py-2 hover:bg-accent">
                 {t("shop")}

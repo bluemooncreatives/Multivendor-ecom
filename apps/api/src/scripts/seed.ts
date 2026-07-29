@@ -22,7 +22,9 @@ const PERMISSIONS = [
   { key: "orders.manage", label: "Manage orders & refunds", group: "Orders" },
   { key: "payments.manage", label: "Manage payments & withdrawals", group: "Orders" },
   { key: "marketing.manage", label: "Manage coupons & marketing", group: "Marketing" },
-  { key: "settings.manage", label: "Manage settings & add-ons", group: "Settings" },
+  { key: "reports.view", label: "View reports", group: "Reports" },
+  { key: "settings.manage", label: "Manage settings & SMS", group: "Settings" },
+  { key: "addons.manage", label: "Configure add-ons (affiliate, club points, packages)", group: "Settings" },
 ];
 
 async function seed() {

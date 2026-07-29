@@ -33,8 +33,13 @@ export function useRegister() {
   const setSession = useAuthStore((s) => s.setSession);
 
   return useMutation({
-    mutationFn: async (input: { name: string; email: string; password: string; role?: "customer" | "seller" }) =>
-      (await api.post<AuthResponse>("/auth/register", input)).data,
+    mutationFn: async (input: {
+      name: string;
+      email: string;
+      password: string;
+      role?: "customer" | "seller";
+      referralCode?: string;
+    }) => (await api.post<AuthResponse>("/auth/register", input)).data,
     onSuccess: async (data) => {
       setAccessToken(data.accessToken);
       const me = (await api.get<User>("/auth/me", { headers: { Authorization: `Bearer ${data.accessToken}` } })).data;

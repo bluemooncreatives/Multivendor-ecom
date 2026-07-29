@@ -3,7 +3,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { useMyOrders, useCancelOrder } from "@/lib/hooks/useOrders";
-import { useCreateRefundRequest } from "@/lib/hooks/useAddons";
+import { useCreateRefundRequest, useRefundEligibility } from "@/lib/hooks/useAddons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,10 @@ import { Input } from "@/components/ui/input";
 import { formatPrice } from "@/lib/format";
 
 const CANCELLABLE = ["pending", "confirmed"];
-const REFUNDABLE = ["delivered"];
 
 export default function OrdersPage() {
   const { data: orders, isLoading } = useMyOrders();
   const cancelOrder = useCancelOrder();
-  const createRefund = useCreateRefundRequest();
-  const [refundReason, setRefundReason] = useState<Record<string, string>>({});
 
   async function handleCancel(orderId: string) {
     try {
@@ -28,22 +25,8 @@ export default function OrdersPage() {
     }
   }
 
-  async function handleRefund(orderId: string, sellerId: string, amount: number) {
-    const reason = refundReason[orderId];
-    if (!reason) {
-      toast.error("Please describe the reason for your refund request");
-      return;
-    }
-    try {
-      await createRefund.mutateAsync({ orderId, sellerId, reason, amount });
-      toast.success("Refund request submitted");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Could not submit refund request");
-    }
-  }
-
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
-  if (!orders || orders.length === 0) return <p className="text-muted-foreground">You haven't placed any orders yet.</p>;
+  if (!orders || orders.length === 0) return <p className="text-muted-foreground">You haven&apos;t placed any orders yet.</p>;
 
   return (
     <div className="space-y-4">
@@ -71,26 +54,68 @@ export default function OrdersPage() {
                 </Button>
               )}
             </div>
-            {REFUNDABLE.includes(order.status) && (
-              <div className="flex gap-2 pt-2">
-                <Input
-                  placeholder="Reason for refund"
-                  value={refundReason[order.id] ?? ""}
-                  onChange={(e) => setRefundReason({ ...refundReason, [order.id]: e.target.value })}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRefund(order.id, order.details[0]?.sellerId ?? "", order.grandTotal)}
-                  disabled={createRefund.isPending}
-                >
-                  Request refund
-                </Button>
-              </div>
-            )}
+            <RefundSection orderId={order.id} />
           </CardContent>
         </Card>
       ))}
+    </div>
+  );
+}
+
+// Refund eligibility is decided server-side per seller shipment (delivered, inside
+// the policy window, not already claimed), so the UI just renders what it is told
+// rather than re-deriving the rules and drifting from them. The refundable amount
+// is likewise computed by the API and never sent from here.
+function RefundSection({ orderId }: { orderId: string }) {
+  const { data: eligibility } = useRefundEligibility(orderId);
+  const createRefund = useCreateRefundRequest();
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+
+  const actionable = eligibility?.shipments.filter((s) => s.eligible || s.alreadyRequested) ?? [];
+  if (actionable.length === 0) return null;
+
+  async function submit(sellerId: string) {
+    const reason = reasons[sellerId]?.trim();
+    if (!reason) {
+      toast.error("Please describe the reason for your refund request");
+      return;
+    }
+    try {
+      await createRefund.mutateAsync({ orderId, sellerId, reason });
+      toast.success("Refund request submitted");
+      setReasons({ ...reasons, [sellerId]: "" });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "Could not submit refund request");
+    }
+  }
+
+  return (
+    <div className="space-y-2 border-t pt-2">
+      {actionable.map((shipment) =>
+        shipment.alreadyRequested ? (
+          <p key={shipment.sellerId} className="text-xs text-muted-foreground">
+            A refund request for {formatPrice(shipment.amount)} of this order is already in progress.
+          </p>
+        ) : (
+          <div key={shipment.sellerId} className="space-y-1">
+            <div className="flex gap-2">
+              <Input
+                placeholder={`Reason for refunding ${formatPrice(shipment.amount)}`}
+                value={reasons[shipment.sellerId] ?? ""}
+                onChange={(e) => setReasons({ ...reasons, [shipment.sellerId]: e.target.value })}
+              />
+              <Button variant="outline" size="sm" onClick={() => submit(shipment.sellerId)} disabled={createRefund.isPending}>
+                Request refund
+              </Button>
+            </div>
+            {shipment.windowClosesAt && (
+              <p className="text-xs text-muted-foreground">
+                You can request a refund until {new Date(shipment.windowClosesAt).toLocaleDateString()}.
+              </p>
+            )}
+          </div>
+        ),
+      )}
     </div>
   );
 }

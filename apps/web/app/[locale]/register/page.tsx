@@ -19,12 +19,15 @@ export default function RegisterPage() {
   const searchParams = useSearchParams();
   const register = useRegister();
   const defaultRole = searchParams.get("role") === "seller" ? "seller" : "customer";
+  // Carried from an affiliate's shared link (?ref=CODE). An unknown code is not an
+  // error — the account is created either way, it just earns nobody a commission.
+  const referralCode = searchParams.get("ref") ?? undefined;
   const [form, setForm] = useState({ name: "", email: "", password: "", role: defaultRole as "customer" | "seller" });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await register.mutateAsync(form);
+      await register.mutateAsync({ ...form, referralCode });
       toast.success("Check your email to verify your account");
       router.push(`/${locale}/dashboard`);
     } catch (err: any) {
