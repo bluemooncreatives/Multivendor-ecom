@@ -6,6 +6,11 @@ const couponSchema = new Schema(
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
     type: { type: String, enum: ["flat", "percent"], required: true },
     value: { type: Number, required: true, min: 0 },
+    // Legacy's cart_base vs product_base split. `product` coupons discount only
+    // the qualifying lines; `cart` coupons discount the whole order.
+    scope: { type: String, enum: ["cart", "product"], default: "cart" },
+    productIds: { type: [{ type: Schema.Types.ObjectId, ref: "Product" }], default: [] },
+    categoryIds: { type: [{ type: Schema.Types.ObjectId, ref: "Category" }], default: [] },
     minOrderValue: { type: Number, default: 0 },
     maxDiscount: { type: Number, default: null },
     usageLimitTotal: { type: Number, default: null },

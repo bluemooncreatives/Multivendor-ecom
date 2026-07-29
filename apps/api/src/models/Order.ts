@@ -26,6 +26,9 @@ const orderDetailSchema = new Schema(
     commissionRate: { type: Number, required: true, min: 0 },
     commissionAmount: { type: Number, required: true, min: 0 },
     shippingCost: { type: Number, required: true, min: 0, default: 0 },
+    // Set when the shopper chose in-person collection for this seller's items
+    // instead of home delivery; drives the admin pickup-point day sheet.
+    pickupPointId: { type: Schema.Types.ObjectId, ref: "PickupPoint", default: null, index: true },
     status: {
       type: String,
       enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"],
@@ -49,7 +52,12 @@ const orderSchema = new Schema(
     addressSnapshot: { type: Schema.Types.Mixed, required: true },
     details: { type: [orderDetailSchema], required: true, validate: (v: unknown[]) => v.length > 0 },
     couponCode: { type: String, default: null },
+    // `discount` is the total applied; the two fields below break it down so an
+    // invoice can show the coupon and the points redemption separately.
     discount: { type: Number, default: 0, min: 0 },
+    couponDiscount: { type: Number, default: 0, min: 0 },
+    clubPointsSpent: { type: Number, default: 0, min: 0 },
+    clubPointsDiscount: { type: Number, default: 0, min: 0 },
     tax: { type: Number, default: 0, min: 0 },
     shippingTotal: { type: Number, default: 0, min: 0 },
     grandTotal: { type: Number, required: true, min: 0 }, // = sum(details.subtotal) - discount + tax + shipping
@@ -75,6 +83,10 @@ const orderSchema = new Schema(
     // enforced as a unique index, not just an application-level check.
     idempotencyKey: { type: String, required: true, unique: true },
     trackingCode: { type: String, index: true, sparse: true },
+    // Cleared whenever staff change the status, set once the customer has opened
+    // the order — drives the "updated" markers in the customer's order list.
+    deliveryViewed: { type: Boolean, default: true },
+    paymentStatusViewed: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

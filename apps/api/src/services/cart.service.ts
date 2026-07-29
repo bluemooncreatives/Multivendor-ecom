@@ -1,5 +1,6 @@
 import { Cart } from "../models/Cart.js";
 import { Product } from "../models/Product.js";
+import { Shop } from "../models/Shop.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 export interface CartOwner {
@@ -36,20 +37,38 @@ export async function getCartWithDetails(owner: CartOwner) {
   const products = await Product.find({ _id: { $in: productIds } });
   const productMap = new Map(products.map((p) => [String(p._id), p]));
 
+  const sellerIds = [...new Set(products.map((p) => p.sellerId).filter(Boolean).map(String))];
+  const shops = await Shop.find({ sellerId: { $in: sellerIds } }, { sellerId: 1, name: 1 }).lean();
+  const shopNameBySeller = new Map(shops.map((s) => [String(s.sellerId), s.name]));
+
   const items = cart.items.map((item) => {
     const product = productMap.get(item.productId.toString());
     const variant = product?.variants.find((v) => v.sku === item.variantSku);
+
+    // Per-unit discount, so the cart shows the price the shopper will actually be
+    // charged rather than the pre-discount variant price.
+    const listPrice = variant?.price ?? 0;
+    const discountPerUnit =
+      (product?.discountType ?? "percent") === "percent"
+        ? (listPrice * (product?.discount ?? 0)) / 100
+        : (product?.discount ?? 0);
+    const unitPrice = Math.max(0, Math.round((listPrice - discountPerUnit) * 100) / 100);
+
     return {
       productId: String(item.productId),
       productSlug: product?.slug,
       productName: product?.name,
       productImage: variant?.imageUrl ?? product?.images[0],
       currency: product?.currency ?? "INR",
+      // "__admin__" marks In-House items, which group as one bucket at checkout.
+      sellerId: product?.sellerId ? String(product.sellerId) : "__admin__",
+      sellerName: product?.sellerId ? (shopNameBySeller.get(String(product.sellerId)) ?? "Seller") : "In House",
       variantSku: item.variantSku,
       variantAttributes: variant?.attributes ?? {},
       quantity: item.quantity,
-      unitPrice: variant?.price ?? 0,
-      lineTotal: (variant?.price ?? 0) * item.quantity,
+      listPrice,
+      unitPrice,
+      lineTotal: Math.round(unitPrice * item.quantity * 100) / 100,
       available: variant ? variant.stock - variant.reserved : 0,
     };
   });

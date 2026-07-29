@@ -11,6 +11,9 @@ const shopSchema = new Schema(
     description: String,
     address: String,
     socialLinks: { type: Map, of: String, default: {} },
+    // Per-seller shipping charge, applied once per order when the store runs in
+    // seller_wise shipping mode.
+    shippingCost: { type: Number, default: 0, min: 0 },
     verified: { type: Boolean, default: false },
     verificationStatus: {
       type: String,

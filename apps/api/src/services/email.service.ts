@@ -15,7 +15,13 @@ const transporter =
 // Email delivery is best-effort: a downed/misconfigured SMTP provider must never
 // fail the request that triggered it (registration already committed the user
 // to the database by this point). Failures are logged for operators, not thrown.
-async function send(to: string, subject: string, html: string) {
+interface Attachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
+
+async function send(to: string, subject: string, html: string, attachments?: Attachment[]) {
   if (!transporter) {
     logger.warn(`SMTP not configured; skipping email to ${to}: ${subject}`);
     return;
@@ -26,6 +32,7 @@ async function send(to: string, subject: string, html: string) {
       to,
       subject,
       html,
+      attachments,
     });
   } catch (err) {
     logger.error(`Failed to send email to ${to}: ${subject}`, err);
@@ -47,6 +54,24 @@ export function sendPasswordResetEmail(to: string, token: string) {
     to,
     "Reset your password",
     `<p>Click below to reset your password. This link expires in 1 hour.</p><p><a href="${link}">${link}</a></p>`,
+  );
+}
+
+// Order confirmation with the customer invoice attached, matching the legacy
+// behaviour of mailing the PDF on order placement.
+export function sendOrderConfirmationEmail(
+  to: string,
+  order: { code: string; grandTotal: number; currency: string },
+  invoicePdf: Buffer,
+) {
+  const link = `${env.NEXT_PUBLIC_APP_URL}/en/dashboard/orders`;
+  return send(
+    to,
+    `Order ${order.code} confirmed`,
+    `<p>Thanks for your order.</p>
+     <p><strong>Order ${order.code}</strong> — ${order.currency} ${order.grandTotal.toFixed(2)}</p>
+     <p>Your invoice is attached. You can follow progress at <a href="${link}">${link}</a>.</p>`,
+    [{ filename: `invoice-${order.code}.pdf`, content: invoicePdf, contentType: "application/pdf" }],
   );
 }
 

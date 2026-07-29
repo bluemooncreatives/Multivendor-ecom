@@ -146,10 +146,42 @@ export async function resolveWithdrawRequestHandler(req: Request, res: Response)
 
 // --- Orders -------------------------------------------------------------------
 
+// The legacy admin order screen filtered by search term, date range, payment
+// status and delivery status; all four are restored here, paginated rather than
+// capped at a silent 200-row limit that hid older orders entirely.
 export async function listAllOrdersHandler(req: Request, res: Response) {
-  const { status } = req.query as { status?: string };
-  const orders = await Order.find(status ? { status } : {}).sort({ createdAt: -1 }).limit(200);
-  res.json({ items: orders });
+  const { status, paymentStatus, q, from, to } = req.query as Record<string, string | undefined>;
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const pageSize = Math.min(100, Number(req.query.pageSize) || 30);
+
+  const filter: Record<string, unknown> = {};
+  if (status) filter.status = status;
+  if (paymentStatus) filter.paymentStatus = paymentStatus;
+
+  // Matches the order code or the buyer's phone — the two identifiers support
+  // staff actually have when a customer calls about an order.
+  if (q) {
+    const term = q.slice(0, 80);
+    filter.$or = [
+      { code: { $regex: term, $options: "i" } },
+      { "addressSnapshot.phone": { $regex: term, $options: "i" } },
+    ];
+  }
+
+  if (from || to) {
+    filter.createdAt = {
+      ...(from ? { $gte: new Date(from) } : {}),
+      // `to` is a calendar day, so extend it to the end of that day rather than
+      // midnight, which would exclude everything placed on the chosen date.
+      ...(to ? { $lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } : {}),
+    };
+  }
+
+  const [items, total] = await Promise.all([
+    Order.find(filter).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize),
+    Order.countDocuments(filter),
+  ]);
+  res.json({ items, total, page, pageSize });
 }
 
 // --- Settings -------------------------------------------------------------------

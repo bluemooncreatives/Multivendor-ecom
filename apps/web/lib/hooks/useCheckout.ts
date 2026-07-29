@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuthStore, useGuestStore } from "@/lib/store";
 
@@ -30,6 +30,9 @@ export interface CheckoutInput {
     | "payhere"
     | "ngenius";
   couponCode?: string;
+  /** Per-seller home-delivery vs pickup choice, keyed by seller id. */
+  deliveryChoices?: Record<string, { method: "home_delivery" | "pickup_point"; pickupPointId?: string }>;
+  clubPoints?: number;
   idempotencyKey: string;
 }
 
@@ -50,6 +53,33 @@ export function useCheckout() {
 
   return useMutation({
     mutationFn: async (input: CheckoutInput) => (await api.post<OrderResponse>("/orders/checkout", input, { headers })).data,
+  });
+}
+
+export interface PickupPoint {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  phone?: string;
+}
+
+export function usePickupPoints() {
+  return useQuery({
+    queryKey: ["pickup-points"],
+    queryFn: async () => (await api.get<{ items: PickupPoint[] }>("/pickup-points")).data.items,
+  });
+}
+
+/** The signed-in shopper's redeemable club-point balance and conversion rate. */
+export function useClubPointBalance(enabled: boolean) {
+  return useQuery({
+    queryKey: ["club-points", "me"],
+    queryFn: async () =>
+      (await api.get<{ points: number; convertRate: number; minConvertPoints: number }>("/addons/club-points/me")).data,
+    enabled,
+    // A failure here just means the add-on is off; the checkout must still work.
+    retry: false,
   });
 }
 

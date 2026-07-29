@@ -226,7 +226,10 @@ export function useImportAdminProducts() {
   });
 }
 
-// Streams the CSV straight to a download without routing it through React state.
+/** Alias for readability when the payload is a PDF (invoices) rather than a CSV. */
+export const downloadFile = downloadCsv;
+
+// Streams the response straight to a download without routing it through React state.
 export async function downloadCsv(path: string, filename: string) {
   const response = await api.get(path, { responseType: "blob" });
   const url = URL.createObjectURL(response.data as Blob);
