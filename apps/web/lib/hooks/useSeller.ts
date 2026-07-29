@@ -133,11 +133,28 @@ export function useSaveShop() {
   });
 }
 
+export interface VerificationFormField {
+  id: string;
+  label: string;
+  type: "text" | "select" | "multi_select" | "radio" | "file";
+  options: string[];
+  required: boolean;
+}
+
+/** The field list an administrator composed, for the seller's form to render. */
+export function useVerificationForm() {
+  return useQuery({
+    queryKey: ["seller", "verification-form"],
+    queryFn: async () =>
+      (await api.get<{ items: VerificationFormField[] }>("/seller/shop/verification-form")).data.items,
+  });
+}
+
 export function useApplyForVerification() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (verificationDocs: string[]) =>
-      (await api.post<Shop>("/seller/shop/verification", { verificationDocs })).data,
+    mutationFn: async (input: { verificationDocs: string[]; answers: Record<string, string | string[]> }) =>
+      (await api.post<Shop>("/seller/shop/verification", input)).data,
     onSuccess: (shop) => queryClient.setQueryData(["seller", "shop"], shop),
   });
 }

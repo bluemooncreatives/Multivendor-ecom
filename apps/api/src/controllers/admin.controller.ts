@@ -5,10 +5,12 @@ import { Shop } from "../models/Shop.js";
 import { Order } from "../models/Order.js";
 import { SellerWithdrawRequest, SellerLedger } from "../models/Ledger.js";
 import { Role, AdminAuditLog } from "../models/Rbac.js";
+import { RefreshToken } from "../models/RefreshToken.js";
 import { GeneralSetting, SeoSetting, BusinessSetting, Addon } from "../models/Settings.js";
 import { signAccessToken } from "../utils/jwt.js";
 import { invalidateDemoModeCache } from "../middleware/demoMode.js";
 import { invalidateMaintenanceCache } from "../middleware/maintenance.js";
+import { markUserBanned, markUserUnbanned } from "../middleware/auth.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 // --- Dashboard -------------------------------------------------------------
@@ -51,6 +53,17 @@ export const banUserSchema = z.object({ banned: z.boolean() });
 export async function banUserHandler(req: Request, res: Response) {
   const user = await User.findByIdAndUpdate(req.params.id, { banned: req.body.banned }, { new: true });
   if (!user) throw new ApiError(404, "User not found");
+
+  // Update the auth middleware's cache directly so the ban applies to the next
+  // request rather than waiting for the refresh interval, and revoke the refresh
+  // tokens so they cannot mint a fresh access token either.
+  if (req.body.banned) {
+    markUserBanned(String(user._id));
+    await RefreshToken.deleteMany({ userId: user._id });
+  } else {
+    markUserUnbanned(String(user._id));
+  }
+
   res.json(user);
 }
 

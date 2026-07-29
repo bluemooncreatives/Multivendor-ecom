@@ -12,9 +12,12 @@ import {
   verifyEmailVerificationToken,
   signPasswordResetToken,
   verifyPasswordResetToken,
+  signEmailChangeToken,
+  verifyEmailChangeToken,
 } from "../utils/jwt.js";
 import { sha256Hex } from "../utils/hash.js";
-import { sendVerificationEmail, sendPasswordResetEmail } from "./email.service.js";
+import { sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeEmail } from "./email.service.js";
+import { checkPhoneOtp } from "./otp.service.js";
 import { attachReferral } from "./affiliate.service.js";
 import { env } from "../config/env.js";
 
@@ -161,11 +164,95 @@ export async function verifyEmail(token: string): Promise<void> {
   await User.updateOne({ _id: payload.sub }, { emailVerifiedAt: new Date() });
 }
 
+export async function resendVerificationEmail(email: string): Promise<void> {
+  const user = await User.findOne({ email });
+  // Silent no-op for unknown or already-verified addresses: responding
+  // differently would turn this into an account-existence oracle.
+  if (!user || user.emailVerifiedAt) return;
+  await sendVerificationEmail(user.email, signEmailVerificationToken(String(user._id)));
+}
+
+/**
+ * Email change, in two steps as the legacy app did: the new address must be
+ * confirmed before it replaces the old one. The token carries both the user and
+ * the pending address, so nothing is written until the link is followed — an
+ * unconfirmed change can never lock someone out of their account.
+ */
+export async function requestEmailChange(userId: string, newEmail: string): Promise<void> {
+  const normalised = newEmail.toLowerCase().trim();
+
+  const existing = await User.findOne({ email: normalised });
+  if (existing && String(existing._id) !== userId) {
+    throw new ApiError(409, "That email address is already in use");
+  }
+
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(404, "User not found");
+  if (user.email === normalised) throw new ApiError(400, "That is already your email address");
+
+  const token = signEmailChangeToken(userId, normalised);
+  await sendEmailChangeEmail(normalised, token);
+}
+
+export async function confirmEmailChange(token: string): Promise<{ email: string }> {
+  let payload;
+  try {
+    payload = verifyEmailChangeToken(token);
+  } catch {
+    throw new ApiError(400, "Invalid or expired confirmation link");
+  }
+
+  // Re-checked at confirmation time: the address may have been claimed by
+  // someone else between the request and the click.
+  const taken = await User.findOne({ email: payload.email });
+  if (taken && String(taken._id) !== payload.sub) {
+    throw new ApiError(409, "That email address is already in use");
+  }
+
+  await User.updateOne({ _id: payload.sub }, { email: payload.email, emailVerifiedAt: new Date() });
+  return { email: payload.email };
+}
+
 export async function requestPasswordReset(email: string): Promise<void> {
   const user = await User.findOne({ email });
   if (!user) return; // do not reveal account existence
   const token = signPasswordResetToken(String(user._id));
   await sendPasswordResetEmail(user.email, token);
+}
+
+// --- Phone-based auth ----------------------------------------------------------
+
+/**
+ * Sign in with a phone number and an OTP, no password. The code is verified
+ * against the provider before any token is issued, and an unknown number is
+ * rejected the same way a wrong code is, so this cannot enumerate registered
+ * phone numbers.
+ */
+export async function loginWithPhone(phone: string, code: string) {
+  const verified = await checkPhoneOtp(phone, code);
+  if (!verified) throw new ApiError(401, "That code is not valid");
+
+  const user = await User.findOne({ phone });
+  if (!user) throw new ApiError(401, "That code is not valid");
+  if (user.banned) throw new ApiError(403, "This account has been suspended");
+
+  await User.updateOne({ _id: user._id }, { phoneVerifiedAt: new Date() });
+  const tokens = await issueTokenPair(String(user._id), user.role, user.permissions);
+  return { user, tokens };
+}
+
+/** Password reset over SMS, for accounts that registered by phone. */
+export async function resetPasswordWithPhone(phone: string, code: string, newPassword: string): Promise<void> {
+  const verified = await checkPhoneOtp(phone, code);
+  if (!verified) throw new ApiError(401, "That code is not valid");
+
+  const user = await User.findOne({ phone });
+  if (!user) throw new ApiError(401, "That code is not valid");
+
+  user.passwordHash = await hashPassword(newPassword);
+  await user.save();
+  // Same as the email path: a reset invalidates every existing session.
+  await RefreshToken.updateMany({ userId: user._id, revokedAt: null }, { revokedAt: new Date() });
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<void> {

@@ -18,6 +18,38 @@ declare global {
   }
 }
 
+/**
+ * Users banned since their access token was issued.
+ *
+ * Ban was previously only checked at login and refresh, so a token already in
+ * the wild kept working for its full lifetime. Rather than a database read on
+ * every request, banned ids are held here and the set is refreshed on a short
+ * interval — a ban takes effect within one window instead of one token lifetime.
+ */
+const bannedIds = new Set<string>();
+let bannedLoadedAt = 0;
+const BANNED_TTL_MS = 30_000;
+
+async function isBanned(userId: string): Promise<boolean> {
+  if (Date.now() - bannedLoadedAt > BANNED_TTL_MS) {
+    const { User } = await import("../models/User.js");
+    const banned = await User.find({ banned: true }, { _id: 1 }).lean();
+    bannedIds.clear();
+    for (const user of banned) bannedIds.add(String(user._id));
+    bannedLoadedAt = Date.now();
+  }
+  return bannedIds.has(userId);
+}
+
+/** Called when an admin bans someone, so the block is immediate. */
+export function markUserBanned(userId: string) {
+  bannedIds.add(userId);
+}
+
+export function markUserUnbanned(userId: string) {
+  bannedIds.delete(userId);
+}
+
 // Every mutating/ownership-scoped route reads req.user.id off the verified JWT —
 // never a client-supplied user_id field (the legacy app's core IDOR bug).
 export function authenticate(req: Request, _res: Response, next: NextFunction) {
@@ -26,13 +58,20 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
     return next(new ApiError(401, "Authentication required"));
   }
 
+  let payload;
   try {
-    const payload = verifyAccessToken(header.slice("Bearer ".length));
-    req.user = { id: payload.sub, role: payload.role, permissions: payload.permissions };
-    next();
+    payload = verifyAccessToken(header.slice("Bearer ".length));
   } catch {
-    next(new ApiError(401, "Invalid or expired token"));
+    return next(new ApiError(401, "Invalid or expired token"));
   }
+
+  isBanned(payload.sub)
+    .then((banned) => {
+      if (banned) return next(new ApiError(403, "This account has been suspended", "ACCOUNT_BANNED"));
+      req.user = { id: payload.sub, role: payload.role, permissions: payload.permissions };
+      next();
+    })
+    .catch(next);
 }
 
 export function optionalAuthenticate(req: Request, _res: Response, next: NextFunction) {

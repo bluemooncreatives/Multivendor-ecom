@@ -39,6 +39,21 @@ export function verifyEmailVerificationToken(token: string): { sub: string } {
   return decoded;
 }
 
+/**
+ * Carries the pending address as well as the user, so nothing is written to the
+ * account until the link is followed — an unconfirmed change cannot lock someone
+ * out of their own login.
+ */
+export function signEmailChangeToken(userId: string, email: string): string {
+  return jwt.sign({ sub: userId, email, purpose: "change-email" }, env.EMAIL_VERIFY_SECRET, { expiresIn: "6h" });
+}
+
+export function verifyEmailChangeToken(token: string): { sub: string; email: string } {
+  const decoded = jwt.verify(token, env.EMAIL_VERIFY_SECRET) as { sub: string; email: string; purpose: string };
+  if (decoded.purpose !== "change-email") throw new Error("Invalid token purpose");
+  return decoded;
+}
+
 export function signPasswordResetToken(userId: string): string {
   return jwt.sign({ sub: userId, purpose: "reset-password" }, env.EMAIL_VERIFY_SECRET, { expiresIn: "1h" });
 }

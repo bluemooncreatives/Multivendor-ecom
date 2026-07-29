@@ -1,6 +1,9 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Facebook from "next-auth/providers/facebook";
+import Twitter from "next-auth/providers/twitter";
+
+const SOCIAL_PROVIDERS = ["google", "facebook", "twitter"] as const;
 
 // NextAuth here only performs the OAuth handshake (Google/Facebook) — it is
 // NOT the app's session mechanism. Once a provider confirms the user's identity,
@@ -18,10 +21,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.FACEBOOK_CLIENT_ID,
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
     }),
+    Twitter({
+      clientId: process.env.TWITTER_CLIENT_ID,
+      clientSecret: process.env.TWITTER_CLIENT_SECRET,
+    }),
   ],
   callbacks: {
     async jwt({ token, account, profile }) {
-      if (account && profile && (account.provider === "google" || account.provider === "facebook")) {
+      if (account && profile && (SOCIAL_PROVIDERS as readonly string[]).includes(account.provider)) {
         try {
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/social`, {
             method: "POST",

@@ -19,7 +19,7 @@ export const loginSchema = z.object({
 });
 
 export const socialLoginSchema = z.object({
-  provider: z.enum(["google", "facebook"]),
+  provider: z.enum(["google", "facebook", "twitter"]),
   providerId: z.string().min(1),
   email: z.string().email(),
   name: z.string().min(1),
@@ -50,6 +50,22 @@ export const sendOtpSchema = z.object({
 export const verifyOtpSchema = z.object({
   phone: z.string().min(6),
   code: z.string().min(4).max(10),
+});
+
+export const resendVerificationSchema = z.object({ email: z.string().email() });
+
+export const requestEmailChangeSchema = z.object({ email: z.string().email() });
+export const confirmEmailChangeSchema = z.object({ token: z.string().min(1) });
+
+export const phoneLoginSchema = z.object({
+  phone: z.string().min(6),
+  code: z.string().min(4).max(10),
+});
+
+export const phonePasswordResetSchema = z.object({
+  phone: z.string().min(6),
+  code: z.string().min(4).max(10),
+  password: z.string().min(8).max(72),
 });
 
 function toAuthResponse(user: { _id: unknown }, tokens: { accessToken: string; refreshToken: string }) {
@@ -113,4 +129,41 @@ export async function verifyPhoneOtpHandler(req: Request, res: Response) {
   if (!ok) throw new ApiError(400, "Incorrect or expired code");
   await User.updateOne({ _id: req.user!.id, phone: req.body.phone }, { phoneVerifiedAt: new Date() });
   res.status(204).send();
+}
+
+// --- Unauthenticated OTP flows ---------------------------------------------------
+// These sit outside `authenticate`: signing in by phone and resetting a password
+// over SMS are both things you do precisely because you are not signed in.
+
+export async function sendPublicOtpHandler(req: Request, res: Response) {
+  // Always 204, whether or not the number is registered — a different response
+  // for unknown numbers would let anyone test which phones have accounts.
+  await otpService.sendPhoneOtp(req.body.phone);
+  res.status(204).send();
+}
+
+export async function phoneLoginHandler(req: Request, res: Response) {
+  const { user, tokens } = await authService.loginWithPhone(req.body.phone, req.body.code);
+  res.json(toAuthResponse(user, tokens));
+}
+
+export async function phonePasswordResetHandler(req: Request, res: Response) {
+  await authService.resetPasswordWithPhone(req.body.phone, req.body.code, req.body.password);
+  res.status(204).send();
+}
+
+// --- Email verification & change ---------------------------------------------------
+
+export async function resendVerificationHandler(req: Request, res: Response) {
+  await authService.resendVerificationEmail(req.body.email);
+  res.status(204).send();
+}
+
+export async function requestEmailChangeHandler(req: Request, res: Response) {
+  await authService.requestEmailChange(req.user!.id, req.body.email);
+  res.status(202).json({ message: "Check your new inbox for a confirmation link" });
+}
+
+export async function confirmEmailChangeHandler(req: Request, res: Response) {
+  res.json(await authService.confirmEmailChange(req.body.token));
 }

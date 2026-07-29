@@ -76,8 +76,12 @@ export const AffiliateWithdrawRequest = model("AffiliateWithdrawRequest", affili
 const affiliatePaymentSchema = new Schema(
   {
     affiliateUserId: { type: Schema.Types.ObjectId, ref: "AffiliateUser", required: true, index: true },
-    withdrawRequestId: { type: Schema.Types.ObjectId, ref: "AffiliateWithdrawRequest", required: true },
+    // Null for a direct payout an admin made without the affiliate requesting it
+    // (the legacy "pay affiliate" action, separate from resolving a withdrawal).
+    withdrawRequestId: { type: Schema.Types.ObjectId, ref: "AffiliateWithdrawRequest", default: null },
     amount: { type: Number, required: true, min: 0 },
+    note: { type: String, default: null },
+    paidBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     paidAt: { type: Date, default: Date.now },
   },
   { timestamps: true },

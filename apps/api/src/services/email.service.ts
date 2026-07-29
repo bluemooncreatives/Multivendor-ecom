@@ -98,6 +98,17 @@ export function sendVerificationEmail(to: string, token: string) {
   );
 }
 
+// Sent to the *new* address, so only someone who controls it can complete the
+// change.
+export function sendEmailChangeEmail(to: string, token: string) {
+  const link = `${env.NEXT_PUBLIC_APP_URL}/en/dashboard/profile?emailChangeToken=${encodeURIComponent(token)}`;
+  return send(
+    to,
+    "Confirm your new email address",
+    `<p>Confirm this address to finish moving your account to it.</p><p><a href="${link}">${link}</a></p><p>This link expires in 6 hours. If you did not request the change, ignore this email.</p>`,
+  );
+}
+
 export function sendPasswordResetEmail(to: string, token: string) {
   const link = `${env.NEXT_PUBLIC_APP_URL}/en/reset-password?token=${encodeURIComponent(token)}`;
   return send(
