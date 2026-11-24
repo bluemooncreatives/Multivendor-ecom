@@ -10,6 +10,7 @@ import { inventoryStatus } from "./order-state.js";
 import { restorePointsForOrder } from "./clubpoints.service.js";
 import { CouponUsage } from "../models/Coupon.js";
 import { releaseDealStock, dealLinesFromOrder } from "./flashdeal.service.js";
+import { shipmentTotal } from "./shipment-totals.js";
 
 // IDOR guard: customers only ever see their own orders; sellers only orders
 // containing at least one of their own items; staff/admin can see any.
@@ -40,7 +41,7 @@ export function sellerOrderView(order: InstanceType<typeof Order>, sellerId: str
     id: String(order._id), code: order.code, currency: order.currency, addressSnapshot: order.addressSnapshot,
     paymentMethod: order.paymentMethod, paymentStatus: order.paymentStatus, createdAt: order.createdAt,
     status: details[0]?.status ?? order.status, details,
-    grandTotal: Math.round(details.reduce((sum, detail) => sum + detail.subtotal + detail.shippingCost, 0) * 100) / 100,
+    grandTotal: Math.round(details.reduce((sum, detail) => sum + shipmentTotal(order, order.details.indexOf(detail)), 0) * 100) / 100,
   };
 }
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { FlashDeal, Product } from "../models/Product.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { flashDealUnitPrice, flashDealPercentOff, type FlashDealMatch } from "../services/flashdeal.service.js";
+import { publicProductFilter } from "../services/catalog-visibility.service.js";
 import { slugify, uniqueSlug } from "../utils/slug.js";
 
 // A campaign line discounts either a percentage or a fixed amount off the variant's
@@ -116,7 +117,7 @@ const PUBLIC_PRODUCT_FIELDS = "name slug images currency basePrice variants publ
 export async function listActiveFlashDealsHandler(_req: Request, res: Response) {
   const now = new Date();
   const deals = await FlashDeal.find({ active: true, startsAt: { $lte: now }, endsAt: { $gte: now } })
-    .populate("products.productId", PUBLIC_PRODUCT_FIELDS)
+    .populate({ path: "products.productId", select: PUBLIC_PRODUCT_FIELDS, match: await publicProductFilter() })
     .sort({ featured: -1, endsAt: 1 });
   res.json({ items: deals.map((deal) => decorateDeal(publicView(deal))) });
 }
@@ -131,7 +132,7 @@ export async function getFlashDealHandler(req: Request, res: Response) {
     active: true,
     startsAt: { $lte: now },
     endsAt: { $gte: now },
-  }).populate("products.productId", PUBLIC_PRODUCT_FIELDS);
+  }).populate({ path: "products.productId", select: PUBLIC_PRODUCT_FIELDS, match: await publicProductFilter() });
   if (!deal) throw new ApiError(404, "Flash deal not found");
   res.json(decorateDeal(publicView(deal)));
 }
@@ -145,7 +146,7 @@ export async function getFlashDealBySlugHandler(req: Request, res: Response) {
     active: true,
     startsAt: { $lte: now },
     endsAt: { $gte: now },
-  }).populate("products.productId", PUBLIC_PRODUCT_FIELDS);
+  }).populate({ path: "products.productId", select: PUBLIC_PRODUCT_FIELDS, match: await publicProductFilter() });
 
   if (!deal) throw new ApiError(404, "Flash deal not found");
   res.json(decorateDeal(publicView(deal)));
@@ -171,7 +172,7 @@ function publicView(deal: any) {
 }
 
 export async function listAdminFlashDealsHandler(_req: Request, res: Response) {
-  const deals = await FlashDeal.find().populate("products.productId", PUBLIC_PRODUCT_FIELDS).sort({ createdAt: -1 });
+  const deals = await FlashDeal.find().populate({ path: "products.productId", select: PUBLIC_PRODUCT_FIELDS, match: await publicProductFilter() }).sort({ createdAt: -1 });
   res.json({ items: deals.map(decorateDeal) });
 }
 

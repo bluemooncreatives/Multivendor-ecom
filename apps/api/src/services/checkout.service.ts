@@ -25,6 +25,7 @@ import type { CartOwner } from "./cart.service.js";
 import type { PaymentMethod } from "@ecommercemultivendor/types";
 import { checkoutOptions } from "./payment-options.service.js";
 import { allocateUnits } from "../utils/allocation.js";
+import { publicProductFilter } from "./catalog-visibility.service.js";
 
 export interface InlineAddress {
   line1: string;
@@ -127,8 +128,9 @@ export async function createOrder(input: CheckoutInput) {
         { session },
       );
 
+      const visibility = await publicProductFilter(session);
       for (const cartItem of cart.items) {
-        const product = await Product.findById(cartItem.productId).session(session);
+        const product = await Product.findOne({ ...visibility, _id: cartItem.productId }).session(session);
         if (!product || !product.published || product.approvalStatus !== "approved") throw new ApiError(409, "One of the items in your cart is no longer available");
         const variant = product.variants.find((v) => v.sku === cartItem.variantSku);
         if (!variant) throw new ApiError(409, "One of the selected variants is no longer available");
@@ -263,6 +265,7 @@ export async function createOrder(input: CheckoutInput) {
           sellerId: bucket.sellerId,
           items: bucket.items,
           subtotal: round2(bucket.subtotal),
+          tax: round2(bucket.tax),
           commissionRate: rate,
           commissionAmount: amount,
           shippingCost,

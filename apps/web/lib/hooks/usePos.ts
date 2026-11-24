@@ -20,6 +20,26 @@ export interface PosProduct {
   images: string[];
   sellerId: string | null;
   variants: PosVariant[];
+  pricing?: { variants: { sku: string; price: number }[] };
+}
+
+export interface PosCustomer { id: string; name: string; email: string; phone?: string }
+
+export function usePosCustomers(q: string) {
+  return useQuery({ queryKey: ["pos", "customers", q],
+    queryFn: async () => (await api.get<{ items: PosCustomer[] }>("/addons/pos/customers", { params: { q } })).data.items,
+    enabled: q.trim().length >= 3 });
+}
+
+export interface PosQuote {
+  subtotal: number; discount: number; tax: number; shippingCost: number; grandTotal: number; currency: string;
+  items: { productId: string; variantSku: string; unitPrice: number; quantity: number }[];
+}
+
+export function usePosQuote(input: { items: PosSaleInput["items"]; discount: number; shippingCost: number }) {
+  return useQuery({ queryKey: ["pos", "quote", input],
+    queryFn: async () => (await api.post<PosQuote>("/addons/pos/quote", input)).data,
+    enabled: input.items.length > 0, staleTime: 0, retry: false });
 }
 
 /**

@@ -149,6 +149,7 @@ export interface PickupPoint {
   city: string;
   phone?: string;
   active: boolean;
+  staffId?: string | null;
 }
 
 export function useAdminPickupPoints() {
@@ -161,7 +162,7 @@ export function useAdminPickupPoints() {
 export function useCreatePickupPoint() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; address: string; city: string; phone?: string }) =>
+    mutationFn: async (input: { name: string; address: string; city: string; phone?: string; staffId?: string | null; active?: boolean }) =>
       (await api.post("/pickup-points/admin", input)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "pickup-points"] }),
   });

@@ -10,6 +10,7 @@ import { ApiError } from "../middleware/errorHandler.js";
 import { inventoryStatus } from "../services/order-state.js";
 import { sellerOrderView } from "../services/order.service.js";
 import { lockSellerFunds, sellerFunds } from "../services/seller-funds.service.js";
+import { publicSellerIds, PUBLIC_SHOP_FIELDS } from "../services/catalog-visibility.service.js";
 
 export const shopSchema = z.object({
   name: z.string().min(1).max(120),
@@ -39,13 +40,15 @@ export async function createOrUpdateShopHandler(req: Request, res: Response) {
 }
 
 export async function getPublicShopHandler(req: Request, res: Response) {
-  const shop = await Shop.findOne({ slug: req.params.slug, verified: true });
+  const shop = await Shop.findOne({ slug: req.params.slug, verified: true, sellerId: { $in: await publicSellerIds() } }).select(PUBLIC_SHOP_FIELDS);
   if (!shop) throw new ApiError(404, "Shop not found");
   res.json(shop);
 }
 
 export async function getShopBySellerIdHandler(req: Request, res: Response) {
-  const shop = await Shop.findOne({ sellerId: req.params.sellerId, verified: true });
+  const ids = await publicSellerIds();
+  const shop = ids.some((id) => String(id) === req.params.sellerId)
+    ? await Shop.findOne({ sellerId: req.params.sellerId, verified: true }).select(PUBLIC_SHOP_FIELDS) : null;
   if (!shop) throw new ApiError(404, "Shop not found");
   res.json(shop);
 }

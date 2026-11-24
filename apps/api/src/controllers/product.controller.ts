@@ -16,6 +16,7 @@ import { consumeSellerUpload, assertSellerPackageValid } from "../services/packa
 import { ApiError } from "../middleware/errorHandler.js";
 import mongoose from "mongoose";
 import { decorateProductsPricing, decorateProductPricing } from "../services/pricing.service.js";
+import { publicProductFilter } from "../services/catalog-visibility.service.js";
 
 const variantInput = z.object({
   sku: z.string().min(1),
@@ -97,12 +98,12 @@ export async function getProductsByIdsHandler(req: Request, res: Response) {
     .split(",")
     .filter(Boolean)
     .slice(0, 10);
-  const products = await Product.find({ _id: { $in: ids }, published: true, approvalStatus: "approved" });
+  const products = await Product.find({ ...await publicProductFilter(), _id: { $in: ids } });
   res.json({ items: await decorateProductsPricing(products) });
 }
 
 export async function getProductHandler(req: Request, res: Response) {
-  const product = await Product.findOne({ slug: req.params.slug, published: true, approvalStatus: "approved" });
+  const product = await Product.findOne({ ...await publicProductFilter(), slug: req.params.slug });
   if (!product) throw new ApiError(404, "Product not found");
   await Product.updateOne({ _id: product._id }, { $inc: { viewCount: 1 } });
   res.json(await decorateProductPricing(product));
@@ -489,7 +490,7 @@ export async function generateSkuCombinationsHandler(req: Request, res: Response
 // Resolves the live price/stock for one selected variant — used by the product
 // page when a shopper switches colour/size.
 export async function getVariantPriceHandler(req: Request, res: Response) {
-  const product = await Product.findOne({ _id: req.params.id, published: true });
+  const product = await Product.findOne({ ...await publicProductFilter(), _id: req.params.id });
   if (!product) throw new ApiError(404, "Product not found");
 
   const variant = product.variants.find((v) => v.sku === req.query.sku);
@@ -497,7 +498,7 @@ export async function getVariantPriceHandler(req: Request, res: Response) {
 
   res.json({
     sku: variant.sku,
-    price: variant.price,
+    price: (await decorateProductPricing(product)).pricing.variants.find((v: { sku: string }) => v.sku === variant.sku)?.price ?? variant.price,
     comparePrice: variant.comparePrice,
     // Reserved units are held for in-flight orders and are not purchasable.
     available: Math.max(0, variant.stock - variant.reserved),

@@ -5,6 +5,7 @@ import { Addon } from "../models/Settings.js";
 import { Order } from "../models/Order.js";
 import { streamOrderInvoice } from "../services/invoice.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { User } from "../models/User.js";
 
 export const posSaleSchema = z
   .object({
@@ -49,11 +50,39 @@ async function assertPosEnabled() {
   if (!addon?.enabled) throw new ApiError(403, "The point of sale module is not enabled");
 }
 
+export function assertPosPermission(req: Request) {
+  if (req.user!.role === "staff" && !req.user!.permissions?.includes("pos.manage")) throw new ApiError(403, "POS permission is required");
+}
+
+export const posQuoteSchema = z.object({
+  items: z.array(z.object({ productId: z.string(), variantSku: z.string(), quantity: z.number().int().min(1) })).min(1).max(200),
+  discount: z.number().finite().min(0).default(0), shippingCost: z.number().finite().min(0).default(0),
+});
+
+export async function quotePosSaleHandler(req: Request, res: Response) {
+  assertPosPermission(req);
+  await assertPosEnabled();
+  res.json(await posService.quotePosSale({ ...req.body, lines: req.body.items, sellerId: req.user!.role === "seller" ? req.user!.id : null,
+    operatorId: req.user!.id, allowAnySeller: isAdminOperator(req) }));
+}
+
+export async function searchPosCustomersHandler(req: Request, res: Response) {
+  assertPosPermission(req);
+  await assertPosEnabled();
+  const term = String(req.query.q ?? "").trim().slice(0, 80);
+  if (term.length < 3) return res.json({ items: [] });
+  const rx = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const items = await User.find({ role: "customer", banned: false, $or: [{ name: { $regex: rx, $options: "i" } }, { email: { $regex: rx, $options: "i" } }, { phone: { $regex: rx } }] })
+    .select("name email phone").sort({ name: 1 }).limit(10);
+  res.json({ items });
+}
+
 function isAdminOperator(req: Request): boolean {
   return req.user!.role === "admin" || req.user!.role === "staff";
 }
 
 export async function createPosSaleHandler(req: Request, res: Response) {
+  assertPosPermission(req);
   await assertPosEnabled();
 
   const admin = isAdminOperator(req);
@@ -78,6 +107,7 @@ export async function createPosSaleHandler(req: Request, res: Response) {
 }
 
 export async function searchPosProductsHandler(req: Request, res: Response) {
+  assertPosPermission(req);
   await assertPosEnabled();
 
   const admin = isAdminOperator(req);
@@ -87,6 +117,7 @@ export async function searchPosProductsHandler(req: Request, res: Response) {
 
 /** Counter receipt for a completed sale. */
 export async function posReceiptHandler(req: Request, res: Response) {
+  assertPosPermission(req);
   const admin = isAdminOperator(req);
   const filter = admin ? { _id: req.params.id } : { _id: req.params.id, "details.sellerId": req.user!.id };
 

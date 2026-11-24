@@ -113,6 +113,9 @@ import {
   createPosSaleHandler,
   searchPosProductsHandler,
   posReceiptHandler,
+  posQuoteSchema,
+  quotePosSaleHandler,
+  searchPosCustomersHandler,
 } from "../controllers/pos.controller.js";
 
 export const addonRouter = Router();
@@ -390,5 +393,7 @@ addonRouter.post(
 const posOperator = [authenticate, requireRole("seller", "admin", "staff")] as const;
 
 addonRouter.get("/pos/products", ...posOperator, asyncHandler(searchPosProductsHandler));
+addonRouter.get("/pos/customers", ...posOperator, asyncHandler(searchPosCustomersHandler));
+addonRouter.post("/pos/quote", ...posOperator, validateBody(posQuoteSchema), asyncHandler(quotePosSaleHandler));
 addonRouter.post("/pos/sales", ...posOperator, validateBody(posSaleSchema), asyncHandler(createPosSaleHandler));
 addonRouter.get("/pos/sales/:id/receipt", ...posOperator, asyncHandler(posReceiptHandler));

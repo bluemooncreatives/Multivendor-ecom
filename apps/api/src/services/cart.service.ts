@@ -3,6 +3,7 @@ import { Product } from "../models/Product.js";
 import { Shop } from "../models/Shop.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { resolveFlashDeals, flashDealUnitPrice, dealKey } from "./flashdeal.service.js";
+import { publicProductFilter } from "./catalog-visibility.service.js";
 
 export interface CartOwner {
   userId?: string;
@@ -16,7 +17,7 @@ function ownerFilter({ userId, guestId }: CartOwner) {
 }
 
 async function findVariant(productId: string, variantSku: string) {
-  const product = await Product.findOne({ _id: productId, published: true, approvalStatus: "approved" });
+  const product = await Product.findOne({ ...await publicProductFilter(), _id: productId });
   if (!product) throw new ApiError(404, "Product not found");
   const variant = product.variants.find((v) => v.sku === variantSku);
   if (!variant) throw new ApiError(404, "Variant not found");
@@ -35,7 +36,7 @@ export async function getCartWithDetails(owner: CartOwner) {
   if (!cart || cart.items.length === 0) return { id: cart?._id, items: [] };
 
   const productIds = [...new Set(cart.items.map((i) => i.productId.toString()))];
-  const products = await Product.find({ _id: { $in: productIds } });
+  const products = await Product.find({ ...await publicProductFilter(), _id: { $in: productIds } });
   const productMap = new Map(products.map((p) => [String(p._id), p]));
 
   const sellerIds = [...new Set(products.map((p) => p.sellerId).filter(Boolean).map(String))];
@@ -145,9 +146,10 @@ export async function mergeGuestCartIntoUser(guestId: string, userId: string) {
   if (!guestCart || guestCart.items.length === 0) return;
 
   const userCart = (await Cart.findOne({ userId })) ?? new Cart({ userId, items: [] });
+  const visibility = await publicProductFilter();
 
   for (const guestItem of guestCart.items) {
-    const product = await Product.findOne({ _id: guestItem.productId, published: true, approvalStatus: "approved" });
+    const product = await Product.findOne({ ...visibility, _id: guestItem.productId });
     const variant = product?.variants.find((v) => v.sku === guestItem.variantSku);
     if (!product || !variant) continue;
     const existing = userCart.items.find(

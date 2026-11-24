@@ -84,7 +84,13 @@ beforeEach(async () => {
   await GeneralSetting.create({ defaultCurrency: "INR" });
 });
 
+async function verifiedVendor(sellerId: unknown) {
+  await User.updateOne({ _id: sellerId }, { $setOnInsert: { name: "Vendor", email: `${sellerId}@example.test`, passwordHash: "unused", role: "seller" } }, { upsert: true });
+  await Shop.updateOne({ sellerId }, { $setOnInsert: { name: "Shop", slug: `shop-${sellerId}`, verified: true } }, { upsert: true });
+}
+
 async function fixture(overrides: Record<string, unknown> = {}, userId = id()) {
+  if (overrides.sellerId) await verifiedVendor(overrides.sellerId);
   const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
   const product = await Product.create({ name: "Product", slug: `product-${id()}`, addedBy: "admin", sellerId: null,
     categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved",
@@ -319,6 +325,7 @@ describe("checkout and settlement with real transactions", () => {
     const seller = id();
     const { input, product, userId } = await fixture({ sellerId: seller, addedBy: "seller" });
     const other = await Product.create({ ...product.toObject(), _id: id(), slug: "private-vendor", sellerId: id(), name: "Other vendor secret" });
+    await verifiedVendor(other.sellerId);
     await Cart.updateOne({ userId }, { $push: { items: { productId: other._id, variantSku: "sku", quantity: 1 } } });
     const order = await createOrder(input);
     const sellerToken = await testAccessToken({ sub: String(seller), role: "seller" });
@@ -384,6 +391,7 @@ describe("checkout and settlement with real transactions", () => {
   it("allocates a product coupon only to its seller's shipment", async () => {
     const { input, product, userId } = await fixture({ sellerId: id(), addedBy: "seller" });
     const other = await Product.create({ ...product.toObject(), _id: id(), slug: "coupon-other-vendor", sellerId: id() });
+    await verifiedVendor(other.sellerId);
     await Cart.updateOne({ userId }, { $push: { items: { productId: other._id, variantSku: "sku", quantity: 1 } } });
     await Coupon.create({ code: "FIRST", type: "percent", value: 50, scope: "product", productIds: [product._id] });
     const order = await createOrder({ ...input, couponCode: "FIRST" });

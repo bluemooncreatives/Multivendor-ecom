@@ -3,6 +3,7 @@ import { Category, Brand } from "../models/Category.js";
 import { Search } from "../models/Marketing.js";
 import { Shop } from "../models/Shop.js";
 import { logger } from "../config/logger.js";
+import { publicProductFilter, publicSellerIds } from "./catalog-visibility.service.js";
 
 // User input goes into a $regex, so any regex metacharacter it contains must be
 // neutralised — an unescaped "(" or a nested quantifier is both a crash and a
@@ -27,13 +28,13 @@ export async function getSearchSuggestions(query: string, limit = 5): Promise<Su
   const rx = new RegExp(escapeRegex(term), "i");
 
   const [products, categories, brands, shops] = await Promise.all([
-    Product.find({ published: true, approvalStatus: "approved", name: rx })
+    Product.find({ ...await publicProductFilter(), name: rx })
       .select("name slug images basePrice")
       .sort({ ratingAverage: -1 })
       .limit(limit),
     Category.find({ active: true, name: rx }).select("name slug").limit(limit),
     Brand.find({ active: true, name: rx }).select("name slug").limit(limit),
-    Shop.find({ verified: true, name: rx }).select("name slug").limit(limit),
+    Shop.find({ verified: true, sellerId: { $in: await publicSellerIds() }, name: rx }).select("name slug").limit(limit),
   ]);
 
   return {

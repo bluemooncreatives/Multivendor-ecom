@@ -28,11 +28,15 @@ import { SellerLedger } from "../../models/Ledger.js";
 import { BusinessSetting, GeneralSetting, Addon } from "../../models/Settings.js";
 import { CustomerProduct } from "../../models/CustomerProduct.js";
 import { Currency, Language, Translation } from "../../models/Localization.js";
-import { AffiliateConfig, AffiliateUser, AffiliateEarningDetail } from "../../models/Affiliate.js";
+import { AffiliateConfig, AffiliateUser, AffiliateEarningDetail, AffiliatePayment } from "../../models/Affiliate.js";
 import { attachReferral, creditAffiliateForOrder } from "../affiliate.service.js";
 import { convertAmount } from "../currency.service.js";
 import { sendNewsletterCampaign } from "../email.service.js";
 import { Subscriber, PickupPoint } from "../../models/Marketing.js";
+import { Wallet, WalletTransaction } from "../../models/Wallet.js";
+import { ClubPointTransaction } from "../../models/ClubPoints.js";
+import { awardClubPointsForOrder } from "../clubpoints.service.js";
+import { JobLock, withJobLock } from "../scheduler.service.js";
 
 const id = () => new mongoose.Types.ObjectId();
 let repl: MongoMemoryReplSet;
@@ -267,5 +271,162 @@ describe("affiliate retry and first purchase safety", () => {
     await creditAffiliateForOrder(String(first._id));
     expect(await AffiliateEarningDetail.countDocuments({ affiliateUserId: affiliate._id })).toBe(1);
     expect((await AffiliateUser.findById(affiliate._id))!.availableBalance).toBe(10);
+  });
+});
+
+describe("affiliate payout accounting", () => {
+  async function affiliateBalance() {
+    await Addon.create({ key: "affiliate", enabled: true });
+    await AffiliateConfig.create({ enabled: true, minWithdrawAmount: 1, allowedMethods: ["wallet", "manual"] });
+    const owner = await account();
+    const affiliate = await AffiliateUser.create({ userId: owner.user._id, referralCode: `pay-${id()}`, status: "approved", availableBalance: 100, totalEarnings: 100 });
+    return { owner, affiliate, admin: await account("admin") };
+  }
+
+  it("serializes pending withdrawal holds and credits a wallet payout exactly once", async () => {
+    const { owner, affiliate, admin } = await affiliateBalance();
+    const responses = await Promise.all([1, 2].map(() => request("/addons/affiliate/withdrawals", owner.token, "POST", { amount: 80, method: "wallet" })));
+    expect(responses.map((r) => r.status).sort()).toEqual([201, 409]);
+    const withdrawal = await responses.find((r) => r.status === 201)!.json() as { id: string };
+    const resolve = () => request(`/addons/admin/affiliate/withdrawals/${withdrawal.id}/resolve`, admin.token, "POST", { approve: true });
+    expect((await resolve()).status).toBe(200);
+    expect((await resolve()).status).toBe(409);
+    expect((await Wallet.findOne({ userId: owner.user._id }))!.balance).toBe(80);
+    expect((await AffiliateUser.findById(affiliate._id))!.availableBalance).toBe(20);
+    expect(await WalletTransaction.countDocuments({ userId: owner.user._id })).toBe(1);
+  });
+
+  it("deducts direct payouts, honors holds, and replays a payout key without double payment", async () => {
+    const { owner, affiliate, admin } = await affiliateBalance();
+    expect((await request("/addons/affiliate/withdrawals", owner.token, "POST", { amount: 80, method: "manual" })).status).toBe(201);
+    const pay = (amount: number, key: string) => request(`/addons/admin/affiliate/users/${affiliate._id}/pay`, admin.token, "POST", { amount, idempotencyKey: key });
+    expect((await pay(30, "payout-rejected")).status).toBe(409);
+    expect((await pay(20, "payout-replayed")).status).toBe(201);
+    expect((await pay(20, "payout-replayed")).status).toBe(201);
+    expect((await AffiliateUser.findById(affiliate._id))!.availableBalance).toBe(80);
+    expect(await AffiliatePayment.countDocuments()).toBe(1);
+  });
+});
+
+describe("shipment rewards and refunds", () => {
+  it("awards only delivered paid shipments, using the purchase snapshot and transactionally on retry", async () => {
+    await Addon.create({ key: "club_points", enabled: true });
+    const buyer = await account();
+    const seller = await account("seller");
+    const p = await product();
+    const other = await product(seller.user._id);
+    const order = await deliveredOrder(buyer.user._id, p);
+    order.details[0]!.items[0]!.clubPoints = 7;
+    order.details.push({ ...order.details[0]!.toObject(), sellerId: seller.user._id, status: "confirmed",
+      items: [{ productId: other._id, variantSku: "sku", name: "Other", quantity: 1, unitPrice: 100, clubPoints: 11 }] } as never);
+    order.status = "shipped";
+    await order.save();
+    await Product.updateMany({}, { clubPoints: 99 });
+    await Promise.all([awardClubPointsForOrder(String(order._id)), awardClubPointsForOrder(String(order._id))]);
+    expect((await User.findById(buyer.user._id))!.clubPoints).toBe(7);
+    expect(await ClubPointTransaction.countDocuments()).toBe(1);
+    await Order.updateOne({ _id: order._id }, { paymentStatus: "unpaid", "details.1.status": "delivered" });
+    await awardClubPointsForOrder(String(order._id));
+    expect((await User.findById(buyer.user._id))!.clubPoints).toBe(7);
+  });
+
+  it("refunds one shipment once, reversing its rewards and affiliate share while retaining the other shipment", async () => {
+    await Addon.create({ key: "club_points", enabled: true });
+    const buyer = await account();
+    const admin = await account("admin");
+    const seller = await account("seller");
+    const p = await product();
+    const order = await deliveredOrder(buyer.user._id, p);
+    order.details[0]!.items[0]!.clubPoints = 7;
+    order.details.push({ ...order.details[0]!.toObject(), sellerId: seller.user._id } as never);
+    order.grandTotal = 200;
+    await order.save();
+    await awardClubPointsForOrder(String(order._id));
+    const affiliateOwner = await account();
+    const affiliate = await AffiliateUser.create({ userId: affiliateOwner.user._id, referralCode: `refund-${id()}`, status: "approved", totalEarnings: 20, availableBalance: 20 });
+    await AffiliateEarningDetail.create({ affiliateUserId: affiliate._id, orderId: order._id, kind: "order_commission", amount: 20, status: "credited" });
+    const requests = await Promise.all([1, 2].map(() => request("/addons/refunds", buyer.token, "POST", { orderId: String(order._id), sellerId: null, reason: "Return" })));
+    expect(requests.map((r) => r.status).sort()).toEqual([201, 409]);
+    const refund = await requests.find((r) => r.status === 201)!.json() as { id: string };
+    expect((await request(`/addons/refunds/${refund.id}/resolve`, admin.token, "POST", { approve: true })).status).toBe(200);
+    expect((await request(`/addons/refunds/${refund.id}/resolve`, admin.token, "POST", { approve: true })).status).toBe(409);
+    expect((await User.findById(buyer.user._id))!.clubPoints).toBe(7);
+    expect((await AffiliateUser.findById(affiliate._id))!.availableBalance).toBe(10);
+    expect((await Wallet.findOne({ userId: buyer.user._id }))!.balance).toBe(100);
+    expect((await Order.findById(order._id))!.details[1]!.status).toBe("delivered");
+  });
+});
+
+describe("pickup staff scoping", () => {
+  it("shows only assigned collection points and their shipments and only fulfills those shipments", async () => {
+    const staff = await account("staff", ["pickuppoints.manage"]);
+    const otherStaff = await account("staff", ["pickuppoints.manage"]);
+    const buyer = await account();
+    const own = await PickupPoint.create({ name: "Own", address: "Street", city: "Pune", staffId: staff.user._id });
+    const other = await PickupPoint.create({ name: "Other", address: "Street", city: "Pune", staffId: otherStaff.user._id });
+    const p = await product();
+    const order = await deliveredOrder(buyer.user._id, p);
+    order.details[0]!.pickupPointId = own._id;
+    order.details[0]!.status = "confirmed";
+    order.details.push({ ...order.details[0]!.toObject(), sellerId: id(), pickupPointId: other._id } as never);
+    order.status = "confirmed";
+    await order.save();
+    const points = await (await request("/pickup-points/admin", staff.token)).json() as { items: { id: string }[] };
+    expect(points.items.map((point) => point.id)).toEqual([String(own._id)]);
+    expect((await request(`/admin/orders/by-pickup-point?pickupPointId=${other._id}`, staff.token)).status).toBe(404);
+    const sheet = await (await request(`/admin/orders/by-pickup-point?pickupPointId=${own._id}`, staff.token)).json() as { items: { details: unknown[]; idempotencyKey?: string }[] };
+    expect(sheet.items[0]!.details).toHaveLength(1);
+    expect(sheet.items[0]!.idempotencyKey).toBeUndefined();
+    const fulfill = (status: string) => request(`/pickup-points/admin/${own._id}/orders/${order._id}`, staff.token, "PATCH", { sellerId: null, status });
+    expect((await fulfill("delivered")).status).toBe(200);
+    expect((await fulfill("processing")).status).toBe(409);
+    expect((await Order.findById(order._id))!.details[1]!.status).toBe("confirmed");
+    expect((await request(`/pickup-points/admin/${other._id}`, staff.token, "PATCH", { name: "Hijacked" })).status).toBe(404);
+  });
+});
+
+describe("point of sale quote and access", () => {
+  it("quotes discounts, tax and delivery without consuming stock and charges the same quote", async () => {
+    await Addon.create({ key: "pos", enabled: true });
+    const admin = await account("admin");
+    const buyer = await account();
+    const p = await product();
+    await Product.updateOne({ _id: p._id }, { tax: 10, taxType: "percent", discount: 20, discountType: "percent" });
+    const input = { items: [{ productId: String(p._id), variantSku: "sku", quantity: 2 }], discount: 10, shippingCost: 5 };
+    const quote = await request("/addons/pos/quote", admin.token, "POST", input);
+    expect(quote.status).toBe(200);
+    const totals = await quote.json() as { grandTotal: number };
+    expect(totals).toMatchObject({ subtotal: 160, tax: 16, discount: 10, shippingCost: 5, grandTotal: 171 });
+    expect((await Product.findById(p._id))!.variants[0]!.stock).toBe(10);
+    const sale = await request("/addons/pos/sales", admin.token, "POST", { ...input, customerId: String(buyer.user._id), idempotencyKey: `pos-${id()}` });
+    expect(sale.status).toBe(201);
+    expect((await sale.json() as { grandTotal: number }).grandTotal).toBe(totals.grandTotal);
+    expect((await Product.findById(p._id))!.variants[0]!.stock).toBe(8);
+  });
+
+  it("requires a POS grant for staff, applies current permission revocations and rejects deleted accounts", async () => {
+    await Addon.create({ key: "pos", enabled: true });
+    const staff = await account("staff", ["pos.manage"]);
+    expect((await request("/addons/pos/products?q=xx", staff.token)).status).toBe(200);
+    await User.updateOne({ _id: staff.user._id }, { permissions: [] });
+    expect((await request("/addons/pos/products?q=xx", staff.token)).status).toBe(403);
+    await User.deleteOne({ _id: staff.user._id });
+    expect((await request("/auth/me", staff.token)).status).toBe(401);
+  });
+});
+
+describe("maintenance lease ownership", () => {
+  it("never unlocks a newer owner's lease when old work finishes late", async () => {
+    let finish!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => { started = resolve; });
+    const pending = withJobLock("lease-test", 15, async () => { started(); await new Promise<void>((resolve) => { finish = resolve; }); return "old"; });
+    await ready;
+    await JobLock.updateOne({ _id: "lease-test" }, { owner: "replacement", lockedUntil: new Date(Date.now() + 60000) });
+    finish();
+    await pending;
+    const lock = await JobLock.findById("lease-test");
+    expect(lock!.owner).toBe("replacement");
+    expect(lock!.lockedUntil.getTime()).toBeGreaterThan(Date.now());
   });
 });

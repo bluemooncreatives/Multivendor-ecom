@@ -26,6 +26,7 @@ const PERMISSIONS = [
   { key: "orders.manage", label: "Manage orders", group: "Orders" },
   { key: "sales.view", label: "View sales", group: "Orders" },
   { key: "pickuppoints.manage", label: "Manage pickup points & their orders", group: "Orders" },
+  { key: "pos.manage", label: "Operate the point of sale till", group: "Orders" },
   { key: "refunds.manage", label: "Handle refund requests", group: "Orders" },
   { key: "payments.manage", label: "Manage payments & withdrawals", group: "Orders" },
   { key: "tickets.manage", label: "Answer support tickets", group: "Support" },

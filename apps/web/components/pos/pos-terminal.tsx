@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Search, Trash2 } from "lucide-react";
 import {
@@ -9,7 +9,11 @@ import {
   openPosReceipt,
   type PosProduct,
   type PosVariant,
+  type PosCustomer,
+  usePosCustomers,
+  usePosQuote,
 } from "@/lib/hooks/usePos";
+import { useAuthStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +37,11 @@ interface Line {
  * stock while a seller is restricted to their own.
  */
 export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
+  const userId = useAuthStore((state) => state.user?.id);
+  return <PosTill key={`${userId}:${scope}`} scope={scope} draftKey={`pos-draft:${userId}:${scope}`} />;
+}
+
+function PosTill({ scope, draftKey }: { scope: "seller" | "admin"; draftKey: string }) {
   const [query, setQuery] = useState("");
   const { data: results, isFetching } = usePosProductSearch(query);
   const createSale = useCreatePosSale();
@@ -43,9 +52,40 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
   const [shippingCost, setShippingCost] = useState(0);
   const [paymentType, setPaymentType] = useState<"cash" | "card" | "wallet" | "manual">("cash");
   const [walkIn, setWalkIn] = useState({ name: "", phone: "", email: "", address: "", city: "", postalCode: "" });
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [customer, setCustomer] = useState<PosCustomer | null>(null);
+  const { data: customers } = usePosCustomers(customerQuery);
+  const [lastSale, setLastSale] = useState<string | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const { data: quote, isFetching: quoting, error: quoteError } = usePosQuote({
+    items: lines.map(({ productId, variantSku, quantity }) => ({ productId, variantSku, quantity })), discount, shippingCost,
+  });
 
-  const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
-  const total = Math.max(0, subtotal - discount) + shippingCost;
+  const subtotal = quote?.subtotal ?? 0;
+  const total = quote?.grandTotal ?? 0;
+  const currency = quote?.currency ?? "INR";
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(draftKey);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (Array.isArray(saved.lines) && saved.lines.every((line: Line) => typeof line.productId === "string" && typeof line.variantSku === "string" && Number.isSafeInteger(line.quantity) && line.quantity > 0)) setLines(saved.lines);
+        if (Number.isFinite(saved.discount) && saved.discount >= 0) setDiscount(saved.discount);
+        if (Number.isFinite(saved.shippingCost) && saved.shippingCost >= 0) setShippingCost(saved.shippingCost);
+        if (saved.walkIn && typeof saved.walkIn.name === "string" && typeof saved.walkIn.phone === "string") setWalkIn(saved.walkIn);
+        if (saved.customer?.id) setCustomer(saved.customer);
+        if (["cash", "card", "wallet", "manual"].includes(saved.paymentType)) setPaymentType(saved.paymentType);
+        if (typeof saved.attempt === "string") attempt.current = saved.attempt;
+      }
+    } catch { /* An invalid or unavailable draft does not block opening the till. */ }
+    setDraftLoaded(true);
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftLoaded) return;
+    try { sessionStorage.setItem(draftKey, JSON.stringify({ lines, discount, shippingCost, walkIn, customer, paymentType, attempt: attempt.current })); } catch { /* Storage can be disabled by the browser. */ }
+  }, [draftKey, draftLoaded, lines, discount, shippingCost, walkIn, customer, paymentType]);
 
   function addLine(product: PosProduct, variant: PosVariant) {
     const available = variant.stock - variant.reserved;
@@ -74,7 +114,7 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
           variantSku: variant.sku,
           name: product.name,
           variantLabel: Object.values(variant.attributes ?? {}).join(" / "),
-          price: variant.price,
+          price: product.pricing?.variants.find((v) => v.sku === variant.sku)?.price ?? variant.price,
           quantity: 1,
           available,
         },
@@ -86,16 +126,19 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
 
   async function handleCheckout() {
     if (lines.length === 0) return;
-    if (!walkIn.name || !walkIn.phone) {
+    if (!customer && (!walkIn.name || !walkIn.phone)) {
       toast.error("Enter the customer's name and phone");
       return;
     }
 
     try {
+      attempt.current ??= crypto.randomUUID();
+      try { sessionStorage.setItem(draftKey, JSON.stringify({ lines, discount, shippingCost, walkIn, customer, paymentType, attempt: attempt.current })); } catch { /* Optional draft recovery. */ }
       const order = await createSale.mutateAsync({
         idempotencyKey: attempt.current ??= crypto.randomUUID(),
         items: lines.map((l) => ({ productId: l.productId, variantSku: l.variantSku, quantity: l.quantity })),
-        walkIn: {
+        customerId: customer?.id,
+        walkIn: customer ? null : {
           name: walkIn.name,
           phone: walkIn.phone,
           email: walkIn.email || undefined,
@@ -109,15 +152,15 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
       });
 
       toast.success(`Sale recorded: ${order.code}`);
+      setLastSale(order.id);
       attempt.current = null;
       setLines([]);
       setDiscount(0);
       setShippingCost(0);
       setWalkIn({ name: "", phone: "", email: "", address: "", city: "", postalCode: "" });
-
-      // Offered rather than opened automatically: a pop-up blocker would swallow
-      // an unprompted window and the operator would think printing failed.
-      void openPosReceipt(order.id).catch(() => toast.error("Could not open the receipt"));
+      setCustomer(null);
+      setCustomerQuery("");
+      setPaymentType("cash");
     } catch (err) {
       const response = (err as { response?: { data?: { message?: string } } })?.response;
       toast.error(response?.data?.message ?? "Could not record sale");
@@ -185,6 +228,19 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
             <CardTitle className="text-base">Customer</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Registered customer</Label>
+              {customer ? <div className="flex items-center justify-between rounded border p-2 text-sm">
+                <span>{customer.name} · {customer.email}</span>
+                <Button variant="ghost" size="sm" onClick={() => { setCustomer(null); setPaymentType("cash"); }}>Use walk-in</Button>
+              </div> : <>
+                <Input placeholder="Find by name, phone or email (3+ characters)" value={customerQuery} onChange={(e) => setCustomerQuery(e.target.value)} />
+                {customerQuery.trim().length >= 3 && customers?.map((item) => <button key={item.id} type="button" className="block w-full rounded border p-2 text-start text-sm" onClick={() => { setCustomer(item); setCustomerQuery(""); }}>
+                  {item.name} · {item.email} {item.phone && `· ${item.phone}`}
+                </button>)}
+              </>}
+            </div>
+            {!customer && <>
             <div className="space-y-1">
               <Label>Name *</Label>
               <Input value={walkIn.name} onChange={(e) => setWalkIn({ ...walkIn, name: e.target.value })} required />
@@ -205,6 +261,7 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
               <Label>Address</Label>
               <Input value={walkIn.address} onChange={(e) => setWalkIn({ ...walkIn, address: e.target.value })} />
             </div>
+            </>}
           </CardContent>
         </Card>
       </div>
@@ -239,7 +296,7 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
                     )
                   }
                 />
-                <span className="w-20 text-end">{formatPrice(line.price * line.quantity)}</span>
+                <span className="w-20 text-end">{formatPrice((quote?.items.find((item) => item.productId === line.productId && item.variantSku === line.variantSku)?.unitPrice ?? line.price) * line.quantity, currency)}</span>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -292,7 +349,7 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
               >
                 <option value="cash">Cash</option>
                 <option value="card">Card</option>
-                <option value="wallet">Wallet</option>
+                <option value="wallet" disabled={!customer}>Wallet</option>
                 <option value="manual">Other</option>
               </select>
             </div>
@@ -301,24 +358,27 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
           <div className="space-y-1 border-t pt-3 text-sm">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span>{formatPrice(subtotal)}</span>
+              <span>{formatPrice(subtotal, currency)}</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between text-green-600">
                 <span>Discount</span>
-                <span>-{formatPrice(discount)}</span>
+                <span>-{formatPrice(quote?.discount ?? 0, currency)}</span>
               </div>
             )}
+            <div className="flex justify-between"><span>Tax</span><span>{formatPrice(quote?.tax ?? 0, currency)}</span></div>
+            <div className="flex justify-between"><span>Delivery</span><span>{formatPrice(quote?.shippingCost ?? shippingCost, currency)}</span></div>
             <div className="flex justify-between text-lg font-semibold">
               <span>Total</span>
-              <span>{formatPrice(total)}</span>
+              <span>{quoting ? "Updating…" : formatPrice(total, currency)}</span>
             </div>
-            <p className="text-xs text-muted-foreground">Tax is added from each product's rate when the sale is recorded.</p>
+            {quoteError && <p className="text-xs text-destructive">{(quoteError as any)?.response?.data?.message ?? "Could not quote these items"}</p>}
           </div>
 
-          <Button className="w-full" onClick={handleCheckout} disabled={lines.length === 0 || createSale.isPending}>
+          <Button className="w-full" onClick={handleCheckout} disabled={lines.length === 0 || createSale.isPending || quoting || !quote || !!quoteError}>
             Complete sale
           </Button>
+          {lastSale && <Button variant="outline" className="w-full" onClick={() => void openPosReceipt(lastSale).catch(() => toast.error("Could not open the receipt"))}>Open last receipt</Button>}
         </CardContent>
       </Card>
     </div>

@@ -1062,6 +1062,7 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
   await run("pickup_points", async (rows, report) => {
     for (const row of rows) {
       await upsert(PickupPoint, "pickup_points", row.id, {
+        staffId: mappedId("users", row.staff_id),
         name: str(row.name) ?? `Pickup point ${row.id}`,
         address: str(row.address) ?? "-",
         city: str(row.address) ?? "-",
@@ -1170,6 +1171,7 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
           sellerId: bucket.sellerId,
           items: bucket.items,
           subtotal,
+          tax: Math.round(bucket.tax * 100) / 100,
           commissionRate: rate,
           commissionAmount: Math.round(((subtotal * rate) / 100) * 100) / 100,
           shippingCost: Math.round(bucket.shipping * 100) / 100,

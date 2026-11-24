@@ -11,6 +11,7 @@ import {
 } from "../models/Affiliate.js";
 import { User } from "../models/User.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { lockAffiliateFunds, affiliateHolds, creditAffiliateWallet } from "../services/affiliate-funds.service.js";
 
 export async function getAffiliateConfigHandler(_req: Request, res: Response) {
   const config = (await AffiliateConfig.findOne()) ?? (await AffiliateConfig.create({}));
@@ -59,19 +60,18 @@ export async function createAffiliateWithdrawHandler(req: Request, res: Response
     throw new ApiError(400, `The minimum withdrawal amount is ${config.minWithdrawAmount}`);
   }
 
-  // Pending requests are counted against the balance too, so an affiliate cannot
-  // queue several requests that each pass on their own but overdraw in aggregate.
-  const [pending] = await AffiliateWithdrawRequest.aggregate([
-    { $match: { affiliateUserId: affiliate._id, status: { $in: ["pending", "approved"] } } },
-    { $group: { _id: null, total: { $sum: "$amount" } } },
-  ]);
-  const uncommitted = affiliate.availableBalance - (pending?.total ?? 0);
-  if (req.body.amount > uncommitted) {
-    throw new ApiError(400, `Amount exceeds your available balance of ${uncommitted}`);
-  }
-
-  const request = await AffiliateWithdrawRequest.create({ ...req.body, affiliateUserId: affiliate._id });
-  res.status(201).json(request);
+  const session = await mongoose.startSession();
+  try {
+    let request;
+    await session.withTransaction(async () => {
+      const locked = await lockAffiliateFunds(String(affiliate._id), session);
+      if (locked.status !== "approved") throw new ApiError(403, "Your affiliate account is not approved");
+      const held = await affiliateHolds(String(affiliate._id), session);
+      if (req.body.amount > locked.availableBalance - held) throw new ApiError(409, "Withdrawal exceeds your available balance");
+      [request] = await AffiliateWithdrawRequest.create([{ ...req.body, affiliateUserId: affiliate._id }], { session });
+    });
+    res.status(201).json(request);
+  } finally { await session.endSession(); }
 }
 
 export const affiliatePaymentSettingsSchema = z.object({
@@ -219,8 +219,11 @@ export async function resolveAffiliateWithdrawHandler(req: Request, res: Respons
       const request = await AffiliateWithdrawRequest.findById(req.params.id).session(session);
       if (!request) throw new ApiError(404, "Withdraw request not found");
       if (request.status !== "pending") throw new ApiError(409, "This request has already been resolved");
+      const locked = await lockAffiliateFunds(String(request.affiliateUserId), session);
 
       if (req.body.approve) {
+        const held = await affiliateHolds(String(locked._id), session, String(request._id));
+        if (locked.status !== "approved" || locked.availableBalance - held < request.amount) throw new ApiError(409, "Insufficient available affiliate balance");
         const affiliate = await AffiliateUser.findOneAndUpdate(
           { _id: request.affiliateUserId, availableBalance: { $gte: request.amount } },
           { $inc: { availableBalance: -request.amount } },
@@ -228,10 +231,12 @@ export async function resolveAffiliateWithdrawHandler(req: Request, res: Respons
         );
         if (!affiliate) throw new ApiError(409, "The affiliate no longer has enough balance to cover this payout");
 
-        await AffiliatePayment.create(
-          [{ affiliateUserId: request.affiliateUserId, withdrawRequestId: request._id, amount: request.amount }],
+        const [payment] = await AffiliatePayment.create(
+          [{ affiliateUserId: request.affiliateUserId, withdrawRequestId: request._id, amount: request.amount,
+            note: req.body.note, paidBy: req.user!.id, idempotencyKey: `affiliate-withdrawal:${request._id}` }],
           { session },
         );
+        if (request.method === "wallet") await creditAffiliateWallet(String(affiliate.userId), request.amount, String(payment!._id), session);
         request.status = "paid";
       } else {
         request.status = "rejected";
@@ -249,6 +254,7 @@ export async function resolveAffiliateWithdrawHandler(req: Request, res: Respons
 export const payAffiliateSchema = z.object({
   amount: z.number().min(0.01),
   note: z.string().max(300).optional(),
+  idempotencyKey: z.string().min(10).max(100),
 });
 
 /**
@@ -257,34 +263,25 @@ export const payAffiliateSchema = z.object({
  * so an admin cannot over-pay past what has actually been earned.
  */
 export async function payAffiliateHandler(req: Request, res: Response) {
-  const affiliate = await AffiliateUser.findById(req.params.id);
-  if (!affiliate) throw new ApiError(404, "Affiliate not found");
-
-  const [earned, paid] = await Promise.all([
-    AffiliateEarningDetail.aggregate([
-      { $match: { affiliateUserId: affiliate._id } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]),
-    AffiliatePayment.aggregate([
-      { $match: { affiliateUserId: affiliate._id } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]),
-  ]);
-
-  const outstanding = Math.round(((earned[0]?.total ?? 0) - (paid[0]?.total ?? 0)) * 100) / 100;
-  if (req.body.amount > outstanding) {
-    throw new ApiError(400, `That affiliate has only ${outstanding} outstanding`);
-  }
-
-  const payment = await AffiliatePayment.create({
-    affiliateUserId: affiliate._id,
-    withdrawRequestId: null,
-    amount: req.body.amount,
-    note: req.body.note ?? null,
-    paidBy: req.user!.id,
-  });
-
-  res.status(201).json(payment);
+  const key = `affiliate-direct:${req.params.id}:${req.body.idempotencyKey}`;
+  const session = await mongoose.startSession();
+  try {
+    let payment;
+    await session.withTransaction(async () => {
+      const affiliate = await lockAffiliateFunds(String(req.params.id), session);
+      payment = await AffiliatePayment.findOne({ idempotencyKey: key }).session(session);
+      if (payment) return;
+      const held = await affiliateHolds(String(affiliate._id), session);
+      if (affiliate.status !== "approved" || req.body.amount > affiliate.availableBalance - held) throw new ApiError(409, "Payout exceeds the available affiliate balance");
+      affiliate.availableBalance -= req.body.amount;
+      await affiliate.save({ session });
+      [payment] = await AffiliatePayment.create([{
+        affiliateUserId: affiliate._id, withdrawRequestId: null, amount: req.body.amount,
+        note: req.body.note ?? null, paidBy: req.user!.id, idempotencyKey: key,
+      }], { session });
+    });
+    res.status(201).json(payment);
+  } finally { await session.endSession(); }
 }
 
 export async function listAffiliatePaymentsHandler(req: Request, res: Response) {

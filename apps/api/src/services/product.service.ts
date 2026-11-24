@@ -2,6 +2,7 @@ import { FilterQuery } from "mongoose";
 import { Product } from "../models/Product.js";
 import { Category } from "../models/Category.js";
 import { decorateProductsPricing } from "./pricing.service.js";
+import { publicProductFilter } from "./catalog-visibility.service.js";
 
 export interface ProductSearchParams {
   q?: string;
@@ -25,10 +26,7 @@ export interface ProductSearchParams {
 // OR'd category/brand/price filters together with the search term — fixed here by
 // construction: there is no orWhere-equivalent mixed into the same query object.
 export async function searchProducts(params: ProductSearchParams) {
-  const filter: FilterQuery<typeof Product> = {
-    published: true,
-    approvalStatus: "approved",
-  };
+  const filter: FilterQuery<typeof Product> = await publicProductFilter();
 
   // Browsing a root or mid-level category must include everything filed beneath it.
   // Products store only their deepest node in categoryId, so the filter expands to

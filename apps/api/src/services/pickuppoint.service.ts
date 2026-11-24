@@ -3,6 +3,7 @@ import type { Order } from "../models/Order.js";
 import type { AuthenticatedUser } from "../middleware/auth.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import type { ClientSession } from "mongoose";
+import { shipmentTotal } from "./shipment-totals.js";
 
 export function pickupScope(user: AuthenticatedUser) {
   return user.role === "admin" ? {} : { staffId: user.id };
@@ -21,6 +22,6 @@ export function pickupOrderView(order: InstanceType<typeof Order>, pickupPointId
     id: String(order._id), code: order.code, createdAt: order.createdAt,
     addressSnapshot: order.addressSnapshot, currency: order.currency,
     paymentStatus: order.paymentStatus, paymentMethod: order.paymentMethod, details,
-    grandTotal: Math.round(details.reduce((sum, detail) => sum + detail.subtotal - (detail.discount ?? 0) + detail.shippingCost, 0) * 100) / 100,
+    grandTotal: Math.round(details.reduce((sum, detail) => sum + shipmentTotal(order, order.details.indexOf(detail)), 0) * 100) / 100,
   };
 }

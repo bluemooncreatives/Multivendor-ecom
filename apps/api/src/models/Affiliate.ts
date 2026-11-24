@@ -8,6 +8,7 @@ const affiliateUserSchema = new Schema(
     status: { type: String, enum: ["pending", "approved", "suspended"], default: "pending" },
     totalEarnings: { type: Number, default: 0 },
     availableBalance: { type: Number, default: 0 },
+    financeRevision: { type: Number, default: 0, select: false },
     // Payout destination the affiliate maintains themselves (bank/PayPal details).
     // Free-form because the required fields differ per country/method.
     paymentSettings: { type: Schema.Types.Mixed, default: {} },
@@ -125,6 +126,7 @@ export const AffiliateWithdrawRequest = model("AffiliateWithdrawRequest", affili
 
 const affiliatePaymentSchema = new Schema(
   {
+    idempotencyKey: { type: String, unique: true, sparse: true },
     affiliateUserId: { type: Schema.Types.ObjectId, ref: "AffiliateUser", required: true, index: true },
     // Null for a direct payout an admin made without the affiliate requesting it
     // (the legacy "pay affiliate" action, separate from resolving a withdrawal).

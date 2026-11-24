@@ -5,12 +5,18 @@ import { Order } from "../models/Order.js";
 import { User } from "../models/User.js";
 import { Wallet, WalletTransaction } from "../models/Wallet.js";
 import { SellerLedger } from "../models/Ledger.js";
-import { BusinessSetting } from "../models/Settings.js";
+import { BusinessSetting, GeneralSetting } from "../models/Settings.js";
 import { calculateCommission } from "./commission.service.js";
 import { reserveStock, confirmReservation, type StockLine } from "./inventory.service.js";
 import { resolveFlashDeals, reserveDealStock, dealKey, type DealStockLine } from "./flashdeal.service.js";
 import { priceLine, ADMIN_BUCKET } from "./shipping.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { allocateUnits } from "../utils/allocation.js";
+import { decorateProductsPricing } from "./pricing.service.js";
+import { awardClubPointsForOrder } from "./clubpoints.service.js";
+import { creditAffiliateForOrder } from "./affiliate.service.js";
+import { logger } from "../config/logger.js";
+import { publicProductFilter } from "./catalog-visibility.service.js";
 
 export interface PosSaleLine {
   productId: string;
@@ -59,15 +65,46 @@ export interface PosSaleInput {
  * in the buyer's order history. Both are captured here.
  */
 export async function createPosSale(input: PosSaleInput) {
+  const order = await processPosSale(input, false);
+  try {
+    await awardClubPointsForOrder(String(order._id));
+    await creditAffiliateForOrder(String(order._id));
+  } catch (error) {
+    logger.error(`Failed to award POS rewards for ${order._id}: ${String(error)}`);
+  }
+  return order;
+}
+
+export interface PosQuote {
+  subtotal: number; tax: number; discount: number; shippingCost: number; grandTotal: number; currency: string;
+  items: { productId: string; variantSku: string; unitPrice: number; quantity: number }[];
+}
+
+export async function quotePosSale(input: PosSaleInput): Promise<PosQuote> {
+  return processPosSale(input, true);
+}
+
+async function processPosSale(input: PosSaleInput, quoteOnly: boolean) {
+  for (const amount of [input.discount ?? 0, input.shippingCost ?? 0]) {
+    if (!Number.isFinite(amount) || amount < 0) throw new ApiError(400, "Amounts must be non-negative finite numbers");
+  }
+  const merged = new Map<string, PosSaleLine>();
+  for (const line of input.lines) {
+    if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0) throw new ApiError(400, "Quantity must be a positive integer");
+    const key = `${line.productId}:${line.variantSku}`;
+    const previous = merged.get(key);
+    merged.set(key, { ...line, quantity: line.quantity + (previous?.quantity ?? 0) });
+  }
+  input = { ...input, lines: [...merged.values()] };
   const key = `pos:${input.operatorId}:${input.idempotencyKey ?? randomUUID()}`;
-  const replay = await Order.findOne({ idempotencyKey: key });
+  const replay = quoteOnly ? null : await Order.findOne({ idempotencyKey: key });
   if (replay) return replay;
   if (input.lines.length === 0) throw new ApiError(400, "At least one item is required");
-  if (!input.customerId && !input.walkIn) {
+  if (!quoteOnly && !input.customerId && !input.walkIn) {
     throw new ApiError(400, "Record the customer, or their name and phone for a walk-in");
   }
 
-  const customer = input.customerId ? await User.findById(input.customerId) : null;
+  const customer = input.customerId ? await User.findOne({ _id: input.customerId, banned: false }) : null;
   if (input.customerId && !customer) throw new ApiError(404, "Customer not found");
 
   const session = await mongoose.startSession();
@@ -81,6 +118,9 @@ export async function createPosSale(input: PosSaleInput) {
       const orderId = new mongoose.Types.ObjectId();
       const settings = await BusinessSetting.findOne({ key: "business" }).session(session);
       const storeTaxPercent = settings?.taxPercent ?? 0;
+      const general = await GeneralSetting.findOne({ key: "general" }).session(session);
+      const currency = general?.defaultCurrency ?? "INR";
+      if (input.paymentType === "wallet" && settings?.activation?.walletSystem === false) throw new ApiError(403, "Wallet payments are disabled");
 
       // Grouped by the product's own seller, exactly like online checkout: an
       // admin till selling two vendors' goods produces one order with a shipment
@@ -102,6 +142,7 @@ export async function createPosSale(input: PosSaleInput) {
         { session },
       );
 
+      const visibility = await publicProductFilter(session);
       for (const line of input.lines) {
         if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0) throw new ApiError(400, "Quantity must be a positive integer");
         // A seller operator is scoped to their own catalog; an admin operator may
@@ -110,11 +151,14 @@ export async function createPosSale(input: PosSaleInput) {
           ? { _id: line.productId }
           : { _id: line.productId, sellerId: input.sellerId };
 
-        const product = await Product.findOne(filter).session(session);
-        if (!product) throw new ApiError(404, "Product not found in this catalog");
+        const product = await Product.findOne({ ...visibility, ...filter }).session(session);
+        if (!product || !product.published || product.approvalStatus !== "approved") throw new ApiError(404, "Product not found in this catalog");
+        if (product.currency !== currency) throw new ApiError(409, "Product currency differs from the store currency");
+        if (line.quantity < (product.minOrderQty ?? 1)) throw new ApiError(400, `Minimum quantity for ${product.name} is ${product.minOrderQty ?? 1}`);
 
         const variant = product.variants.find((v) => v.sku === line.variantSku);
         if (!variant) throw new ApiError(404, `No variant "${line.variantSku}" on ${product.name}`);
+        if (variant.stock - variant.reserved < line.quantity) throw new ApiError(409, `Insufficient stock for ${product.name}`);
 
         const flashDeal = flashDeals.get(dealKey(String(product._id), variant.sku)) ?? null;
         const priced = priceLine({
@@ -164,12 +208,8 @@ export async function createPosSale(input: PosSaleInput) {
             quantity: line.quantity,
           });
         }
-        await Product.updateOne({ _id: product._id }, { $inc: { numOfSale: line.quantity } }, { session });
       }
 
-      await reserveStock(stockLines, String(orderId), session);
-      await reserveDealStock(dealLines, session);
-      await confirmReservation(stockLines, String(orderId), session);
 
       subtotal = round2(subtotal);
       tax = round2(tax);
@@ -179,10 +219,24 @@ export async function createPosSale(input: PosSaleInput) {
       const discount = Math.min(round2(input.discount ?? 0), subtotal);
       const shippingCost = round2(input.shippingCost ?? 0);
       const grandTotal = round2(Math.max(0, subtotal - discount + tax + shippingCost));
+      if (quoteOnly) {
+        createdOrder = { subtotal, tax, discount, shippingCost, grandTotal, currency,
+          items: [...bySeller.values()].flatMap((bucket) => bucket.items.map((item) => ({
+            productId: String(item.productId), variantSku: item.variantSku, unitPrice: item.unitPrice, quantity: item.quantity,
+          }))) };
+        return;
+      }
+      await reserveStock(stockLines, String(orderId), session);
+      await reserveDealStock(dealLines, session);
+      await confirmReservation(stockLines, String(orderId), session);
+      for (const line of input.lines) {
+        await Product.updateOne({ _id: line.productId }, { $inc: { numOfSale: line.quantity } }, { session });
+      }
+
       if (input.paymentType === "wallet") {
         if (!customer) throw new ApiError(400, "Wallet payment requires a registered customer");
         const wallet = await Wallet.findOneAndUpdate(
-          { userId: customer._id, currency: "INR", balance: { $gte: grandTotal } },
+          { userId: customer._id, currency, balance: { $gte: grandTotal } },
           { $inc: { balance: -grandTotal } }, { session, new: true },
         );
         if (!wallet) throw new ApiError(402, "Insufficient wallet balance");
@@ -197,6 +251,9 @@ export async function createPosSale(input: PosSaleInput) {
       const details = [];
       let shippingApplied = false;
 
+      const discountShares = allocateUnits(Math.round(discount * 100), [...bySeller.values()].map((bucket) => bucket.subtotal));
+      let bucketIndex = 0;
+      const taxShares = allocateUnits(Math.round(tax * 100), [...bySeller.values()].map((bucket) => bucket.subtotal));
       for (const bucket of bySeller.values()) {
         const amount = round2(bucket.commission);
         const rate = bucket.subtotal > 0 ? round2(amount * 100 / bucket.subtotal) : 0;
@@ -205,6 +262,8 @@ export async function createPosSale(input: PosSaleInput) {
           sellerId: bucket.sellerId,
           items: bucket.items,
           subtotal: round2(bucket.subtotal),
+          discount: discountShares[bucketIndex]! / 100,
+          tax: taxShares[bucketIndex++]! / 100,
           commissionRate: rate,
           commissionAmount: amount,
           shippingCost: shippingApplied ? 0 : shippingCost,
@@ -260,7 +319,7 @@ export async function createPosSale(input: PosSaleInput) {
             tax,
             shippingTotal: shippingCost,
             grandTotal,
-            currency: "INR",
+            currency,
             // Cash and card at the counter are both settled outside the app, so
             // they record as manual; wallet is the one that moves money here.
             paymentMethod: input.paymentType === "wallet" ? "wallet" : "manual",
@@ -293,18 +352,20 @@ export async function searchPosProducts(query: string, sellerId: string | null, 
   const term = query.trim().slice(0, 80);
   if (!term) return [];
 
-  const scope = allowAnySeller ? {} : { sellerId };
+  const scope = { ...await publicProductFilter(), ...(allowAnySeller ? {} : { sellerId }) };
+  const literal = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   // An exact barcode match short-circuits: a scan should return one product, not
   // a list the operator has to pick from.
   const scanned = await Product.findOne({ ...scope, barcode: term, published: true });
-  if (scanned) return [scanned];
+  if (scanned) return decorateProductsPricing([scanned]);
 
-  return Product.find({
+  const products = await Product.find({
     ...scope,
     published: true,
-    $or: [{ name: { $regex: term, $options: "i" } }, { "variants.sku": { $regex: term, $options: "i" } }],
+    $or: [{ name: { $regex: literal, $options: "i" } }, { "variants.sku": { $regex: literal, $options: "i" } }],
   }).limit(20);
+  return decorateProductsPricing(products);
 }
 
 function round2(value: number): number {

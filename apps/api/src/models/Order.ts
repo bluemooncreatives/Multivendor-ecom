@@ -35,6 +35,7 @@ const orderDetailSchema = new Schema(
     sellerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     items: { type: [orderItemSchema], required: true },
     subtotal: { type: Number, required: true, min: 0 },
+    tax: { type: Number, default: null, min: 0 },
     commissionRate: { type: Number, required: true, min: 0 },
     commissionAmount: { type: Number, required: true, min: 0 },
     shippingCost: { type: Number, required: true, min: 0, default: 0 },
