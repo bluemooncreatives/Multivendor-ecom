@@ -10,7 +10,10 @@ export async function getHomepageSectionsHandler(_req: Request, res: Response) {
   const [sliders, banners, homeCategories, topCategories, topBrands] = await Promise.all([
     Slider.find({ active: true }).sort({ order: 1 }),
     Banner.find({ active: true }).sort({ createdAt: -1 }),
-    HomeCategory.find().populate("categoryId").sort({ order: 1 }),
+    HomeCategory.find()
+      .populate("categoryId")
+      .populate("subSubCategoryIds", "name slug")
+      .sort({ order: 1 }),
     Category.find({ featured: true }).limit(10),
     Brand.find({ featured: true }).limit(10),
   ]);
@@ -73,6 +76,8 @@ export async function deleteBannerHandler(req: Request, res: Response) {
 
 export const homeCategorySchema = z.object({
   categoryId: z.string(),
+  /** Deep categories to link under this section, as the legacy screen allowed. */
+  subSubCategoryIds: z.array(z.string()).max(12).optional(),
   order: z.number().int().optional(),
 });
 
@@ -93,6 +98,18 @@ export async function createHomeCategoryHandler(req: Request, res: Response) {
   }
   res.status(201).json(await HomeCategory.create(req.body));
 }
+export async function updateHomeCategoryHandler(req: Request, res: Response) {
+  // A section's category can be swapped and its deep links re-picked without
+  // deleting and re-adding it, which is all the legacy screen could do.
+  if (req.body.categoryId) {
+    const clash = await HomeCategory.exists({ categoryId: req.body.categoryId, _id: { $ne: req.params.id } });
+    if (clash) throw new ApiError(409, "That category is already on the homepage");
+  }
+  const doc = await HomeCategory.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  if (!doc) throw new ApiError(404, "Home category entry not found");
+  res.json(doc);
+}
+
 export async function deleteHomeCategoryHandler(req: Request, res: Response) {
   const doc = await HomeCategory.findByIdAndDelete(req.params.id);
   if (!doc) throw new ApiError(404, "Home category entry not found");

@@ -45,6 +45,7 @@ import { hashPassword } from "../../utils/password.js";
 import { RefreshToken } from "../../models/RefreshToken.js";
 import { Payment } from "../../models/Payment.js";
 import { GatewayIntent } from "../../models/GatewayIntent.js";
+import { AffiliateConfig, AffiliateUser, AffiliateEarningDetail } from "../../models/Affiliate.js";
 import { assertVerifiedPayment } from "../gateways/shared.js";
 
 let repl: MongoMemoryReplSet;
@@ -1057,5 +1058,146 @@ describe("package purchases paid through a gateway", () => {
     const customerToken = signAccessToken({ sub: String(customer._id), role: "customer" });
     const wrongRole = await post(customerToken, { purpose: "seller_package", packageId: String(paid._id), paymentMethod: "stripe" });
     expect([401, 403]).toContain(wrongRole.status);
+  });
+});
+
+describe("affiliate earnings", () => {
+  async function program(config: Record<string, unknown>) {
+    await Addon.create({ key: "affiliate", name: "Affiliate", enabled: true });
+    return AffiliateConfig.create({ enabled: true, commissionPercent: 0, cookieDays: 0, ...config });
+  }
+
+  async function affiliate(code: string) {
+    const user = await User.create({ name: "Sharer", email: `aff-${id()}@example.com`, passwordHash: "x", role: "customer" });
+    const row = await AffiliateUser.create({ userId: user._id, referralCode: code, status: "approved" });
+    return { user, affiliateUser: row };
+  }
+
+  it("pays a share commission to the affiliate whose link brought the line in", async () => {
+    await program({ productSharing: { enabled: true, commissionType: "percent", commission: 10 } });
+    const { affiliateUser } = await affiliate(`SHARE${id()}`);
+    const code = affiliateUser.referralCode;
+
+    const userId = id();
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const product = await Product.create({ name: "Shared", slug: `product-${id()}`, addedBy: "admin", sellerId: null,
+      categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved", discount: 0,
+      variants: [{ sku: "sku", price: 100, stock: 10, reserved: 0 }] });
+    await Cart.create({ userId, items: [{ productId: product._id, variantSku: "sku", quantity: 2, productReferralCode: code }] });
+
+    const order = await createOrder({ owner: { userId: String(userId) }, address, paymentMethod: "cod", idempotencyKey: `checkout-${id()}` });
+    // The code travels from the cart line onto the order line.
+    expect(order.details[0].items[0].productReferralCode).toBe(code);
+
+    await settleOrderPayment(String(order._id), "cod");
+
+    const earnings = await AffiliateEarningDetail.find({ affiliateUserId: affiliateUser._id });
+    expect(earnings).toHaveLength(1);
+    expect(earnings[0]!.kind).toBe("product_share");
+    expect(earnings[0]!.amount).toBe(20); // 10% of 2 x 100
+    expect((await AffiliateUser.findById(affiliateUser._id))!.availableBalance).toBe(20);
+
+    // A redelivered settlement does not pay it twice.
+    await settleOrderPayment(String(order._id), "cod");
+    expect(await AffiliateEarningDetail.countDocuments({ affiliateUserId: affiliateUser._id })).toBe(1);
+  });
+
+  it("caps a fixed share commission at the line value and ignores a self-purchase", async () => {
+    await program({ productSharing: { enabled: true, commissionType: "amount", commission: 500 } });
+    const { user: sharer, affiliateUser } = await affiliate(`SELF${id()}`);
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const product = await Product.create({ name: "Shared", slug: `product-${id()}`, addedBy: "admin", sellerId: null,
+      categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved", discount: 0,
+      variants: [{ sku: "sku", price: 100, stock: 10, reserved: 0 }] });
+
+    // The sharer buying through their own link earns nothing.
+    await Cart.create({ userId: sharer._id, items: [{ productId: product._id, variantSku: "sku", quantity: 1, productReferralCode: affiliateUser.referralCode }] });
+    const own = await createOrder({ owner: { userId: String(sharer._id) }, address, paymentMethod: "cod", idempotencyKey: `checkout-${id()}` });
+    await settleOrderPayment(String(own._id), "cod");
+    expect(await AffiliateEarningDetail.countDocuments({ affiliateUserId: affiliateUser._id })).toBe(0);
+
+    // Someone else's purchase pays, but never more than the line is worth.
+    const buyer = id();
+    await Cart.create({ userId: buyer, items: [{ productId: product._id, variantSku: "sku", quantity: 1, productReferralCode: affiliateUser.referralCode }] });
+    const order = await createOrder({ owner: { userId: String(buyer) }, address, paymentMethod: "cod", idempotencyKey: `checkout-${id()}` });
+    await settleOrderPayment(String(order._id), "cod");
+
+    const earning = await AffiliateEarningDetail.findOne({ affiliateUserId: affiliateUser._id });
+    expect(earning!.amount).toBe(100); // capped from 500 to the 100 line
+  });
+
+  it("pays the first-purchase bonus once, and not on later orders", async () => {
+    await program({ firstPurchase: { enabled: true, percent: 10 } });
+    const { user: referrer, affiliateUser } = await affiliate(`FIRST${id()}`);
+
+    const buyer = await User.create({ name: "Buyer", email: `buyer-${id()}@example.com`, passwordHash: "x", role: "customer", referredBy: referrer._id });
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const product = await Product.create({ name: "Thing", slug: `product-${id()}`, addedBy: "admin", sellerId: null,
+      categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved", discount: 0,
+      variants: [{ sku: "sku", price: 100, stock: 50, reserved: 0 }] });
+
+    const buy = async () => {
+      await Cart.create({ userId: buyer._id, items: [{ productId: product._id, variantSku: "sku", quantity: 1 }] });
+      const order = await createOrder({ owner: { userId: String(buyer._id) }, address, paymentMethod: "cod", idempotencyKey: `checkout-${id()}` });
+      await settleOrderPayment(String(order._id), "cod");
+      return order;
+    };
+
+    const first = await buy();
+    const bonus = await AffiliateEarningDetail.find({ affiliateUserId: affiliateUser._id });
+    expect(bonus).toHaveLength(1);
+    expect(bonus[0]!.kind).toBe("first_purchase");
+    expect(bonus[0]!.amount).toBe(Math.round(first.grandTotal * 10) / 100);
+
+    await buy();
+    expect(await AffiliateEarningDetail.countDocuments({ affiliateUserId: affiliateUser._id })).toBe(1);
+  });
+
+  it("reverses every commission on wallet cancellation without allowing paid cash cancellation", async () => {
+    await program({
+      firstPurchase: { enabled: true, percent: 10 },
+      productSharing: { enabled: true, commissionType: "percent", commission: 10 },
+    });
+    const { user: referrer, affiliateUser: referrerAffiliate } = await affiliate(`REF${id()}`);
+    const { affiliateUser: sharer } = await affiliate(`SHR${id()}`);
+
+    const buyer = await User.create({ name: "Buyer", email: `buyer-${id()}@example.com`, passwordHash: "x", role: "customer", referredBy: referrer._id });
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const product = await Product.create({ name: "Thing", slug: `product-${id()}`, addedBy: "admin", sellerId: null,
+      categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved", discount: 0,
+      variants: [{ sku: "sku", price: 100, stock: 10, reserved: 0 }] });
+    await Cart.create({ userId: buyer._id, items: [{ productId: product._id, variantSku: "sku", quantity: 1, productReferralCode: sharer.referralCode }] });
+
+    await Wallet.create({ userId: buyer._id, currency: "INR", balance: 1000 });
+    const order = await createOrder({ owner: { userId: String(buyer._id) }, address, paymentMethod: "wallet", idempotencyKey: `checkout-${id()}` });
+
+    // Both commissions were paid: the share and the first-purchase bonus.
+    expect(await AffiliateEarningDetail.countDocuments({ orderId: order._id, status: "credited" })).toBe(2);
+    expect((await AffiliateUser.findById(sharer._id))!.availableBalance).toBe(10);
+    expect((await AffiliateUser.findById(referrerAffiliate._id))!.availableBalance).toBeGreaterThan(0);
+
+    await cancelOrder(String(order._id), { id: String(buyer._id), role: "customer", permissions: [] } as never);
+
+    expect(await AffiliateEarningDetail.countDocuments({ orderId: order._id, status: "credited" })).toBe(0);
+    expect(await AffiliateEarningDetail.countDocuments({ orderId: order._id, status: "reversed" })).toBe(2);
+    expect((await AffiliateUser.findById(sharer._id))!.availableBalance).toBe(0);
+    expect((await AffiliateUser.findById(referrerAffiliate._id))!.availableBalance).toBe(0);
+  });
+
+  it("pays nothing while the affiliate add-on or the program is switched off", async () => {
+    await Addon.create({ key: "affiliate", name: "Affiliate", enabled: false });
+    await AffiliateConfig.create({ enabled: true, productSharing: { enabled: true, commissionType: "percent", commission: 10 } });
+    const { affiliateUser } = await affiliate(`OFF${id()}`);
+
+    const userId = id();
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const product = await Product.create({ name: "Shared", slug: `product-${id()}`, addedBy: "admin", sellerId: null,
+      categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved", discount: 0,
+      variants: [{ sku: "sku", price: 100, stock: 10, reserved: 0 }] });
+    await Cart.create({ userId, items: [{ productId: product._id, variantSku: "sku", quantity: 1, productReferralCode: affiliateUser.referralCode }] });
+
+    const order = await createOrder({ owner: { userId: String(userId) }, address, paymentMethod: "cod", idempotencyKey: `checkout-${id()}` });
+    await settleOrderPayment(String(order._id), "cod");
+    expect(await AffiliateEarningDetail.countDocuments()).toBe(0);
   });
 });

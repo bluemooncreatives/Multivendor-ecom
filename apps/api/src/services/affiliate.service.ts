@@ -32,15 +32,25 @@ export async function attachReferral(newUserId: string, referralCode?: string | 
   if (!affiliate) return;
   if (String(affiliate.userId) === newUserId) return; // cannot refer yourself
 
-  await User.updateOne({ _id: newUserId }, { referredBy: affiliate.userId });
-
   const config = await activeConfig();
   const bonus = config?.actionBonuses?.get("signup") ?? 0;
-  if (bonus > 0) {
-    await AffiliateUser.updateOne(
-      { _id: affiliate._id },
-      { $inc: { totalEarnings: bonus, availableBalance: bonus } },
-    );
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const attached = await User.updateOne(
+        { _id: newUserId, referredBy: null },
+        { $set: { referredBy: affiliate.userId } },
+        { session },
+      );
+      if (attached.modifiedCount !== 1 || bonus <= 0) return;
+      await AffiliateUser.updateOne(
+        { _id: affiliate._id },
+        { $inc: { totalEarnings: bonus, availableBalance: bonus } },
+        { session },
+      );
+    });
+  } finally {
+    await session.endSession();
   }
 }
 
@@ -52,6 +62,7 @@ export async function attachReferral(newUserId: string, referralCode?: string | 
 async function creditOnce(input: {
   affiliateUserId: unknown;
   orderId: unknown;
+  buyerId?: unknown;
   kind: "order_commission" | "first_purchase" | "product_share" | "category_share";
   lineKey?: string | null;
   amount: number;
@@ -62,24 +73,15 @@ async function creditOnce(input: {
     let credited = false;
     await session.withTransaction(async () => {
       credited = false;
-      try {
-        await AffiliateEarningDetail.create(
-          [
-            {
-              affiliateUserId: input.affiliateUserId,
-              orderId: input.orderId,
-              kind: input.kind,
-              lineKey: input.lineKey ?? null,
-              amount: input.amount,
-              status: "credited",
-            },
-          ],
-          { session },
-        );
-      } catch (err) {
-        if ((err as { code?: number }).code === 11000) return; // already credited
-        throw err;
-      }
+      const key = input.kind === "first_purchase"
+        ? { buyerId: input.buyerId, kind: input.kind }
+        : { affiliateUserId: input.affiliateUserId, orderId: input.orderId, kind: input.kind, lineKey: input.lineKey ?? null };
+      // A duplicate insert aborts a MongoDB transaction even if JS catches it.
+      // Matching an existing earning through an upsert is a normal no-op.
+      const result = await AffiliateEarningDetail.updateOne(key, {
+        $setOnInsert: { ...input, lineKey: input.lineKey ?? null, status: "credited" },
+      }, { upsert: true, session });
+      if (result.upsertedCount !== 1) return;
       await AffiliateUser.updateOne(
         { _id: input.affiliateUserId },
         { $inc: { totalEarnings: input.amount, availableBalance: input.amount } },
@@ -88,6 +90,11 @@ async function creditOnce(input: {
       credited = true;
     });
     return credited;
+  } catch (error) {
+    // Concurrent upserts can race on the unique key. Handle that only after the
+    // transaction has aborted, so no balance change survives the losing insert.
+    if ((error as { code?: number }).code === 11000) return false;
+    throw error;
   } finally {
     await session.endSession();
   }
@@ -169,7 +176,7 @@ export async function creditAffiliateForOrder(orderId: string) {
   if (!config) return;
 
   const order = await Order.findById(orderId);
-  if (!order) return;
+  if (!order || order.paymentStatus !== "paid" || ["cancelled", "refunded"].includes(order.status)) return;
 
   try {
     // Share-link commissions are paid on the lines themselves and do not depend on
@@ -204,6 +211,7 @@ export async function creditAffiliateForOrder(orderId: string) {
         affiliateUserId: affiliate._id,
         orderId: order._id,
         kind: "first_purchase",
+        buyerId: order.userId,
         // The legacy bonus was a percentage of the order total, including tax and
         // shipping, which is what `grand_total` held.
         amount: round2((order.grandTotal * config.firstPurchase.percent) / 100),

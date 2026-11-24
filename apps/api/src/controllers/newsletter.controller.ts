@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { Subscriber } from "../models/Marketing.js";
-import { sendNewsletterCampaign } from "../services/email.service.js";
+import { sendNewsletterCampaign, isMailConfigured } from "../services/email.service.js";
+import { User } from "../models/User.js";
+import { logger } from "../config/logger.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 export const subscribeSchema = z.object({ email: z.string().email() });
@@ -40,14 +42,56 @@ export async function deleteSubscriberHandler(req: Request, res: Response) {
 export const sendCampaignSchema = z.object({
   subject: z.string().min(1),
   body: z.string().min(1),
+  /**
+   * Who to send to. The legacy screen offered newsletter subscribers *and*
+   * registered users as two separate recipient lists, and this version could only
+   * ever send to every subscriber.
+   */
+  audience: z.enum(["subscribers", "customers", "both"]).default("subscribers"),
+  /** Explicit addresses, which must be on the chosen audience's list. */
+  emails: z.array(z.string().email()).optional(),
 });
 
 export async function sendCampaignHandler(req: Request, res: Response) {
-  const subscribers = await Subscriber.find();
-  await sendNewsletterCampaign(
-    subscribers.map((s) => s.email),
-    req.body.subject,
-    req.body.body,
-  );
-  res.json({ sent: subscribers.length });
+  // Refused up front rather than reporting a send that silently delivered nothing.
+  if (!(await isMailConfigured())) {
+    throw new ApiError(400, "Configure SMTP in Admin > Settings before sending a newsletter");
+  }
+
+  const { audience, emails, subject, body } = req.body as {
+    audience: "subscribers" | "customers" | "both";
+    emails?: string[];
+    subject: string;
+    body: string;
+  };
+
+  const recipients = new Set<string>();
+  if (audience === "subscribers" || audience === "both") {
+    for (const subscriber of await Subscriber.find({}, { email: 1 })) recipients.add(subscriber.email);
+  }
+  if (audience === "customers" || audience === "both") {
+    // Banned accounts are excluded: they are not customers the store wants to mail.
+    for (const user of await User.find({ role: "customer", banned: false }, { email: 1 })) {
+      if (user.email) recipients.add(user.email);
+    }
+  }
+
+  // An explicit selection narrows the audience; an address that is not on the list
+  // is dropped rather than mailed, so this endpoint cannot be used to send mail to
+  // arbitrary addresses.
+  let targets = [...recipients];
+  if (emails && emails.length > 0) {
+    const allowed = new Set(targets.map((email) => email.toLowerCase()));
+    targets = emails.filter((email) => allowed.has(email.toLowerCase()));
+    if (targets.length === 0) throw new ApiError(400, "None of those addresses are on the selected list");
+  }
+  if (targets.length === 0) throw new ApiError(400, "There is nobody to send this to");
+
+  // Sending happens after the response: a few thousand addresses, one connection
+  // at a time, outlasts any request timeout. Failures are logged per address.
+  void sendNewsletterCampaign(targets, subject, body)
+    .then((sent) => logger.info(`Newsletter "${subject}" sent to ${sent} recipient(s)`))
+    .catch((err) => logger.error(`Newsletter "${subject}" failed: ${String(err)}`));
+
+  res.json({ queued: targets.length, audience });
 }

@@ -9,11 +9,11 @@ import { sendConversationMessageEmail } from "../services/email.service.js";
 import { logger } from "../config/logger.js";
 
 export const startConversationSchema = z.object({
-  otherUserId: z.string(),
-  productId: z.string().optional(),
+  otherUserId: z.string().regex(/^[a-f\d]{24}$/i),
+  productId: z.string().regex(/^[a-f\d]{24}$/i).optional(),
   /** Legacy conversations carried a subject; it defaults to the product's name. */
   title: z.string().max(200).optional(),
-  message: z.string().min(1),
+  message: z.string().trim().min(1).max(10000),
 });
 
 /** Messaging can be switched off in Admin > Settings > Activation. */
@@ -35,6 +35,9 @@ async function assertConversationsEnabled() {
  * product, or a seller/admin/staff account.
  */
 async function assertCanMessage(requesterId: string, otherUserId: string, productId?: string) {
+  const other = await User.findById(otherUserId, { role: 1, banned: 1 });
+  if (!other) throw new ApiError(404, "Recipient not found");
+  if (other.banned) throw new ApiError(403, "That account is not available");
   if (productId) {
     const product = await Product.findById(productId, { sellerId: 1, addedBy: 1 });
     if (!product) throw new ApiError(404, "Product not found");
@@ -44,11 +47,9 @@ async function assertCanMessage(requesterId: string, otherUserId: string, produc
       return;
     }
     // An in-house product has no vendor: the thread goes to staff.
+    if (!["admin", "staff"].includes(other.role)) throw new ApiError(400, "Contact the store team for this product");
   }
 
-  const other = await User.findById(otherUserId, { role: 1, banned: 1 });
-  if (!other) throw new ApiError(404, "Recipient not found");
-  if (other.banned) throw new ApiError(403, "That account is not available");
   if (!["seller", "admin", "staff"].includes(other.role)) {
     throw new ApiError(403, "You can only message a seller or the store team");
   }
@@ -63,7 +64,7 @@ export async function startConversationHandler(req: Request, res: Response) {
 
   let conversation = await Conversation.findOne({
     participantIds: { $all: [req.user!.id, otherUserId] },
-    ...(productId ? { productId } : {}),
+    productId: productId ?? null,
   });
 
   if (!conversation) {
@@ -137,7 +138,7 @@ export async function getConversationHandler(req: Request, res: Response) {
   res.json(conversation);
 }
 
-export const sendMessageSchema = z.object({ body: z.string().min(1) });
+export const sendMessageSchema = z.object({ body: z.string().trim().min(1).max(10000) });
 
 export async function sendMessageHandler(req: Request, res: Response) {
   await assertConversationsEnabled();
@@ -179,7 +180,8 @@ export async function getUnreadCountHandler(req: Request, res: Response) {
 // A participant deleting a thread removes it for everyone, so this is restricted
 // to the thread's own participants (admins use the moderation list instead).
 export async function deleteConversationHandler(req: Request, res: Response) {
-  const isStaff = req.user!.role === "admin" || req.user!.role === "staff";
+  const isStaff = req.user!.role === "admin" ||
+    (req.user!.role === "staff" && req.user!.permissions?.includes("conversations.manage"));
   const filter = isStaff ? { _id: req.params.id } : { _id: req.params.id, participantIds: req.user!.id };
 
   const deleted = await Conversation.findOneAndDelete(filter);

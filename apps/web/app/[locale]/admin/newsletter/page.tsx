@@ -12,16 +12,19 @@ export default function AdminNewsletterPage() {
   const sendNewsletter = useSendNewsletter();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [audience, setAudience] = useState<"subscribers" | "customers" | "both">("subscribers");
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const result = await sendNewsletter.mutateAsync({ subject, body });
-      toast.success(`Sent to ${result.sent} subscriber(s)`);
+      const result = await sendNewsletter.mutateAsync({ subject, body, audience });
+      // Sending continues in the background, so this is a queued count.
+      toast.success(`Sending to ${result.queued} recipient(s)`);
       setSubject("");
       setBody("");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Could not send campaign");
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message ?? "Could not send campaign");
     }
   }
 
@@ -35,6 +38,21 @@ export default function AdminNewsletterPage() {
         <CardContent>
           <form className="space-y-3" onSubmit={handleSend}>
             <Input placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} required />
+            <div className="space-y-1">
+              <label className="text-sm font-medium" htmlFor="audience">
+                Send to
+              </label>
+              <select
+                id="audience"
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                value={audience}
+                onChange={(e) => setAudience(e.target.value as typeof audience)}
+              >
+                <option value="subscribers">Newsletter subscribers</option>
+                <option value="customers">Registered customers</option>
+                <option value="both">Subscribers and customers</option>
+              </select>
+            </div>
             <textarea
               className="w-full rounded-md border p-2 text-sm"
               rows={6}

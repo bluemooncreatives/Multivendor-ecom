@@ -1488,7 +1488,14 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
       const categoryId = mappedId("categories", row.category_id);
       if (!categoryId) { reporter.skip("home category has no imported category", String(row.id)); continue; }
       if (!bool(row.status)) { reporter.skip("home category was disabled", String(row.id)); continue; }
-      await upsert(HomeCategory, "home_categories", row.id, { categoryId, order: num(row.id) }, report);
+      await upsert(HomeCategory, "home_categories", row.id, {
+        categoryId,
+        // The legacy column holds sub-sub-category ids (or the string "null").
+        subSubCategoryIds: jsonArray(row.subsubcategories)
+          .map((legacyId) => mappedId("sub_sub_categories", legacyId))
+          .filter(Boolean),
+        order: num(row.id),
+      }, report);
     }
   });
 

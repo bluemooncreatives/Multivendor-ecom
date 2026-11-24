@@ -14,6 +14,7 @@ import { User } from "../models/User.js";
 import { logger } from "../config/logger.js";
 import { renderInvoiceBuffer } from "./invoice.service.js";
 import { sendOrderConfirmationEmail } from "./email.service.js";
+import { creditAffiliateForOrder } from "./affiliate.service.js";
 import { calculateCommission } from "./commission.service.js";
 import { reserveStock, confirmReservation, type StockLine } from "./inventory.service.js";
 import { resolveFlashDeals, reserveDealStock, dealKey, type DealStockLine } from "./flashdeal.service.js";
@@ -394,6 +395,14 @@ export async function createOrder(input: CheckoutInput) {
     });
 
     if (!createdOrder) throw new ApiError(500, "Order could not be created");
+
+    if (createdOrder.paymentStatus === "paid") {
+      try {
+        await creditAffiliateForOrder(String(createdOrder._id));
+      } catch (error) {
+        logger.error(`Failed to credit affiliate earnings for order ${createdOrder._id}: ${String(error)}`);
+      }
+    }
 
     // Fired after the transaction commits, and deliberately not awaited: a slow or
     // misconfigured SMTP host must not delay (or fail) a checkout that has already

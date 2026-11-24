@@ -65,6 +65,9 @@ export const Banner = model("Banner", bannerSchema);
 const homeCategorySchema = new Schema(
   {
     categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true },
+    // Legacy `home_categories.subsubcategories`: the handful of deep categories
+    // linked under this showcase section. Empty means "link the whole category".
+    subSubCategoryIds: { type: [{ type: Schema.Types.ObjectId, ref: "Category" }], default: [] },
     order: { type: Number, default: 0 },
   },
   { timestamps: true },

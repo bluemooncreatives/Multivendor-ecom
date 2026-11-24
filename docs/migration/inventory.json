@@ -3,7 +3,7 @@
   "summary": {
     "originalFiles": 1263,
     "legacyFiles": 1261,
-    "targetFiles": 342,
+    "targetFiles": 353,
     "targetPages": 90,
     "identicalSourceFiles": 1076
   },
@@ -32374,9 +32374,9 @@
   },
   "target": {
     "apps/api/package.json": {
-      "sha256": "ed5a861d6e6ec11499b2cd3af225d411134c808e86a24e48401626fe17573918",
-      "normalizedSha256": "3bf638025ed3858a9c713e67f9c2bc5a01c57b69f07ecfdcf09c9cd1faae3809",
-      "lines": 59
+      "sha256": "2c285cfaf336f2fcf38f634729f4948f15d19404dc450ca8fe5c4eb92e8973d0",
+      "normalizedSha256": "468a12cb6108dfef00e3823e50dfcab765a9c0ed3eb07e81a1cbc7a3420183ee",
+      "lines": 60
     },
     "apps/api/tsconfig.build.json": {
       "sha256": "fa702d6f5d1325deaca50312d6a56964dd20e85db2fe455ef55e039ed9ccb04b",
@@ -32398,9 +32398,9 @@
       "apiCalls": []
     },
     "apps/api/src/server.ts": {
-      "sha256": "f6755508e1bd2ad47676e0a3fbe9b39d91d7de37135b9c5e38521eaba61b633f",
-      "normalizedSha256": "d4a8dcef1ca6772801aecdd5732d9954d58e85b473d23673808760bfd5864d85",
-      "lines": 15,
+      "sha256": "e32eb22ad520da5841d062f399d26f8dcd9ac37bbac563303de6bc96193a351b",
+      "normalizedSha256": "a3144385f35f2d759498dd6c4ff302c8294cb89738b08f079339a12a3b39f2ed",
+      "lines": 38,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -32415,9 +32415,9 @@
       "apiCalls": []
     },
     "apps/api/src/config/env.ts": {
-      "sha256": "e3ba2e275db65c33b8fc019363409c78876027e776caeab8f22c6da02fbe2ee5",
-      "normalizedSha256": "fba5a57ba90dc30babd351c94f25d57a9c60acf39154eac43a013796508be629",
-      "lines": 78,
+      "sha256": "03902151948c4ff375b39bd87549e169282d6d42bc06bc40ce6df033338f434a",
+      "normalizedSha256": "d99f2fdd831750047192e44ea82571e100a92b96628f87034b9a67c9dddf1797",
+      "lines": 87,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -32475,9 +32475,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/affiliate.controller.ts": {
-      "sha256": "0b717709d1b5beb38ba07e747b1a5356def5a1586773d2ddeddc6f2966706c24",
-      "normalizedSha256": "3af8e850c2408460d49030ec9752519522013e792ffde6f6e8dc92571007d14d",
-      "lines": 282,
+      "sha256": "b3a4a6802a36e1afc4c6f116a208fad64ef7a08c039045bf65635a7c341fa4f8",
+      "normalizedSha256": "305299e2654536481b957ac1bf059a3defacf9edf50ce547e71f3c682a4329d1",
+      "lines": 307,
       "exportedFunctions": [
         "getAffiliateConfigHandler",
         "joinAffiliateHandler",
@@ -32542,9 +32542,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/cart.controller.ts": {
-      "sha256": "b23929c5310567b79bb15a6aee59470f0d68e4f3b408fbc3b8a79bec586429db",
-      "normalizedSha256": "a06d21f863729aee56e0da4af89c25fb4beb1809afd9a8696aa2f5628b0c5052",
-      "lines": 46,
+      "sha256": "76879b77126a45710120a6df34081d654086c163bf5533d49636d1ca46c6e875",
+      "normalizedSha256": "1f0ff7986ee88fed16265c650f32622953931c6610c0c63ad1478d24ad076dad",
+      "lines": 49,
       "exportedFunctions": [
         "getCartHandler",
         "setCartItemHandler",
@@ -32577,16 +32577,19 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/classified.controller.ts": {
-      "sha256": "bb73ca7caeac83ebd32fa9973cfe10528a2c052886610acc3a1c6b5e834b72c7",
-      "normalizedSha256": "0fe0b709895be1cad78f0b85387d0c5f304d71596615dbcc4af46ffe6bd51982",
-      "lines": 121,
+      "sha256": "acd63428a0166c01e01a6c006bf5358f37dbb9370428f5ba90cf2d98c9a8f8a1",
+      "normalizedSha256": "aa89c7b5ba6cb6349aafbc33db56a2194f97d2d88f0638b61f77a418ae4dc9a2",
+      "lines": 203,
       "exportedFunctions": [
         "listClassifiedsHandler",
+        "listAdminClassifiedsHandler",
         "getClassifiedBySlugHandler",
         "createClassifiedHandler",
         "listMyClassifiedsHandler",
+        "getMyClassifiedHandler",
         "updateClassifiedHandler",
         "deleteClassifiedHandler",
+        "setMyClassifiedStatusHandler",
         "moderateClassifiedHandler"
       ],
       "apiCalls": []
@@ -32630,9 +32633,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/conversation.controller.ts": {
-      "sha256": "b15416f2c5dc0aae332aba1f10eb581e31c7a53f668b3547c04a53f46e8b52d1",
-      "normalizedSha256": "b36becc699a8920f46ecd60aeb3dc66c72b5306b17f9fa1908bd027eecd86867",
-      "lines": 106,
+      "sha256": "0da558d9067813b5dfe15398ad3967b7231c1078cd6f790e17f7230646c8ded3",
+      "normalizedSha256": "b5f40608a38a0bd281780094996129e9019ae445060263f94e90e8139debc4a8",
+      "lines": 198,
       "exportedFunctions": [
         "startConversationHandler",
         "listMyConversationsHandler",
@@ -32646,9 +32649,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/coupon.controller.ts": {
-      "sha256": "57e97eb4a00a09af27cf672d5d2de7664f91866157c204bae7e70228139d1e8b",
-      "normalizedSha256": "f82448bec3d212bcf0fda78a368cfb31214539fd0a110408377a3ca588a74961",
-      "lines": 97,
+      "sha256": "992327c38e320c82823924d16879bea6e70f5c73c698794a6b39c9d542616c85",
+      "normalizedSha256": "30512b6e92fb0b7c508fb1c308384d2fc1409438358124226488d0eab47ea259",
+      "lines": 106,
       "exportedFunctions": [
         "createCouponHandler",
         "listCouponsHandler",
@@ -32695,9 +32698,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/extragateway.controller.ts": {
-      "sha256": "9ca1c6963a4ee32e804090c7f95819dfabd84d3286643d32e914e35f397c3500",
-      "normalizedSha256": "77599eaa25e7ba841c3975e82f01fca7b4eeb7b36a03620b6e3b6e850bc67985",
-      "lines": 286,
+      "sha256": "e7f1e12cad32e568577b2149f2acb36d0f60aa548b293f4f1eac3fc484b375e3",
+      "normalizedSha256": "390abd9a33b42c6990adb35d96685b28e0aa84dc72b45edbe23d289a61f5224e",
+      "lines": 312,
       "exportedFunctions": [
         "createSslcommerzSessionHandler",
         "createInstamojoRequestHandler",
@@ -32729,9 +32732,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/flashdeal.controller.ts": {
-      "sha256": "482b1d6df433aa313ef43873a759fe6aeddd6e639b07a5df3b18c5da084b3227",
-      "normalizedSha256": "ee544f52c58e48fccf4bca21a0dfa3d60e39740ec45f2535858f5c6804bb3936",
-      "lines": 72,
+      "sha256": "b423886754f56f44fa760d38f888ef9a8528cf664a746f99511bbdf2beb3b88d",
+      "normalizedSha256": "73a4821665b13530bf30f4e21aff775219b5345e8b60541bc542cd2c0fdce220",
+      "lines": 237,
       "exportedFunctions": [
         "listActiveFlashDealsHandler",
         "getFlashDealHandler",
@@ -32744,9 +32747,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/homepage.controller.ts": {
-      "sha256": "901b4f98d369ae060209276719aba2333cc869b2af1290e9bbcfe689caa2e6cc",
-      "normalizedSha256": "2834266a0c7cc1812faa288da82b24baa1d4a342fb618db4e0e3a8af1220ebb8",
-      "lines": 126,
+      "sha256": "2d3cbc1615bc63b56353fbc38476b57253913c981ef83e9fd1efb3db0c412542",
+      "normalizedSha256": "d5e2a91055dcbab6ae5c1675a87eebf5517b0c4066de11b4086d64a127358d60",
+      "lines": 143,
       "exportedFunctions": [
         "getHomepageSectionsHandler",
         "listAdminSlidersHandler",
@@ -32759,6 +32762,7 @@
         "deleteBannerHandler",
         "listAdminHomeCategoriesHandler",
         "createHomeCategoryHandler",
+        "updateHomeCategoryHandler",
         "deleteHomeCategoryHandler",
         "toggleTopCategoryHandler",
         "toggleTopBrandHandler"
@@ -32787,9 +32791,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/newsletter.controller.ts": {
-      "sha256": "68c5ee52b13bd8769324ffb6a4145ce13fb86d3172a8b77fe7f1aa5f6edfb81b",
-      "normalizedSha256": "cfc8aedd0534984b415587be03ecdc8faa8179bd44754e30b31317037008fb00",
-      "lines": 53,
+      "sha256": "2cc8c18334d453d13c028a829cb9c09e3a657b9d3bb39c5b93ba7846435f3dc1",
+      "normalizedSha256": "8144638f0e15fc007c11ea54ebb196c9c4b91f03113ab3758c9c351222facbf2",
+      "lines": 97,
       "exportedFunctions": [
         "subscribeHandler",
         "listSubscribersHandler",
@@ -32818,9 +32822,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/package.controller.ts": {
-      "sha256": "e0723a9ce28f6acf7d4fc8727fba270543aae47549acd08b47899519502f98ee",
-      "normalizedSha256": "b4df797db853843c0c69826c2d60eb1e7c51aae75bae15226e60548d921cff00",
-      "lines": 293,
+      "sha256": "e10e27f2ac29355af81a49a86c3d844e8d91af07c61b97aa1f57c3713c84fe6b",
+      "normalizedSha256": "3751ae13915233a838d7d375c18839603e821244ab965af7235154e51aeec0fa",
+      "lines": 275,
       "exportedFunctions": [
         "listSellerPackagesHandler",
         "listCustomerPackagesHandler",
@@ -32842,14 +32846,14 @@
         "listCustomerPackagePaymentsHandler",
         "approveSellerPackagePaymentHandler",
         "approveCustomerPackagePaymentHandler",
-        "enforceSellerProductLimitsHandler"
+        "unpublishExpiredSellerProductsHandler"
       ],
       "apiCalls": []
     },
     "apps/api/src/controllers/payment.controller.ts": {
-      "sha256": "ab6190e20bcf8a545d86e0e6ef881ace05239d5636b50825b72c942026b959dd",
-      "normalizedSha256": "840c926ebbde56010c745ea245fe86a00c9bf651ac7acf01a560e62010b0da89",
-      "lines": 128,
+      "sha256": "5b993224066c667f09d5c7d074d92f3e4fbcf562d9fd25ebac2e5ad1f0a1966b",
+      "normalizedSha256": "ab38dc39a99b2e96578a3e5a9cf4ac5523861650f5502c8c2eb9c700a1158f26",
+      "lines": 144,
       "exportedFunctions": [
         "listManualPaymentMethodsHandler",
         "listAdminManualPaymentMethodsHandler",
@@ -32861,7 +32865,9 @@
         "createPaypalOrderHandler",
         "capturePaypalOrderHandler",
         "submitManualPaymentHandler",
-        "approveManualPaymentHandler"
+        "approveManualPaymentHandler",
+        "expireAbandonedOrdersHandler",
+        "listLateCapturesHandler"
       ],
       "apiCalls": []
     },
@@ -32890,9 +32896,9 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/product.controller.ts": {
-      "sha256": "a81bedbb34ee627e9c51d9ab342f56a690f710e1c03e9c93db2ee1e8f64400de",
-      "normalizedSha256": "703e523706ef21027726b0611d3487963d9ad756a7a33b9943baa8bbe46f22b2",
-      "lines": 485,
+      "sha256": "3b03c0f0949904af6d9d2cfe2bf3096e8ef5f05aa8b9e1a869381d62cac2744f",
+      "normalizedSha256": "1fb9360d226eeac86d47842e21537d6d62eb77812967d4d08411e203a1761839",
+      "lines": 506,
       "exportedFunctions": [
         "searchProductsHandler",
         "getProductsByIdsHandler",
@@ -32940,11 +32946,13 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/report.controller.ts": {
-      "sha256": "37faa59cf1c1b4a03e6a6148de5a1976474ec4bb96fe0f29de879985a5db2d98",
-      "normalizedSha256": "c153d34bbab2062f7018fd67ecd810be2f980934ee4497b26e5a5e83a75a901c",
-      "lines": 94,
+      "sha256": "1d35e96f4c1caea5c681289378a489ebe24a16ef3f185b5bde372725debe40f7",
+      "normalizedSha256": "9ec4570093eb40a415af4a8ef4033801a547f83d95857df1c2dd407119e7755c",
+      "lines": 207,
       "exportedFunctions": [
         "stockReportHandler",
+        "productSalesReportHandler",
+        "sellerReportHandler",
         "salesReportHandler",
         "sellerSalesReportHandler",
         "wishlistReportHandler",
@@ -32953,16 +32961,17 @@
       "apiCalls": []
     },
     "apps/api/src/controllers/review.controller.ts": {
-      "sha256": "0d948b930b2c4278c90ca244fd6d8a1b33eabcc402205b2d84f6b5cbd13645e1",
-      "normalizedSha256": "0d2d4fe1dd638d89217a01688ccdfe7dd0fcd3440791e59c499b871b1a8ec5cf",
-      "lines": 85,
+      "sha256": "d69fe9d663ed2bea15168ed4133adeb5f7c721eba92b832b29b9677903d1e486",
+      "normalizedSha256": "014d3eafb5f50f5f5671264cc57cff659d9c968600f25d7ff0f444fef35050b3",
+      "lines": 121,
       "exportedFunctions": [
         "createReviewHandler",
         "listProductReviewsHandler",
         "listSellerReviewsHandler",
         "replyReviewHandler",
         "listAdminReviewsHandler",
-        "moderateReviewHandler"
+        "moderateReviewHandler",
+        "deleteReviewHandler"
       ],
       "apiCalls": []
     },
@@ -33175,23 +33184,23 @@
       "apiCalls": []
     },
     "apps/api/src/models/Address.ts": {
-      "sha256": "9b3b7ca5b69e50c09b79463bd8583e36447523e50b639603c07d56e831806391",
-      "normalizedSha256": "ef05cb193bcbd3e9cca298856f8201741d2f5b2674da3e8e9d0e60a63f399f58",
-      "lines": 52,
+      "sha256": "1cb4d9e65584eac8dd44f3e7de1494e11195bbf439c48bbb74e43cb3a5ecaba2",
+      "normalizedSha256": "ee7b63fbdb88e5629b9f56b3ab9567166628c1aa2df273b1fb733859f7f73208",
+      "lines": 57,
       "exportedFunctions": [],
       "apiCalls": []
     },
     "apps/api/src/models/Affiliate.ts": {
-      "sha256": "7c0f6d6888c43e8aa9bbe1e17b74e9b411d65c4e90d907a1229263a91df57797",
-      "normalizedSha256": "7ecb8692feaee5fd3bd16e2b72806dd9e10cf281604f8cd635ec14dfc4bc0374",
-      "lines": 91,
+      "sha256": "aa793b2534f70cddac12fae3a855fd799ef45cc177e4adfbc2025bc4ba5963fa",
+      "normalizedSha256": "4a35159e99becd2069774df0f5c4774b25a3f9b9ff6867fc14ccf65e585cdcf7",
+      "lines": 140,
       "exportedFunctions": [],
       "apiCalls": []
     },
     "apps/api/src/models/Cart.ts": {
-      "sha256": "502378fd0090e95246aaada89aaebcf763258999f16d1ee4da95ef899bf5e1d8",
-      "normalizedSha256": "92938552db8060f5e02b7dd8c6f4d600b885715c956b3d7fe6a2bd93df778e76",
-      "lines": 25,
+      "sha256": "61cd2bde215bc5ac73170cb6db62932aa790d931ed11d8a3505e63df32593236",
+      "normalizedSha256": "9c7f0fe6d535aadaa9ecccb991a77af02b3e2b6c36253b21dc56a7d3447e6799",
+      "lines": 29,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -33210,9 +33219,9 @@
       "apiCalls": []
     },
     "apps/api/src/models/Content.ts": {
-      "sha256": "23ab8c6f786fff87f437c2fc8767f210e4583a533f3a540fc686539f65ff8d93",
-      "normalizedSha256": "99c95489f33106f0d239d9f5117942a8c00eb9d0757becb897d2fee7ff9c75f0",
-      "lines": 87,
+      "sha256": "a35820ca4ee0c52e8ced23ec89bf7647356958333b27b8f31dbe511e5c498549",
+      "normalizedSha256": "c970069f63c57a745135f37b1615a06e83d41dffa7d9e2c2aa4184ce7f3a9323",
+      "lines": 90,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -33244,6 +33253,13 @@
       "exportedFunctions": [],
       "apiCalls": []
     },
+    "apps/api/src/models/LegacyMap.ts": {
+      "sha256": "4ae49f78a5e85e01b30cbe3bf77b6f53e5c4ac275a7d20b207373f7817668e10",
+      "normalizedSha256": "6e3c06cb54fe31fd4b80e6d2c9bf4b16c2ed8d7409ebf4cb894d6b4be53152f9",
+      "lines": 23,
+      "exportedFunctions": [],
+      "apiCalls": []
+    },
     "apps/api/src/models/Localization.ts": {
       "sha256": "1dd1d233ca76268206f76fb8ce6c5f7d7f4e72c8d66965103accf2b2fddf3a33",
       "normalizedSha256": "7aaae8e831db570653d4b95d05b692e5248af92d293c5fae531a223daf42834f",
@@ -33259,23 +33275,23 @@
       "apiCalls": []
     },
     "apps/api/src/models/Order.ts": {
-      "sha256": "6594bde84768f96334a0bdeefbf187cc2ba6ae12f5923e43ca5dcaa02d66a5fd",
-      "normalizedSha256": "efa6ea54fa07b847a0a3287cd1de81bafccdb5286cb0c36bb14c0d1fc05f59b0",
-      "lines": 102,
+      "sha256": "b855165f84842ed47cfb6f1fb8759382cdcbcd8bf12344d71bd28d49c5d92642",
+      "normalizedSha256": "8d70c0de23d5d78f3277f534334a09eb8d9d58b2fea03b4ab337f644e805d25e",
+      "lines": 111,
       "exportedFunctions": [],
       "apiCalls": []
     },
     "apps/api/src/models/Package.ts": {
-      "sha256": "2d634f118aae3f49db5f7cd8dae27db845d44262c0d83b87624959b21437979d",
-      "normalizedSha256": "07ee57a7a4843ab615a8423f2734fe67af75c32a93b7ad0d797c8dff4a060f19",
-      "lines": 63,
+      "sha256": "18b6b43d884813c00d82b9499f42ad798bc3b6ab471d8b57858b3d92f338240d",
+      "normalizedSha256": "1b8bd8dfa0cc9d660916583a7baed7b304bb8fc35cfb8742ce4f38b7ccde4346",
+      "lines": 76,
       "exportedFunctions": [],
       "apiCalls": []
     },
     "apps/api/src/models/Payment.ts": {
-      "sha256": "02afb00ee453c4c42a387ba8b8947eca3c53487145fe1cfb506c2dc7fa8081bf",
-      "normalizedSha256": "d0d347cec5161598ba3674f0310a2fe5b300727fc48daba925fd75212fec7017",
-      "lines": 53,
+      "sha256": "96ac904dbf9e17d80297f5910c8b84da28c9de89213cadde5021b4819b259868",
+      "normalizedSha256": "049400425ad6e2072ee63f2a5c5bd20f21c914d622e67706734451cb1625272e",
+      "lines": 58,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -33287,9 +33303,9 @@
       "apiCalls": []
     },
     "apps/api/src/models/Product.ts": {
-      "sha256": "5bd9b0229d231523fb7265fd9d2e6669ce4ac663dec89d220ee767219d970b7f",
-      "normalizedSha256": "302714e085eaf0da94b7b17f0fa32568b7292426e5363d3c32751d9d05da143d",
-      "lines": 127,
+      "sha256": "bfc41f0fcfa34b74e3400580336a0aee14c9f69906cf647e5987952fd5dcc939",
+      "normalizedSha256": "dc22ba1ec8c7b245e457a9c21a4bcbdf7c998556404d755d1e9d1dcb316eac04",
+      "lines": 140,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -33322,23 +33338,23 @@
       "apiCalls": []
     },
     "apps/api/src/models/Shop.ts": {
-      "sha256": "89c750f6f362147a96a422c331a023576d388b777b3148855b3d07a3f671d9e8",
-      "normalizedSha256": "ecba81d21262c0a3d99370236fcac51c70ee4299dcd651e9f3cbce910efe360f",
-      "lines": 31,
+      "sha256": "bf4bedc7b293821c95cfa88d83729b62a783b0791336350647934e640e9b3607",
+      "normalizedSha256": "b18f7c9db20ca0fcf21a2bc95c5038ff95f26b829c579227682c264a0f165883",
+      "lines": 41,
       "exportedFunctions": [],
       "apiCalls": []
     },
     "apps/api/src/models/Support.ts": {
-      "sha256": "c7bb110441d0728f55ddac61a3aafc03a1ec5ebaefc056d25553f4a7a40d4ee2",
-      "normalizedSha256": "6cec69fb0baf57355594c9998c986fc4c962a9095a2187be0e72c3b744aeaddc",
-      "lines": 55,
+      "sha256": "0dab0343296e95be8ffa9424d2b66bf7484d7019a0d84db291cf675646499795",
+      "normalizedSha256": "15061d194a87b8dd4ddede023a2bfbbd2c22c6b4a7ff1e0577169a55d00a8dd2",
+      "lines": 58,
       "exportedFunctions": [],
       "apiCalls": []
     },
     "apps/api/src/models/User.ts": {
-      "sha256": "7ba5b06ffa217baef346e353ce042a916acbc1f4fce9fb37aef9b878ac410809",
-      "normalizedSha256": "c81bd71e7982654639e5649403ba0195763e84cc13999009dcf94cb3cc5bf7a8",
-      "lines": 35,
+      "sha256": "8ff7e88fb86caa040eb5cb36ebddbf78f76cf8a417299b6297d6edd30e0f0545",
+      "normalizedSha256": "81804ad3a3516f683f1dbcb22f1f773b9047c1d3b452e95604bd9583be7102ec",
+      "lines": 40,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -33366,16 +33382,16 @@
       "apiCalls": []
     },
     "apps/api/src/routes/addon.routes.ts": {
-      "sha256": "d6eb2a209f2ceefd0b8201d7fdad0b8a18ec86a304156bbed5be1ffb9d21881b",
-      "normalizedSha256": "1f502fffe14e2779c161cfe921dfa868510846cb9ec2b73d7e8271f792c42b0b",
-      "lines": 368,
+      "sha256": "f2e9ebdd00e2bc3c212fd9d395c9367a2ccabcee0181eb5ae787c5368c080062",
+      "normalizedSha256": "cd510c803a6f1e33880d6f0b785f3a53c075789643346763ab5dec1d2bc463cb",
+      "lines": 394,
       "exportedFunctions": [],
       "apiCalls": []
     },
     "apps/api/src/routes/admin.routes.ts": {
-      "sha256": "8a3e9f5f86397854db8cf4b2dc8fbbb7549dd3a5f1f89f1a0c0985190342910f",
-      "normalizedSha256": "733ac17e59814c04fa217b4dd4457eb094fe8839890b6789019118aef36ed3f2",
-      "lines": 262,
+      "sha256": "e6d19d0b230c2baa0e13db1373e6376a8aca750237b550ea4b1b7af43595b7c2",
+      "normalizedSha256": "b35866f8ca4bc678865f0696114633d14869de4849b533c2d7c3d3740b51d062",
+      "lines": 277,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -33450,16 +33466,16 @@
       "apiCalls": []
     },
     "apps/api/src/routes/flashdeal.routes.ts": {
-      "sha256": "6c482875d608cbd651ff7ac075c850a0d52759f0c76aa4bc8bd41016f0da5c5e",
-      "normalizedSha256": "9c648e0585e6899cbd50c30d7a6e2e4b8bdb5536a7e5b7e68de1ab381c90b5d1",
-      "lines": 37,
+      "sha256": "8a74f7881fb59e1bfb1918d8cbceaa17b1885a1b568669f48f90c04c815ca266",
+      "normalizedSha256": "6392428564da1cd8f3b40c7f9fb00ce78bba41ff98ef858634a3a0ac3900d938",
+      "lines": 38,
       "exportedFunctions": [],
       "apiCalls": []
     },
     "apps/api/src/routes/homepage.routes.ts": {
-      "sha256": "6fa93f22277f310fc9dc71f543574132699fd3edb24d972d44a02902490067b7",
-      "normalizedSha256": "00b4e8630083d4df9b11ce14571cfd46d1bca677658a22880484e8db8b179612",
-      "lines": 52,
+      "sha256": "737e6b3df8c0b623cac7aaa6d630e409f734405424633b8916752dc9bb639e14",
+      "normalizedSha256": "54f1900d334c73797213d466e830865f94cafdb61e0303a24768bc0b84ba5a4b",
+      "lines": 54,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -33506,16 +33522,16 @@
       "apiCalls": []
     },
     "apps/api/src/routes/report.routes.ts": {
-      "sha256": "58b1d1040c8939d29bad1bf277ec05fe0ed492947751f37dc2c9929965790bac",
-      "normalizedSha256": "7dac9ce9e901ead034c2437dcd618e45260fac93b8a1caa6777ec38774951464",
-      "lines": 20,
+      "sha256": "c80f320bd68a7d06db20b7aaa31e74680be892d830069fe7e3e7f07e0af90777",
+      "normalizedSha256": "9b665b89f03938c4e8615c358ab8313b564fc7c50e85acc8eb15c2f046c1414d",
+      "lines": 24,
       "exportedFunctions": [],
       "apiCalls": []
     },
     "apps/api/src/routes/review.routes.ts": {
-      "sha256": "c0e02c42a79ecf35ff1018d7c832e65139c9ae957713e5d6d2b43d063ad7355d",
-      "normalizedSha256": "03b7cb63e467a1d381aac31e0fe7358c711be20d645593ddd1085fa722fef21a",
-      "lines": 30,
+      "sha256": "81a079262f08f922392ee2b03a0568ca0e449505692dcf4baa98463d81264b75",
+      "normalizedSha256": "9320a4c30c5e49c464029c1e48b2c0e2c608b0e67e43b41fdd64bf0e3d9b73d8",
+      "lines": 32,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -33533,6 +33549,13 @@
       "exportedFunctions": [],
       "apiCalls": []
     },
+    "apps/api/src/scripts/migrate-legacy.ts": {
+      "sha256": "f08a7ec3cf34f455cb30517dcd666b3a57e6e5816333e0ec95a252741ed3df4d",
+      "normalizedSha256": "4916cff65613e0438908174a6910735fe1dc877bd1250fd10494decd95f131d2",
+      "lines": 139,
+      "exportedFunctions": [],
+      "apiCalls": []
+    },
     "apps/api/src/scripts/migrate-taxonomy.ts": {
       "sha256": "1c09c1e00feca5f1aafde94e2249fde08a613df19f9ac01faf0ca24791f457ff",
       "normalizedSha256": "c2ad7c45ab4e76afb9b6d355a0490e9ddb212dd9a83acef41b93487a09a7aeef",
@@ -33547,10 +33570,42 @@
       "exportedFunctions": [],
       "apiCalls": []
     },
+    "apps/api/src/scripts/legacy/import.ts": {
+      "sha256": "665bb68d93fcdd7f87fd53b4bb8ce78406002cc6577d7e7958c5d793f0af9e43",
+      "normalizedSha256": "ef8f05be75e29243ddf760d3747939f477cfac6f0539c9745690ad9c15942535",
+      "lines": 1646,
+      "exportedFunctions": [
+        "importLegacyDump"
+      ],
+      "apiCalls": []
+    },
+    "apps/api/src/scripts/legacy/sql-dump.ts": {
+      "sha256": "8f4131b6884efefabcffa0dd558a305b8a772669d4dbb45ea59d607e6303cbed",
+      "normalizedSha256": "aafe467e82b21e95661f3f4c788feda4e929138e6d32bee6c0568792c6c854cf",
+      "lines": 224,
+      "exportedFunctions": [
+        "parseDump",
+        "str",
+        "num",
+        "bool",
+        "date",
+        "jsonArray",
+        "jsonObject",
+        "uploadUrl"
+      ],
+      "apiCalls": []
+    },
+    "apps/api/src/scripts/legacy/__tests__/import.test.ts": {
+      "sha256": "309c2a549bd28b9003c394186020a49e819c17ac5495d96689e0fc075ec6427f",
+      "normalizedSha256": "2f008f4464aa442fa5b6d61b92567ab1346a5d5333eaa1022e7133bf66363642",
+      "lines": 272,
+      "exportedFunctions": [],
+      "apiCalls": []
+    },
     "apps/api/src/services/affiliate.service.ts": {
-      "sha256": "0f99e94ef2093fce77876ec64756b58be07151dbeb0cdfe45a5bb4cc4f8caf24",
-      "normalizedSha256": "8cff3ce3dce015e58ff14521ae71eae31e4261cdf10ac66d7d74c9b78d4f3b07",
-      "lines": 122,
+      "sha256": "d6a7d0a028ce0f80c6d54366013b1b9218006bbfedcb222a2edbb245749285e2",
+      "normalizedSha256": "1c265ceb14dac13558b23804fb9ecf6a67123e0ef8962635793b582db8c22d44",
+      "lines": 269,
       "exportedFunctions": [
         "resolveReferrer",
         "attachReferral",
@@ -33604,9 +33659,9 @@
       "apiCalls": []
     },
     "apps/api/src/services/cart.service.ts": {
-      "sha256": "b316e547c88327533ec173cde30097278eadfd4869f5ea564dd6a529228bceae",
-      "normalizedSha256": "21946185d62949b55beab089c494695060fe797b7e91aa6fb4e68b7fc82d1537",
-      "lines": 145,
+      "sha256": "d57a1deb38a294a7fddb32c00ba8de4000cc562999c85bb3fee78d5a9ac3e381",
+      "normalizedSha256": "608cc0b4fd77b1555c12deaf190df371fda918a2a53ab93790b607358664a3cb",
+      "lines": 182,
       "exportedFunctions": [
         "getCart",
         "getCartWithDetails",
@@ -33617,9 +33672,9 @@
       "apiCalls": []
     },
     "apps/api/src/services/checkout.service.ts": {
-      "sha256": "9e6e05e703aa1e8b142c9d248673b15bc2aff42f7a8fc50128333fd621e21b0c",
-      "normalizedSha256": "c72400bd75a6e7361ed60b9faa68f241dcf074ea5676b0322f7b3dd9bd51a0a9",
-      "lines": 402,
+      "sha256": "f3b8aa3828c572309c30a8984e61bb0abc5ed8fe1b23e40b30d9007fc8ef4138",
+      "normalizedSha256": "a304153123c119a18b032ca278ef1536edfa1edf415fff6dbc90ba8807b53f5b",
+      "lines": 439,
       "exportedFunctions": [
         "createOrder"
       ],
@@ -33688,16 +33743,33 @@
       "apiCalls": []
     },
     "apps/api/src/services/email.service.ts": {
-      "sha256": "04528cb7ad4dd7a8c549e28c0e5a652711d2b2c314fc4be4f3ed044150841928",
-      "normalizedSha256": "3e91e2f2f6186d3e6c42da3f808b0f36e75851960fee3fb7f9c4f49e1ca63a0b",
-      "lines": 145,
+      "sha256": "fc76b37afa731bc32c64f72e14096957b80b92be1d77426ee0ddfc6eaa2a9021",
+      "normalizedSha256": "2c80f29ec225e0efe7759664fc1f407aa4e4e115d19f0e57cbe6b9bae5a9e10c",
+      "lines": 189,
       "exportedFunctions": [
         "resetMailTransport",
         "sendVerificationEmail",
         "sendEmailChangeEmail",
         "sendPasswordResetEmail",
         "sendOrderConfirmationEmail",
+        "sendConversationMessageEmail",
+        "isMailConfigured",
         "sendNewsletterCampaign"
+      ],
+      "apiCalls": []
+    },
+    "apps/api/src/services/flashdeal.service.ts": {
+      "sha256": "0b8df233cdfbaa6f664571f2b50343ded64daf33d1e72e9783e84ddb8ca92057",
+      "normalizedSha256": "76f21d0066674a109527ae04b6624da15dd87caaeac189045948eb1b479ae0d4",
+      "lines": 239,
+      "exportedFunctions": [
+        "dealKey",
+        "resolveFlashDeals",
+        "flashDealUnitPrice",
+        "flashDealPercentOff",
+        "reserveDealStock",
+        "releaseDealStock",
+        "dealLinesFromOrder"
       ],
       "apiCalls": []
     },
@@ -33733,9 +33805,9 @@
       "apiCalls": []
     },
     "apps/api/src/services/order.service.ts": {
-      "sha256": "aead170580e18e2e34924a130ff915cedcc30e3afadc2501cc118cba0f1353e7",
-      "normalizedSha256": "9dac0d758ee8867635e974e0a31650bf6e2cc3a9105c06c63fa66ab6daf37f97",
-      "lines": 162,
+      "sha256": "608a0a2ed26ec83e7cc9b6aacccb6ef4219de9576d5524b9b52c92656c57597b",
+      "normalizedSha256": "ec456d650fe0293996c0ea1ae08af0f2aaaeb355930181765329ecbcf426afa3",
+      "lines": 166,
       "exportedFunctions": [
         "getOrderForRequester",
         "listOrdersForUser",
@@ -33755,6 +33827,23 @@
       ],
       "apiCalls": []
     },
+    "apps/api/src/services/package.service.ts": {
+      "sha256": "b321288239fdf85c0b0a3fd25a6580baa58bd95ffc9565aaf6a16dde8894e6e5",
+      "normalizedSha256": "7756a792aa5d1e7a675e7425cd9e4ebfe7f04fb03c33af93c5bb9e3602e922bd",
+      "lines": 370,
+      "exportedFunctions": [
+        "purchaseSellerPackage",
+        "purchaseCustomerPackage",
+        "grantSellerAllowance",
+        "grantCustomerAllowance",
+        "canPurchasePackage",
+        "consumeSellerUpload",
+        "consumeCustomerUpload",
+        "assertSellerPackageValid",
+        "unpublishExpiredSellerProducts"
+      ],
+      "apiCalls": []
+    },
     "apps/api/src/services/payment-options.service.ts": {
       "sha256": "5a97b7db6e126f0c5c42cd9cfa423b8448cd96ca5309cce262a2e1492833fd83",
       "normalizedSha256": "dfeefdbe945177ec7fd6e9c8adda6a04ee1241e5a88ce58d250631c97033e413",
@@ -33765,15 +33854,17 @@
       "apiCalls": []
     },
     "apps/api/src/services/payment.service.ts": {
-      "sha256": "0df370db451ea42bd6e73456054dd4296a29083454d6f395dca5f20c95ce802b",
-      "normalizedSha256": "30bbd003d2d483aa754e98d7bc2089f2fbf81212189d2525d5a73626b126b963",
-      "lines": 385,
+      "sha256": "af1cee8e5463a919f130ce35de8a369c45a6292d5da80bc61bb8256ba84defc1",
+      "normalizedSha256": "8b604547d71f5073e6fe515368665a7a8257707ed365f15330bb86559531ff06",
+      "lines": 545,
       "exportedFunctions": [
         "createStripeIntent",
         "createStripeCheckoutSession",
         "createRazorpayOrder",
         "settleOrderPayment",
         "failOrderPayment",
+        "expireAbandonedOrders",
+        "listLateCaptures",
         "recordPaymentEventOnce",
         "newManualPaymentReference",
         "completePaymentEvent"
@@ -33792,31 +33883,53 @@
       "apiCalls": []
     },
     "apps/api/src/services/pos.service.ts": {
-      "sha256": "a137947a2d818f17ba4b4f531c1d7062802a708bd6e392f51c367996af46ee8b",
-      "normalizedSha256": "92f232a7f9deeabd7b44d5a8c0a72d551f1b5605f105b345300e65ccd8f48d86",
-      "lines": 287,
+      "sha256": "9eb32c9dacc32f657b2f573a035a80aa8857b42a7de7f91bcb446fbfd8c1569a",
+      "normalizedSha256": "2f2aa7fa7caab97f4286b17898eda4e94a08f7f40c4a0120cf2942d1c8199569",
+      "lines": 311,
       "exportedFunctions": [
         "createPosSale",
         "searchPosProducts"
       ],
       "apiCalls": []
     },
+    "apps/api/src/services/pricing.service.ts": {
+      "sha256": "214561a0b60a1bc5fc2ee51a2d222ebf2b956e358124cfb1634d956d5754567d",
+      "normalizedSha256": "1ecb9ff6146ff64812c2d33f855cdd880aac13abceb24ba9978296158433f2f2",
+      "lines": 121,
+      "exportedFunctions": [
+        "decorateProductsPricing",
+        "decorateProductPricing",
+        "computePricing"
+      ],
+      "apiCalls": []
+    },
     "apps/api/src/services/product.service.ts": {
-      "sha256": "2b5734d3866ae18e711eee68fde9cffa9be47eea8c9fbde3ecae6ef96157ef69",
-      "normalizedSha256": "a072c46b6bcd9f1bb4bd9348f97b629aa049d740260e739b9e0ba476f2a8c721",
-      "lines": 81,
+      "sha256": "92e7ac894375e744d1bd97b670bef2ff549e415ff8f108f58565eeda20840b81",
+      "normalizedSha256": "d016593c9e5068ad575cfbced5f8d3306e173a449861b3698236263ef69a3fee",
+      "lines": 83,
       "exportedFunctions": [
         "searchProducts"
       ],
       "apiCalls": []
     },
-    "apps/api/src/services/quota.service.ts": {
-      "sha256": "dde24844251a46f1b460bb98f50c14ee8454b26b442cc223a16066623fe81f0b",
-      "normalizedSha256": "369a71757d35d5cde197b33051c4a53d078400792b272141a7ed7ea18090970c",
-      "lines": 59,
+    "apps/api/src/services/review.service.ts": {
+      "sha256": "ec2d26fbf776472965adc22e95d88c472222cf0efd1516f57dd1962865c1da32",
+      "normalizedSha256": "2d3338ce3911270f5ef36c3eb8f7ac360c1d78391935c557ece10c0133010344",
+      "lines": 41,
       "exportedFunctions": [
-        "assertSellerCanAddProduct",
-        "assertCustomerCanAddClassified"
+        "recomputeProductRating",
+        "assertReviewsEnabled"
+      ],
+      "apiCalls": []
+    },
+    "apps/api/src/services/scheduler.service.ts": {
+      "sha256": "3d4a7ee22bf61a6fbefe1d33601ec56b68532bca5285f59321a49725b9264d7b",
+      "normalizedSha256": "afd0d73302bfa5eb35712fa7ec23fce4865db9456ac28d243cb4dd73b0974430",
+      "lines": 127,
+      "exportedFunctions": [
+        "withJobLock",
+        "runMaintenanceOnce",
+        "startMaintenanceScheduler"
       ],
       "apiCalls": []
     },
@@ -33853,9 +33966,9 @@
       "apiCalls": []
     },
     "apps/api/src/services/shipping.service.ts": {
-      "sha256": "4394d3d33b749540d242a4e89197f5c0b473e9fa2a901b212b8ea5c7f6419613",
-      "normalizedSha256": "59169bfb2473a92c6aedac4186d84f27d91074fe62e86b91a8544d4a719050d4",
-      "lines": 126,
+      "sha256": "df2f4f443e1014c9a083d7c680011bc6a8ee3712ed0b517a5d251305d882a142",
+      "normalizedSha256": "766e59b9f845d9f4ad6a635f50b6a5bd22285fc636c11884d21b3fccb7449c45",
+      "lines": 134,
       "exportedFunctions": [
         "sellerKey",
         "calculateShipping",
@@ -33892,9 +34005,9 @@
       "apiCalls": []
     },
     "apps/api/src/services/__tests__/commerce.integration.test.ts": {
-      "sha256": "500d94d193a20432b847ff9b6a02c308bcb75fb9e1592a9b46b67a32c5231187",
-      "normalizedSha256": "efb9669ba3442d4b204257a19b5b51bfba49a6f2237723e500953b685ed7e824",
-      "lines": 435,
+      "sha256": "cff2f8b945391f32607ea3f1f244b6fae9a8b4e2ae179deefbb8d2982ffa55f9",
+      "normalizedSha256": "d8989306e89d60c953ac294800b9fffb54f254fe63eeebb3b6a4fea46b1f7357",
+      "lines": 1203,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34114,6 +34227,16 @@
       ],
       "apiCalls": []
     },
+    "apps/api/src/utils/slug.ts": {
+      "sha256": "c12fd4a0005651d1553637d481df7714403f7ee5753106702de8aaf0b1dc01bd",
+      "normalizedSha256": "6384ac8211bfa2885779ab4aebe8c994b7d11ca17ff642585ee91f0d8eb8cf44",
+      "lines": 23,
+      "exportedFunctions": [
+        "slugify",
+        "uniqueSlug"
+      ],
+      "apiCalls": []
+    },
     "apps/api/src/utils/__tests__/secrets.test.ts": {
       "sha256": "2f59ac8e7af7ec3b2f6e018385f9f687f9aff9607cc24e46a36cac4700079197",
       "normalizedSha256": "dfc1e6ee105ed8513a43cb1e9a99a286f424c2ad9e77b3ec42333ad608d706e2",
@@ -34249,9 +34372,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/admin/affiliate/page.tsx": {
-      "sha256": "c2aff2db9c5387905c66d03274350d0d2ba98b2c0dab156688d90edcd7dac0f6",
-      "normalizedSha256": "0283ad1af637ce9e238da1d23de7d2c4e9bbdc840634532042ab961674ed98b4",
-      "lines": 309,
+      "sha256": "224100a0d3cba18317a7d48af37d64770d4386ce19aa5c74addfd42fd81d098b",
+      "normalizedSha256": "6e84f4463ae597c7461de79ebdf3c8c91f56b68501c8964db17e66ca89669bca",
+      "lines": 413,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34291,9 +34414,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/admin/flash-deals/page.tsx": {
-      "sha256": "f34e196333d3b401edefa9765f3e22aa4fe96979e8f4ddce3c8b842125d4d3aa",
-      "normalizedSha256": "041f6ebb302f4e18986e0ef6efbc24012c2374219967a5df848184f7801cdd1b",
-      "lines": 129,
+      "sha256": "c831b1558d28cde773bc34efd30178aaf0694e6e2e24f581653152ad1d55c4d8",
+      "normalizedSha256": "3412456e24b77b7175a55844bad033452eea200060523079fcb5cf6b94aad7f2",
+      "lines": 317,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34319,9 +34442,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/admin/newsletter/page.tsx": {
-      "sha256": "fea7198b9a04e6ba73f1c5897e396e1db32cd3b5857c65c85a30868e35669e40",
-      "normalizedSha256": "7325c253ec5db7110dc725e625096cb5bf407c8bf7744f606aaa9a2e16b1b3c4",
-      "lines": 54,
+      "sha256": "d24ed08fbe0b6630fad31f35dd6b721a509d4f9c6b6741b482c743af05022d5e",
+      "normalizedSha256": "cd7d877d414db9a9c95d1bc2d8baa554d35f4689068ff26479455175f74c1899",
+      "lines": 72,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34333,9 +34456,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/admin/packages/page.tsx": {
-      "sha256": "05bdc56f797a183eb6357bd2be9bfebdbea51a8b9611c977914d319710844b16",
-      "normalizedSha256": "20f7a549bafb1b450019e0571a0b49b17ba1ea4ea5f5a4d0e16db9ed8c0f89ff",
-      "lines": 294,
+      "sha256": "408e88d898494fb6f439a1dcbca327f058b7af83fa7d872cc8ef8bf4934821f6",
+      "normalizedSha256": "13302cd81e3301b6ad2809f623df340e4bb4aafc731e2ee77370a56d47287919",
+      "lines": 307,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34389,9 +34512,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/admin/reports/page.tsx": {
-      "sha256": "c21c8958bd277abf204d9b3b9273b26c601c5a63975e43305e530bec5ecfc7d1",
-      "normalizedSha256": "d8ccf673e07c3074e2e1f9e9b17e74c2ff21ca17e4ff6f878a26cf1b97cc15e3",
-      "lines": 102,
+      "sha256": "8641bf57e3f2c57a8cac03549e7e2d1d933ec303fbc9b643e31b2389ee51bb01",
+      "normalizedSha256": "b55d922c8a044ee4fe3662658328e2450a89c18f1774f33176b1ed2b07fcf99a",
+      "lines": 229,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34524,9 +34647,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/classifieds/page.tsx": {
-      "sha256": "db83aa86ae43d19ddb5d87718f64ccc064d787437f0371e3921e3c8f9566bed2",
-      "normalizedSha256": "28e03e6a846aa81eca45bfd967a2935ad05561d8c34353b3ee6caeb62b9c5070",
-      "lines": 118,
+      "sha256": "4e5024ef68260f30098c1c3cd23e3b91771eba74e66323b7e83bf8cbf5cf4eb5",
+      "normalizedSha256": "56f3c18972e0424588771f7f4aa1f3c0a659598afd971062321d4ac0aa257aea",
+      "lines": 167,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34582,9 +34705,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/dashboard/affiliate/page.tsx": {
-      "sha256": "54bcf299d23a10be6c5ff2dc468360eb98f780ff394af77bf6cebfb6f593cdc7",
-      "normalizedSha256": "61352ff65a02fd022b8e65a87fbfa75b480119e2b5adab17188ddf05e59e6578",
-      "lines": 321,
+      "sha256": "620482c73343c6ea00899af2c16c438dcb4a0053ab17471fb1634f979ffa19de",
+      "normalizedSha256": "afb921880580c886687ad2062139d5669112778dab474d7598b6debce1170d73",
+      "lines": 376,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34692,9 +34815,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/flash-deal/[slug]/page.tsx": {
-      "sha256": "8e36f6a8fc7477d3486227728cf5bdbaee6d2454dbc7994273d513c0b5f7b844",
-      "normalizedSha256": "b7115ee108a048ac9f03863a845d45002998c1d1a9cf7cf6e24dbab363f8b4d2",
-      "lines": 99,
+      "sha256": "6fee6d5eb71f18733f1b6ed677fd9e3c2174ca1146bb7a4609ed3126bb547547",
+      "normalizedSha256": "addfc9fd02bbcca57fcd0faecb4f35d1c78ccd08bbcbb3ec014c54340f31da21",
+      "lines": 108,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34757,9 +34880,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/product/[slug]/page.tsx": {
-      "sha256": "19568c894630425d31f3a8209ef6356e2a0f574e042be426f5d18fd980ee180b",
-      "normalizedSha256": "6b82127d4c0b685a53009b0ed17c272de244e0679770ad659857cdc58d9413ee",
-      "lines": 212,
+      "sha256": "d42f72d1242fe54e5bb33ce75deb682395a396ce8ae33a725d1504dc24fbf433",
+      "normalizedSha256": "683bc4fa47387044e8a4c7fda1a0ad45f1d932a2a5dba955adad092cfec0b3e0",
+      "lines": 229,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34820,9 +34943,9 @@
       "apiCalls": []
     },
     "apps/web/app/[locale]/seller/package/page.tsx": {
-      "sha256": "2a2c78b52f237e1dc10bef916a0bf78ba95550ed2cb5a4715bc9d5d5889644af",
-      "normalizedSha256": "ecf552ff8ebe60181edaaa69c3fed16a59d3b2785d52f2f930799704136f2a8e",
-      "lines": 91,
+      "sha256": "af498f5cdd6243f7b794f1e0085c4f75fabe93d612483054ef1958bcf3397fdb",
+      "normalizedSha256": "b28ea451b2bb5f00b8bed37a957bc82a2aa94fc8c574f7fa06d120a8b75c17e0",
+      "lines": 103,
       "exportedFunctions": [],
       "apiCalls": []
     },
@@ -34963,9 +35086,9 @@
       "apiCalls": []
     },
     "apps/web/components/shared/conversation-inbox.tsx": {
-      "sha256": "641a34362c61f13728fc336bf6d487023cafda501e5b9f37e64e685bdf9e679d",
-      "normalizedSha256": "77ba382b288fce0660b8939f80f61c9438a26a88693d5b1ac3a8b2252e08d3e9",
-      "lines": 82,
+      "sha256": "242b3b8b8f0c23cee4ec83bc83edca351e8deaefc664a0be183cb4cf0a5ea0d7",
+      "normalizedSha256": "e7539d7846053adea7d648472f5e8fda0285ddcd06ae986650e0e43454e6ed4b",
+      "lines": 85,
       "exportedFunctions": [
         "ConversationInbox"
       ],
@@ -35035,9 +35158,9 @@
       "apiCalls": []
     },
     "apps/web/components/storefront/product-card.tsx": {
-      "sha256": "29f7bf46b3cbb43a3caefbe5b773ae5440525e7af374c61205329d828ad9df48",
-      "normalizedSha256": "f9443cfec3964d90f49600305a399d596908b2d5c039e2b2d74c294333b61859",
-      "lines": 99,
+      "sha256": "eb63d50cf12d2354cb46d6da80beb7af5c5855ca974c805f11fd2f354120e933",
+      "normalizedSha256": "02868489135cfb01dcb8e9aaa3928f09faf677e33079aefc190b488079e2b5e7",
+      "lines": 114,
       "exportedFunctions": [
         "ProductCard"
       ],
@@ -35214,9 +35337,9 @@
       "apiCalls": []
     },
     "apps/web/lib/hooks/useAddons.ts": {
-      "sha256": "39f8fa9c268804e03a880561774a01ea109a3d0f331e123dc9624efe427e82f2",
-      "normalizedSha256": "390a36e939d12a857f5a1a6d2a925a99288ea3186815f94db1ab60c20f4e47e4",
-      "lines": 249,
+      "sha256": "d58842dce7ef71421ade2a3782534e76658baaa0eac357d456dbd6092d99f0ae",
+      "normalizedSha256": "0cc549e388a1bd532c5c8e6423c4cbba34febfdabe59175fd7fef24a2ba825ec",
+      "lines": 256,
       "exportedFunctions": [
         "useMyClassifieds",
         "useCreateClassified",
@@ -35456,9 +35579,9 @@
       ]
     },
     "apps/web/lib/hooks/useAdminAddons.ts": {
-      "sha256": "b211f5627cd04b82899c0dd9adadde720b1eb80e57291cea8f115b163c6cd7f0",
-      "normalizedSha256": "fa85f880f6e2e252fed074df4fa0c39fd2093db85df47196041f454f3d0459aa",
-      "lines": 317,
+      "sha256": "dc1ce1c0fbfe9723691c8d330ceec65becc782f4534b5d4e5afe3eb4e858a48b",
+      "normalizedSha256": "3c55ebfe5f58d0823747d6014edd8a60cb375ad26e16d92bde2c558e2883ce80",
+      "lines": 329,
       "exportedFunctions": [
         "useAffiliateAdminConfig",
         "useSaveAffiliateConfig",
@@ -35614,9 +35737,9 @@
       ]
     },
     "apps/web/lib/hooks/useAdminCatalogExtras.ts": {
-      "sha256": "bf188e14ce13d6feefeaec98e8d5952933dc7a292598bd4c3f0db7a96a8be830",
-      "normalizedSha256": "8997641f92c3d6a2f41d61f1f0f424cfacbed2baa128ecbb021beb0ae80273d4",
-      "lines": 524,
+      "sha256": "7b87ddc0afb5873a6dadc46a4f736f16a0f636d696ab404b08a6d83c17a192b3",
+      "normalizedSha256": "02881b9be48d1b0c2a5f9dc5cecd12fbc2ab4d80ce3fd231506207d0d321521d",
+      "lines": 582,
       "exportedFunctions": [
         "useAttributes",
         "useCreateAttribute",
@@ -35626,6 +35749,7 @@
         "useDeleteColor",
         "useAdminFlashDeals",
         "useCreateFlashDeal",
+        "useUpdateFlashDeal",
         "useDeleteFlashDeal",
         "useAdminPickupPoints",
         "useCreatePickupPoint",
@@ -35662,6 +35786,8 @@
         "useToggleTopCategory",
         "useToggleTopBrand",
         "useStockReport",
+        "useProductSalesReport",
+        "useSellerAccountsReport",
         "useSalesReport",
         "useSellerSalesReport",
         "useWishlistReport",
@@ -35703,6 +35829,10 @@
           "/flash-deals/admin"
         ],
         [
+          "patch",
+          "/flash-deals/admin/${id}"
+        ],
+        [
           "delete",
           "/flash-deals/admin/${id}"
         ],
@@ -35717,10 +35847,6 @@
         [
           "delete",
           "/pickup-points/admin/${id}"
-        ],
-        [
-          "post",
-          "/newsletter/admin/send"
         ],
         [
           "get",
@@ -35837,6 +35963,14 @@
         [
           "get",
           "/admin/reports/stock"
+        ],
+        [
+          "get",
+          "/admin/reports/products"
+        ],
+        [
+          "get",
+          "/admin/reports/seller-accounts"
         ],
         [
           "get",
@@ -36256,8 +36390,8 @@
       ]
     },
     "apps/web/lib/hooks/useCart.ts": {
-      "sha256": "44fb8000482a2755684cfa711479d268f34199d3df207f4007caf62117eee18f",
-      "normalizedSha256": "98a3059a21379c45d2f0d13e6e73005cfaa1bec2b026b6df376b2cf22a645947",
+      "sha256": "0d2f97d0a532206c34346bf79293ad7d8b495f139fa140657d7a016e73def048",
+      "normalizedSha256": "c71ba11e2845417ab9945900f92de07a22e5d9352faf7e4810e2f1628dfeaceb",
       "lines": 64,
       "exportedFunctions": [
         "useCart",
@@ -36346,9 +36480,9 @@
       ]
     },
     "apps/web/lib/hooks/useConversations.ts": {
-      "sha256": "ccb93ef586275c581508bf8b2deff066da1ad5a401c9869945c79adddd3d8947",
-      "normalizedSha256": "e4c1f3e623381d22b785f32d65a03cdb10d2d99d87157c7bc152969bc82eb9ee",
-      "lines": 62,
+      "sha256": "c24a9148ed302f4b0355f95b9b83a5e26807e06bbeb2c3c9880c93df4342a026",
+      "normalizedSha256": "38ee9fa764843b2c16278cdcd10e162bf7f7b2c609d4535bd74b42282e1fff19",
+      "lines": 64,
       "exportedFunctions": [
         "useMyConversations",
         "useConversation",
@@ -36510,6 +36644,15 @@
         ]
       ]
     },
+    "apps/web/lib/hooks/useReferralCode.ts": {
+      "sha256": "9fe49960756765f369939ba1ffeb15e6016ba06fa1308887f3f8f7a920545a3f",
+      "normalizedSha256": "465a56303da04c541a6b78d23dadfd1d0103e9302e6e540a4877b6a9b8ec591a",
+      "lines": 55,
+      "exportedFunctions": [
+        "useReferralCode"
+      ],
+      "apiCalls": []
+    },
     "apps/web/lib/hooks/useReviews.ts": {
       "sha256": "5b2fb6af895dd36994cafbfdced263c3791115f1d63e9f868da6a7b18f8b9077",
       "normalizedSha256": "61f598e16bcd0e28c66ffc0a6e1f3b7f12c7ff709e98f5e43cb5f89fb16f9247",
@@ -36670,9 +36813,9 @@
       ]
     },
     "apps/web/lib/hooks/useStorefront.ts": {
-      "sha256": "dd5bd78c2f1d4a28b0a6537c45a6cba7b7a019358b5f008e2f6923fe1a207328",
-      "normalizedSha256": "f9a6f2d2d1043c3b078f32f9e5cb9ed60d421641dd49ef97a1fba67a0808f0d5",
-      "lines": 125,
+      "sha256": "fd7fcca4281e18650f5589d68ecdbb585034305f13c3d6c39279739b78b1ed58",
+      "normalizedSha256": "4baf45cc0a0de02981a4a7e401af788bf4f8d56846bbc33d99c32ebb1c5b074d",
+      "lines": 143,
       "exportedFunctions": [
         "useActiveFlashDeals",
         "useFlashDeal",
@@ -36831,9 +36974,9 @@
       "lines": 8
     },
     "packages/types/src/index.ts": {
-      "sha256": "c223246d45770c8fb3cf632a052bc03bc058ca5b8ec58c4c5e90b95f3b73f51e",
-      "normalizedSha256": "1c7ffb573c466aa1d4979127ccdedc0768b17772818205b7db36ed53e09539e1",
-      "lines": 229,
+      "sha256": "372daa53277e84dab789bbd5354fec1dcd6b5a1adaf8e118ed1da4cdac0d4e51",
+      "normalizedSha256": "b6feaacca5bae2fa087208ef18d9e18f31bf439fb782fc2e3f33fad1383bb7f6",
+      "lines": 249,
       "exportedFunctions": [],
       "apiCalls": []
     }

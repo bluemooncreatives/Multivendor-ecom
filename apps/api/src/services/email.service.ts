@@ -167,10 +167,23 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Whether mail can be sent at all (admin SMTP settings or the .env fallback).
+ * The legacy newsletter screen refused to send with "Please configure SMTP first"
+ * rather than reporting success and delivering nothing, which is the behaviour
+ * worth keeping.
+ */
+export async function isMailConfigured(): Promise<boolean> {
+  return (await getMailConfig()) !== null;
+}
+
 // Sent one-by-one (not a single BCC blast) so a bad address never exposes the
 // rest of the list, and each failure is logged independently by send().
 export async function sendNewsletterCampaign(recipients: string[], subject: string, bodyHtml: string) {
+  let sent = 0;
   for (const to of recipients) {
     await send(to, subject, bodyHtml);
+    sent += 1;
   }
+  return sent;
 }

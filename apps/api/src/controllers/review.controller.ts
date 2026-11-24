@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { Types } from "mongoose";
 import { Review } from "../models/Address.js";
 import { Order } from "../models/Order.js";
 import { Product } from "../models/Product.js";
@@ -41,9 +42,13 @@ export async function createReviewHandler(req: Request, res: Response) {
 // Paginated: a popular product's review list is unbounded, and the legacy page
 // showed it 15 at a time rather than loading every review ever written.
 export async function listProductReviewsHandler(req: Request, res: Response) {
-  const page = Math.max(1, Number(req.query.page ?? 1) || 1);
-  const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize ?? 20) || 20));
-  const filter = { productId: req.params.productId, approved: true };
+  const { page, pageSize } = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  }).parse(req.query);
+  if (!Types.ObjectId.isValid(String(req.params.productId))) throw new ApiError(400, "Invalid product ID");
+  // Mongoose casts find filters, but never casts aggregation pipelines.
+  const filter = { productId: new Types.ObjectId(String(req.params.productId)), approved: true };
 
   const [items, total, breakdown] = await Promise.all([
     Review.find(filter)
@@ -73,7 +78,7 @@ export async function listSellerReviewsHandler(req: Request, res: Response) {
   // still tell the seller how many were new (legacy `reviews.viewed`).
   const unread = reviews.filter((review) => !review.sellerViewed).length;
   if (unread > 0) {
-    await Review.updateMany({ productId: { $in: productIds }, sellerViewed: false }, { sellerViewed: true });
+    await Review.updateMany({ _id: { $in: reviews.filter((review) => !review.sellerViewed).map((review) => review._id) } }, { sellerViewed: true });
   }
   res.json({ items: reviews, unread });
 }

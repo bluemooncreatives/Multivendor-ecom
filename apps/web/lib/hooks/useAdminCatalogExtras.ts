@@ -186,7 +186,13 @@ export function useSubscribers() {
 
 export function useSendNewsletter() {
   return useMutation({
-    mutationFn: async (input: { subject: string; body: string }) => (await api.post("/newsletter/admin/send", input)).data,
+    mutationFn: async (input: {
+      subject: string;
+      body: string;
+      /** Subscribers, registered customers, or both - as the legacy screen offered. */
+      audience?: "subscribers" | "customers" | "both";
+      emails?: string[];
+    }) => (await api.post<{ queued: number; audience: string }>("/newsletter/admin/send", input)).data,
   });
 }
 
@@ -497,10 +503,26 @@ export function useToggleTopBrand() {
 
 // --- Reports -----------------------------------------------------------------------
 
-export function useStockReport() {
+export function useStockReport(categoryId?: string) {
   return useQuery({
-    queryKey: ["admin", "reports", "stock"],
-    queryFn: async () => (await api.get("/admin/reports/stock")).data.items,
+    queryKey: ["admin", "reports", "stock", categoryId ?? null],
+    queryFn: async () => (await api.get("/admin/reports/stock", { params: { categoryId } })).data.items,
+  });
+}
+
+/** Products ranked by units sold (legacy in-house sale report). */
+export function useProductSalesReport(params: { categoryId?: string; scope?: "in_house" | "seller" } = {}) {
+  return useQuery({
+    queryKey: ["admin", "reports", "products", params.categoryId ?? null, params.scope ?? "all"],
+    queryFn: async () => (await api.get("/admin/reports/products", { params })).data.items,
+  });
+}
+
+/** Seller accounts with verification state and catalogue size (legacy seller report). */
+export function useSellerAccountsReport(verificationStatus?: string) {
+  return useQuery({
+    queryKey: ["admin", "reports", "seller-accounts", verificationStatus ?? null],
+    queryFn: async () => (await api.get("/admin/reports/seller-accounts", { params: { verificationStatus } })).data.items,
   });
 }
 
@@ -518,10 +540,10 @@ export function useSellerSalesReport() {
   });
 }
 
-export function useWishlistReport() {
+export function useWishlistReport(categoryId?: string) {
   return useQuery({
-    queryKey: ["admin", "reports", "wishlist"],
-    queryFn: async () => (await api.get("/admin/reports/wishlist")).data.items,
+    queryKey: ["admin", "reports", "wishlist", categoryId ?? null],
+    queryFn: async () => (await api.get("/admin/reports/wishlist", { params: { categoryId } })).data.items,
   });
 }
 

@@ -14,6 +14,7 @@ import {
   deleteBannerHandler,
   listAdminHomeCategoriesHandler,
   createHomeCategoryHandler,
+  updateHomeCategoryHandler,
   deleteHomeCategoryHandler,
   toggleTopCategoryHandler,
   toggleTopBrandHandler,
@@ -41,6 +42,7 @@ homepageRouter.delete("/admin/banners/:id", ...manage, asyncHandler(deleteBanner
 
 homepageRouter.get("/admin/home-categories", ...manage, asyncHandler(listAdminHomeCategoriesHandler));
 homepageRouter.post("/admin/home-categories", ...manage, validateBody(homeCategorySchema), asyncHandler(createHomeCategoryHandler));
+homepageRouter.patch("/admin/home-categories/:id", ...manage, validateBody(homeCategorySchema.partial()), asyncHandler(updateHomeCategoryHandler));
 homepageRouter.delete("/admin/home-categories/:id", ...manage, asyncHandler(deleteHomeCategoryHandler));
 
 homepageRouter.patch(

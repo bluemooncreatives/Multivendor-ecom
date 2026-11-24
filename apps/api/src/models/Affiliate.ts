@@ -75,6 +75,7 @@ export const AffiliateConfig = model("AffiliateConfig", affiliateConfigSchema);
 
 const affiliateEarningDetailSchema = new Schema(
   {
+    buyerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     affiliateUserId: { type: Schema.Types.ObjectId, ref: "AffiliateUser", required: true, index: true },
     orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true, index: true },
     // Why this commission was earned. One order can produce several: a
@@ -98,6 +99,10 @@ const affiliateEarningDetailSchema = new Schema(
 affiliateEarningDetailSchema.index(
   { affiliateUserId: 1, orderId: 1, kind: 1, lineKey: 1 },
   { unique: true },
+);
+affiliateEarningDetailSchema.index(
+  { buyerId: 1, kind: 1 },
+  { unique: true, partialFilterExpression: { kind: "first_purchase", buyerId: { $type: "objectId" } } },
 );
 withJsonId(affiliateEarningDetailSchema);
 export const AffiliateEarningDetail = model("AffiliateEarningDetail", affiliateEarningDetailSchema);
