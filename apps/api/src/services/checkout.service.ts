@@ -6,7 +6,7 @@ import { Order } from "../models/Order.js";
 import { Wallet } from "../models/Wallet.js";
 import { WalletTransaction } from "../models/Wallet.js";
 import { SellerLedger } from "../models/Ledger.js";
-import { BusinessSetting } from "../models/Settings.js";
+import { BusinessSetting, GeneralSetting } from "../models/Settings.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { Category } from "../models/Category.js";
 import { PickupPoint } from "../models/Marketing.js";
@@ -17,10 +17,12 @@ import { sendOrderConfirmationEmail } from "./email.service.js";
 import { calculateCommission } from "./commission.service.js";
 import { reserveStock, confirmReservation, type StockLine } from "./inventory.service.js";
 import { validateCoupon, recordCouponUsage, type CouponLine } from "./coupon.service.js";
-import { calculateShipping, priceLine, sellerKey, ADMIN_BUCKET, type ShippableLine } from "./shipping.service.js";
+import { calculateShipping, priceLine, sellerKey, type ShippableLine } from "./shipping.service.js";
 import { spendPointsForOrder } from "./clubpoints.service.js";
 import type { CartOwner } from "./cart.service.js";
 import type { PaymentMethod } from "@ecommercemultivendor/types";
+import { checkoutOptions } from "./payment-options.service.js";
+import { allocateUnits } from "../utils/allocation.js";
 
 export interface InlineAddress {
   line1: string;
@@ -54,11 +56,16 @@ export interface CheckoutInput {
 const SYNCHRONOUS_METHODS: PaymentMethod[] = ["cod", "wallet"];
 
 export async function createOrder(input: CheckoutInput) {
+  if (!input.owner.userId && !input.owner.guestId) throw new ApiError(400, "A cart owner is required");
+  const assertOwner = (order: InstanceType<typeof Order>) => {
+    const matches = input.owner.userId
+      ? String(order.userId) === input.owner.userId
+      : !order.userId && order.guestId === input.owner.guestId;
+    if (!matches) throw new ApiError(409, "Checkout key is already in use");
+    return order;
+  };
   const existing = await Order.findOne({ idempotencyKey: input.idempotencyKey });
-  if (existing) return existing; // replayed request — return the already-created order, don't double-charge
-
-  const cart = await Cart.findOne(input.owner.userId ? { userId: input.owner.userId } : { guestId: input.owner.guestId });
-  if (!cart || cart.items.length === 0) throw new ApiError(400, "Your cart is empty");
+  if (existing) return assertOwner(existing);
 
   let addressSnapshot: InlineAddress;
   if (input.addressId) {
@@ -78,11 +85,24 @@ export async function createOrder(input: CheckoutInput) {
     let createdOrder: any = null;
 
     await session.withTransaction(async () => {
+      const replay = await Order.findOne({ idempotencyKey: input.idempotencyKey }).session(session);
+      if (replay) { createdOrder = assertOwner(replay); return; }
+      const cart = await Cart.findOne(input.owner.userId ? { userId: input.owner.userId } : { guestId: input.owner.guestId }).session(session);
+      if (!cart || cart.items.length === 0) throw new ApiError(400, "Your cart is empty");
       const orderId = new mongoose.Types.ObjectId();
 
       // Snapshot every product/variant inside the transaction so pricing can never
       // drift between "what the shopper saw" and "what they're charged" mid-checkout.
       const settings = await BusinessSetting.findOne({ key: "business" }).session(session);
+      const options = await checkoutOptions(input.owner, session);
+      if (!options.paymentMethods.includes(input.paymentMethod)) throw new ApiError(409, "This payment method is not available");
+      const activation = settings?.activation;
+      if (!input.owner.userId && activation?.guestCheckout === false) throw new ApiError(403, "Sign in to check out");
+      if (input.paymentMethod === "cod" && activation?.cashOnDelivery === false) throw new ApiError(403, "Cash on delivery is disabled");
+      if (input.paymentMethod === "wallet" && activation?.walletSystem === false) throw new ApiError(403, "Wallet payments are disabled");
+      if (input.couponCode && activation?.couponSystem === false) throw new ApiError(403, "Coupons are disabled");
+      const general = await GeneralSetting.findOne({ key: "general" }).session(session);
+      const currency = general?.defaultCurrency ?? "INR";
       const storeTaxPercent = settings?.taxPercent ?? 0;
 
       // Admin-owned products have no seller, so they group under a reserved key and
@@ -90,7 +110,7 @@ export async function createOrder(input: CheckoutInput) {
       const bySeller = new Map<
         string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { items: any[]; subtotal: number; tax: number; categoryId: string | null; sellerId: string | null }
+        { items: any[]; subtotal: number; tax: number; commission: number; sellerId: string | null }
       >();
       const stockLines: StockLine[] = [];
       const shippableLines: ShippableLine[] = [];
@@ -98,9 +118,13 @@ export async function createOrder(input: CheckoutInput) {
 
       for (const cartItem of cart.items) {
         const product = await Product.findById(cartItem.productId).session(session);
-        if (!product || !product.published) throw new ApiError(409, "One of the items in your cart is no longer available");
+        if (!product || !product.published || product.approvalStatus !== "approved") throw new ApiError(409, "One of the items in your cart is no longer available");
         const variant = product.variants.find((v) => v.sku === cartItem.variantSku);
         if (!variant) throw new ApiError(409, "One of the selected variants is no longer available");
+        if (!Number.isSafeInteger(cartItem.quantity) || cartItem.quantity < (product.minOrderQty ?? 1)) {
+          throw new ApiError(400, `Minimum quantity for ${product.name} is ${product.minOrderQty ?? 1}`);
+        }
+        if (product.currency !== currency) throw new ApiError(409, "Product currency differs from the store currency");
 
         // Discount and tax are resolved per line from the product's own settings,
         // falling back to the store rate — the previous version applied a single
@@ -121,7 +145,7 @@ export async function createOrder(input: CheckoutInput) {
           items: [],
           subtotal: 0,
           tax: 0,
-          categoryId: String(product.categoryId),
+          commission: 0,
           sellerId,
         };
 
@@ -133,9 +157,12 @@ export async function createOrder(input: CheckoutInput) {
           quantity: cartItem.quantity,
           unitPrice,
           imageUrl: variant.imageUrl ?? product.images[0],
+          refundable: product.refundable,
         });
         bucket.subtotal += lineSubtotal;
         bucket.tax += lineTax;
+        const commission = await calculateCommission(sellerId, lineSubtotal, String(product.categoryId), session);
+        bucket.commission += commission.amount;
         bySeller.set(key, bucket);
 
         stockLines.push({ productId: String(product._id), variantSku: variant.sku, quantity: cartItem.quantity });
@@ -149,6 +176,7 @@ export async function createOrder(input: CheckoutInput) {
           productId: String(product._id),
           categoryId: String(product.categoryId),
           lineSubtotal,
+          sellerId,
         });
       }
 
@@ -169,6 +197,7 @@ export async function createOrder(input: CheckoutInput) {
       for (const [bucket, choice] of Object.entries(input.deliveryChoices ?? {})) {
         if (choice.method !== "pickup_point") continue;
         if (!bySeller.has(bucket)) continue; // stale choice for an item no longer in the cart
+        if (activation?.pickupPoint === false) throw new ApiError(403, "Pickup points are disabled");
         if (!choice.pickupPointId) throw new ApiError(400, "Choose a pickup point for in-person collection");
 
         const point = await PickupPoint.findOne({ _id: choice.pickupPointId, active: true }).session(session);
@@ -197,7 +226,8 @@ export async function createOrder(input: CheckoutInput) {
       let taxSum = 0;
       let shippingTotal = 0;
       for (const [key, bucket] of bySeller) {
-        const { rate, amount } = await calculateCommission(bucket.sellerId, bucket.subtotal, bucket.categoryId);
+        const amount = round2(bucket.commission);
+        const rate = bucket.subtotal > 0 ? round2(amount * 100 / bucket.subtotal) : 0;
         const shippingCost = shippingByBucket.get(key) ?? 0;
         details.push({
           sellerId: bucket.sellerId,
@@ -208,6 +238,8 @@ export async function createOrder(input: CheckoutInput) {
           shippingCost,
           pickupPointId: pickupPointByBucket[key] ?? null,
           status: "pending",
+          discount: 0,
+          clubPointsSpent: 0,
         });
         taxSum += bucket.tax;
         shippingTotal += shippingCost;
@@ -217,10 +249,12 @@ export async function createOrder(input: CheckoutInput) {
 
       let discount = 0;
       let couponId: string | null = null;
+      let qualifyingLines = couponLines;
       if (input.couponCode) {
-        const result = await validateCoupon(input.couponCode, subtotalSum, input.owner, couponLines);
+        const result = await validateCoupon(input.couponCode, subtotalSum, input.owner, couponLines, session);
         discount = result.discount;
         couponId = String(result.coupon._id);
+        qualifyingLines = result.qualifyingLines;
       }
 
       // Club points are redeemed as a discount, debited inside this transaction so
@@ -229,6 +263,9 @@ export async function createOrder(input: CheckoutInput) {
       if (input.clubPoints && input.clubPoints > 0) {
         if (!input.owner.userId) throw new ApiError(400, "Club points require an account");
         clubPointsDiscount = await spendPointsForOrder(input.owner.userId, input.clubPoints, String(orderId), session);
+        if (clubPointsDiscount > round2(subtotalSum - discount)) {
+          throw new ApiError(400, "Redeem fewer club points; their value exceeds the remaining goods total");
+        }
       }
 
       // Discounts can exceed the goods value (a large coupon plus points); cap the
@@ -236,13 +273,22 @@ export async function createOrder(input: CheckoutInput) {
       const totalDiscount = Math.min(round2(discount + clubPointsDiscount), subtotalSum);
       const grandTotal = round2(Math.max(0, subtotalSum - totalDiscount + taxSum + shippingTotal));
       const tax = taxSum;
+      const couponShares = allocateUnits(Math.round(discount * 100), details.map((detail) =>
+        qualifyingLines.filter((line) => line.sellerId === detail.sellerId).reduce((sum, line) => sum + line.lineSubtotal, 0)));
+      const remainingValues = details.map((detail, index) => Math.max(0, detail.subtotal - couponShares[index]! / 100));
+      const pointShares = allocateUnits(Math.round(clubPointsDiscount * 100), remainingValues);
+      const pointUnits = allocateUnits(input.clubPoints ?? 0, pointShares);
+      details.forEach((detail, index) => {
+        detail.discount = (couponShares[index]! + pointShares[index]!) / 100;
+        detail.clubPointsSpent = pointUnits[index]!;
+      });
 
       const synchronous = SYNCHRONOUS_METHODS.includes(input.paymentMethod);
 
       if (input.paymentMethod === "wallet") {
         if (!input.owner.userId) throw new ApiError(400, "Wallet payment requires an account");
         const debited = await Wallet.findOneAndUpdate(
-          { userId: input.owner.userId, balance: { $gte: grandTotal } },
+          { userId: input.owner.userId, currency, balance: { $gte: grandTotal } },
           { $inc: { balance: -grandTotal } },
           { session, new: true },
         );
@@ -269,7 +315,7 @@ export async function createOrder(input: CheckoutInput) {
         for (const detail of details) {
           detail.status = "confirmed";
           // Admin-owned lines have no vendor account to credit.
-          if (!detail.sellerId) continue;
+          if (!detail.sellerId || input.paymentMethod === "cod") continue;
           await SellerLedger.create(
             [
               { sellerId: detail.sellerId, orderId, type: "sale", amount: detail.subtotal, note: "Order confirmed" },
@@ -298,10 +344,11 @@ export async function createOrder(input: CheckoutInput) {
             tax,
             shippingTotal,
             grandTotal,
-            currency: "INR",
+            currency,
             paymentMethod: input.paymentMethod,
             paymentStatus: input.paymentMethod === "wallet" ? "paid" : synchronous ? "unpaid" : "pending",
             status: synchronous ? "confirmed" : "pending",
+            inventoryStatus: synchronous ? "confirmed" : "reserved",
             idempotencyKey: input.idempotencyKey,
           },
         ],
@@ -311,7 +358,7 @@ export async function createOrder(input: CheckoutInput) {
       // The coupon *id*, not the code — CouponUsage.couponId is an ObjectId ref,
       // so passing the code here threw a cast error and no usage was ever recorded.
       if (couponId) {
-        await recordCouponUsage(couponId, String(order!._id), input.owner);
+        await recordCouponUsage(couponId, String(order!._id), input.owner, session);
       }
 
       await Cart.deleteOne({ _id: cart._id }).session(session);
@@ -326,6 +373,12 @@ export async function createOrder(input: CheckoutInput) {
     void sendInvoiceEmail(createdOrder);
 
     return createdOrder;
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000) {
+      const replay = await Order.findOne({ idempotencyKey: input.idempotencyKey });
+      if (replay) return assertOwner(replay);
+    }
+    throw error;
   } finally {
     await session.endSession();
   }

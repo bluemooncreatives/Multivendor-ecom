@@ -1,6 +1,6 @@
 import axios from "axios";
 import { env } from "../../config/env.js";
-import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment } from "./shared.js";
+import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment, assertVerifiedPayment } from "./shared.js";
 import * as paymentService from "../payment.service.js";
 import { ApiError } from "../../middleware/errorHandler.js";
 
@@ -31,7 +31,7 @@ async function getAccessToken(creds: NgeniusCreds): Promise<string> {
 }
 
 export async function createNgeniusOrder(orderId: string) {
-  const order = await getPendingOrderOrThrow(orderId);
+  const order = await getPendingOrderOrThrow(orderId, "ngenius");
   const creds = await getGatewayCredentials<NgeniusCreds>("ngenius");
   const token = await getAccessToken(creds);
 
@@ -68,9 +68,11 @@ export async function confirmNgeniusOrder(reference: string, orderId: string) {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/vnd.ni-payment.v2+json" },
   });
 
-  if (data.state === "CAPTURED" || data.state === "AUTHORISED") {
+  await assertVerifiedPayment(orderId, "ngenius", Number(data.amount?.value) / 100, data.amount?.currencyCode, reference);
+  const states = (data._embedded?.payment ?? []).map((payment: { state: string }) => payment.state);
+  if (states.includes("CAPTURED") || states.includes("PURCHASED")) {
     await paymentService.settleOrderPayment(orderId, "ngenius", reference);
-  } else {
+  } else if (states.some((state: string) => ["FAILED", "DECLINED", "CANCELLED"].includes(state))) {
     await paymentService.failOrderPayment(orderId, "ngenius");
   }
 }

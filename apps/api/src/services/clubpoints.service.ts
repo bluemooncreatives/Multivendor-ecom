@@ -93,6 +93,17 @@ export async function spendPointsForOrder(
   return discount;
 }
 
+export async function restorePointsForOrder(orderId: string, session: mongoose.ClientSession) {
+  const spend = await ClubPointTransaction.findOne({ idempotencyKey: `order-spend:${orderId}` }).session(session);
+  if (!spend || spend.points >= 0) return;
+  const key = `order-spend-reversal:${orderId}`;
+  if (await ClubPointTransaction.exists({ idempotencyKey: key }).session(session)) return;
+  await ClubPointTransaction.create([
+    { userId: spend.userId, points: -spend.points, reason: "Order cancelled", orderId, idempotencyKey: key },
+  ], { session });
+  await User.updateOne({ _id: spend.userId }, { $inc: { clubPoints: -spend.points } }, { session });
+}
+
 async function creditPoints(
   userId: string,
   points: number,

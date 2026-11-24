@@ -16,6 +16,8 @@ const paymentSchema = new Schema(
     currency: { type: String, required: true },
     status: { type: String, enum: ["unpaid", "pending", "paid", "failed", "refunded"], default: "pending" },
     providerRef: String, // Stripe PaymentIntent id / Razorpay order id / PayPal order id
+    settlementRef: String,
+    callbackTokenHash: { type: String, select: false },
     idempotencyKey: { type: String, required: true, unique: true },
     manualProofUrl: String, // receipt upload for manual/offline payments
     manualApprovedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
@@ -34,7 +36,7 @@ const paymentEventSchema = new Schema(
     provider: { type: String, enum: ["stripe", "razorpay", "paypal"], required: true },
     eventId: { type: String, required: true },
     payload: { type: Schema.Types.Mixed, required: true },
-    processedAt: { type: Date, default: Date.now },
+    processedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -42,3 +44,10 @@ const paymentEventSchema = new Schema(
 paymentEventSchema.index({ provider: 1, eventId: 1 }, { unique: true });
 withJsonId(paymentEventSchema);
 export const PaymentEvent = model("PaymentEvent", paymentEventSchema);
+
+// A provider transaction can fund exactly one local payable. The primary key
+// guards callbacks replayed against another order with the same amount.
+export const PaymentReceipt = model("PaymentReceipt", new Schema({
+  _id: { type: String, required: true },
+  payableId: { type: Schema.Types.ObjectId, required: true },
+}, { timestamps: true }));

@@ -4,6 +4,7 @@ import { validateBody } from "../middleware/validate.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   checkoutHandler,
+  checkoutOptionsHandler,
   getOrderHandler,
   listMyOrdersHandler,
   listSellerOrdersHandler,
@@ -16,6 +17,8 @@ import {
 } from "../controllers/order.controller.js";
 
 export const orderRouter = Router();
+
+orderRouter.get("/options", optionalAuthenticate, asyncHandler(checkoutOptionsHandler));
 
 orderRouter.post("/checkout", optionalAuthenticate, validateBody(checkoutSchema), asyncHandler(checkoutHandler));
 orderRouter.post("/track", validateBody(trackOrderSchema), asyncHandler(trackOrderHandler));

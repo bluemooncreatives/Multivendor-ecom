@@ -1,6 +1,6 @@
 import axios from "axios";
 import { env } from "../../config/env.js";
-import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment } from "./shared.js";
+import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment, assertVerifiedPayment } from "./shared.js";
 import * as paymentService from "../payment.service.js";
 import { ApiError } from "../../middleware/errorHandler.js";
 
@@ -15,7 +15,7 @@ function baseUrl(sandbox?: boolean) {
 }
 
 export async function createInstamojoRequest(orderId: string) {
-  const order = await getPendingOrderOrThrow(orderId);
+  const order = await getPendingOrderOrThrow(orderId, "instamojo");
   const creds = await getGatewayCredentials<InstamojoCreds>("instamojo");
   const addr = order.addressSnapshot as Record<string, string>;
 
@@ -46,8 +46,9 @@ export async function confirmInstamojoPayment(paymentRequestId: string, paymentI
   });
 
   if (data.payment?.status === "Credit") {
+    await assertVerifiedPayment(orderId, "instamojo", Number(data.payment.amount), data.payment.currency ?? "INR", paymentRequestId);
     await paymentService.settleOrderPayment(orderId, "instamojo", paymentId);
   } else {
-    await paymentService.failOrderPayment(orderId, "instamojo");
+    throw new ApiError(409, "Instamojo has not confirmed this payment");
   }
 }

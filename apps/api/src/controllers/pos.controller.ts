@@ -36,6 +36,7 @@ export const posSaleSchema = z
     discount: z.number().min(0).default(0),
     shippingCost: z.number().min(0).default(0),
     paymentType: z.enum(["cash", "card", "wallet", "manual"]).default("cash"),
+    idempotencyKey: z.string().min(10).max(100).optional(),
   })
   .refine((v) => v.customerId || v.walkIn, {
     message: "Record the customer, or their name and phone for a walk-in",
@@ -70,6 +71,7 @@ export async function createPosSaleHandler(req: Request, res: Response) {
     discount: req.body.discount,
     shippingCost: req.body.shippingCost,
     paymentType: req.body.paymentType,
+    idempotencyKey: req.body.idempotencyKey,
   });
 
   res.status(201).json(order);

@@ -6,6 +6,7 @@ import { Shop } from "../models/Shop.js";
 import { Product } from "../models/Product.js";
 import { SellerLedger, SellerPayout } from "../models/Ledger.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { lockSellerFunds, sellerFunds, creditSellerWallet } from "../services/seller-funds.service.js";
 
 // Sellers joined with their shop, so the admin list can show verification state
 // and storefront name without a second round-trip per row.
@@ -88,20 +89,13 @@ export async function payToSellerHandler(req: Request, res: Response) {
   const seller = await User.findOne({ _id: req.params.id, role: "seller" });
   if (!seller) throw new ApiError(404, "Seller not found");
 
-  const sellerObjectId = new mongoose.Types.ObjectId(String(req.params.id));
-  const [balanceRow] = await SellerLedger.aggregate([
-    { $match: { sellerId: sellerObjectId } },
-    { $group: { _id: null, balance: { $sum: "$amount" } } },
-  ]);
-  const balance = balanceRow?.balance ?? 0;
-  if (req.body.amount > balance) {
-    throw new ApiError(400, `Payout exceeds the seller's outstanding balance of ${balance}`);
-  }
-
   const session = await mongoose.startSession();
   try {
     let payout: unknown;
     await session.withTransaction(async () => {
+      await lockSellerFunds(String(seller._id), session);
+      const funds = await sellerFunds(String(seller._id), session);
+      if (req.body.amount > funds.available) throw new ApiError(409, "Payout exceeds the seller's available balance");
       try {
         const [created] = await SellerPayout.create(
           [
@@ -136,6 +130,7 @@ export async function payToSellerHandler(req: Request, res: Response) {
         ],
         { session },
       );
+      if (req.body.method === "wallet") await creditSellerWallet(String(seller._id), req.body.amount, `payout-wallet:${req.body.idempotencyKey}`, session);
     });
     res.status(201).json(payout);
   } finally {

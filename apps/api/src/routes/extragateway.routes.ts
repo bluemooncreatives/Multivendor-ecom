@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate, optionalAuthenticate, requirePermission } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { requirePayableOwner } from "../middleware/payableOwner.js";
 import {
   createSslcommerzSessionHandler,
   createInstamojoRequestHandler,
@@ -36,6 +37,8 @@ import {
 } from "../controllers/extragateway.controller.js";
 
 export const extraGatewayRouter = Router();
+
+extraGatewayRouter.use(["/:gateway/:orderId/session", "/:gateway/:orderId/confirm"], optionalAuthenticate, requirePayableOwner);
 
 // Session/order creation — called by the checkout UI once an order exists.
 extraGatewayRouter.post("/sslcommerz/:orderId/session", optionalAuthenticate, asyncHandler(createSslcommerzSessionHandler));

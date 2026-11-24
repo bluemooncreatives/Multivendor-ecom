@@ -20,24 +20,25 @@ import { sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeEmail } f
 import { checkPhoneOtp } from "./otp.service.js";
 import { attachReferral } from "./affiliate.service.js";
 import { env } from "../config/env.js";
-
-const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 
 interface TokenPair {
   accessToken: string;
   refreshToken: string;
 }
 
-async function issueTokenPair(userId: string, role: string, permissions?: string[] | null): Promise<TokenPair> {
+async function issueTokenPair(userId: string, role: string, permissions?: string[] | null, session?: mongoose.ClientSession): Promise<TokenPair> {
   const jti = randomUUID();
   const refreshToken = signRefreshToken({ sub: userId, jti });
 
-  await RefreshToken.create({
+  const expiresAt = (jwt.decode(refreshToken) as { exp: number }).exp * 1000;
+  await RefreshToken.create([{
     _id: jti,
     userId,
     tokenHash: sha256Hex(refreshToken),
-    expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
-  });
+    expiresAt: new Date(expiresAt),
+  }], { session });
 
   const accessToken = signAccessToken({ sub: userId, role: role as never, permissions: permissions ?? undefined });
   return { accessToken, refreshToken };
@@ -128,21 +129,24 @@ export async function refreshSession(refreshToken: string): Promise<TokenPair> {
     throw new ApiError(401, "Invalid or expired refresh token");
   }
 
-  const stored = await RefreshToken.findById(payload.jti);
-  if (!stored || stored.revokedAt || stored.tokenHash !== sha256Hex(refreshToken) || stored.expiresAt < new Date()) {
-    throw new ApiError(401, "Refresh token is no longer valid");
+  const session = await mongoose.startSession();
+  try {
+    let tokens!: TokenPair;
+    await session.withTransaction(async () => {
+      const stored = await RefreshToken.findOneAndUpdate({
+        _id: payload.jti, tokenHash: sha256Hex(refreshToken), revokedAt: null, expiresAt: { $gt: new Date() },
+      }, { revokedAt: new Date() }, { session, new: true });
+      if (!stored) throw new ApiError(401, "Refresh token is no longer valid");
+      const user = await User.findById(stored.userId).session(session);
+      if (!user || user.banned) throw new ApiError(401, "Account is not available");
+      tokens = await issueTokenPair(String(user._id), user.role, user.permissions, session);
+      stored.replacedByTokenHash = sha256Hex(tokens.refreshToken);
+      await stored.save({ session });
+    });
+    return tokens;
+  } finally {
+    await session.endSession();
   }
-
-  const user = await User.findById(stored.userId);
-  if (!user || user.banned) throw new ApiError(401, "Account is not available");
-
-  const next = await issueTokenPair(String(user._id), user.role, user.permissions);
-
-  stored.revokedAt = new Date();
-  stored.replacedByTokenHash = sha256Hex(next.refreshToken);
-  await stored.save();
-
-  return next;
 }
 
 export async function logout(refreshToken: string): Promise<void> {

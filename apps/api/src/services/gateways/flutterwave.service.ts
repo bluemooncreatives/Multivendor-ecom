@@ -16,7 +16,7 @@ interface FlutterwaveCreds {
 const API = "https://api.flutterwave.com/v3";
 
 export async function createFlutterwavePayment(orderId: string) {
-  const order = await getPendingOrderOrThrow(orderId);
+  const order = await getPendingOrderOrThrow(orderId, "flutterwave");
   const { creds } = await getGateway<FlutterwaveCreds>("flutterwave");
 
   const { data } = await axios.post(

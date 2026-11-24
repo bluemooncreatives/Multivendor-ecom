@@ -5,7 +5,7 @@ const refundRequestSchema = new Schema(
   {
     orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true, index: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    sellerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    sellerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     reason: { type: String, required: true },
     images: { type: [String], default: [] },
     amount: { type: Number, required: true, min: 0 },

@@ -7,6 +7,9 @@ import { SellerLedger, SellerWithdrawRequest } from "../models/Ledger.js";
 import { Order } from "../models/Order.js";
 import { awardClubPointsForOrder } from "../services/clubpoints.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { inventoryStatus } from "../services/order-state.js";
+import { sellerOrderView } from "../services/order.service.js";
+import { lockSellerFunds, sellerFunds } from "../services/seller-funds.service.js";
 
 export const shopSchema = z.object({
   name: z.string().min(1).max(120),
@@ -51,18 +54,16 @@ export async function getShopBySellerIdHandler(req: Request, res: Response) {
 // from the immutable ledger, never from a mutable cached balance field.
 export async function getSellerLedgerSummaryHandler(req: Request, res: Response) {
   const sellerId = req.user!.id;
-  const [totals] = await SellerLedger.aggregate([
-    { $match: { sellerId: { $eq: new mongoose.Types.ObjectId(sellerId) } } },
-    { $group: { _id: null, balance: { $sum: "$amount" } } },
-  ]);
+  const funds = await sellerFunds(sellerId);
   const paidOut = await SellerWithdrawRequest.aggregate([
     { $match: { sellerId: { $eq: new mongoose.Types.ObjectId(sellerId) }, status: "paid" } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
   ]);
   res.json({
-    ledgerBalance: totals?.balance ?? 0,
+    ledgerBalance: funds.balance,
     withdrawn: paidOut[0]?.total ?? 0,
-    available: (totals?.balance ?? 0) - (paidOut[0]?.total ?? 0),
+    reserved: funds.reserved,
+    available: funds.available,
   });
 }
 
@@ -78,8 +79,17 @@ export const withdrawRequestSchema = z.object({
 });
 
 export async function createWithdrawRequestHandler(req: Request, res: Response) {
-  const request = await SellerWithdrawRequest.create({ ...req.body, sellerId: req.user!.id });
-  res.status(201).json(request);
+  const session = await mongoose.startSession();
+  try {
+    let request;
+    await session.withTransaction(async () => {
+      await lockSellerFunds(req.user!.id, session);
+      const funds = await sellerFunds(req.user!.id, session);
+      if (req.body.amount > funds.available) throw new ApiError(409, "Withdrawal exceeds your available balance");
+      [request] = await SellerWithdrawRequest.create([{ ...req.body, sellerId: req.user!.id }], { session });
+    });
+    res.status(201).json(request);
+  } finally { await session.endSession(); }
 }
 
 export async function listMyWithdrawRequestsHandler(req: Request, res: Response) {
@@ -91,9 +101,9 @@ export async function listMyWithdrawRequestsHandler(req: Request, res: Response)
 // Jumping backwards (delivered -> processing) or out of a terminal state is rejected,
 // because downstream side effects (club points, refund windows) already fired.
 const FULFILLMENT_FLOW: Record<string, string[]> = {
-  pending: ["confirmed", "processing", "cancelled"],
-  confirmed: ["processing", "shipped", "cancelled"],
-  processing: ["shipped", "cancelled"],
+  pending: [],
+  confirmed: ["processing", "shipped"],
+  processing: ["shipped"],
   shipped: ["delivered"],
   delivered: [],
   cancelled: [],
@@ -110,6 +120,9 @@ export async function fulfillOrderItemHandler(req: Request, res: Response) {
 
   const order = await Order.findOne({ _id: orderId, "details.sellerId": req.user!.id });
   if (!order) throw new ApiError(404, "Order not found");
+  if (inventoryStatus(order) !== "confirmed" || ["cancelled", "refunded"].includes(order.status)) {
+    throw new ApiError(409, "This order is not available for fulfillment");
+  }
 
   const detail = order.details.find((d) => String(d.sellerId) === req.user!.id);
   if (!detail) throw new ApiError(404, "You do not have items on this order");
@@ -138,7 +151,7 @@ export async function fulfillOrderItemHandler(req: Request, res: Response) {
     await awardClubPointsForOrder(String(order._id));
   }
 
-  res.json(order);
+  res.json(sellerOrderView(order, req.user!.id));
 }
 
 // --- Shop verification --------------------------------------------------------

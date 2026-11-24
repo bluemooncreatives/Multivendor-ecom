@@ -12,6 +12,8 @@ import { invalidateDemoModeCache } from "../middleware/demoMode.js";
 import { invalidateMaintenanceCache } from "../middleware/maintenance.js";
 import { markUserBanned, markUserUnbanned } from "../middleware/auth.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import mongoose from "mongoose";
+import { lockSellerFunds, sellerFunds, creditSellerWallet } from "../services/seller-funds.service.js";
 
 // --- Dashboard -------------------------------------------------------------
 
@@ -136,26 +138,32 @@ export const resolveWithdrawSchema = z.object({
 });
 
 export async function resolveWithdrawRequestHandler(req: Request, res: Response) {
-  const request = await SellerWithdrawRequest.findById(req.params.id);
-  if (!request) throw new ApiError(404, "Withdraw request not found");
-  if (request.status !== "pending") throw new ApiError(409, "This request has already been resolved");
-
-  if (req.body.approve) {
-    request.status = "paid";
-    request.processedAt = new Date();
-    request.processedBy = req.user!.id as never;
-    await SellerLedger.create({
-      sellerId: request.sellerId,
-      type: "withdrawal",
-      amount: -request.amount,
-      note: "Withdrawal paid",
+  const session = await mongoose.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      const request = await SellerWithdrawRequest.findById(req.params.id).session(session);
+      if (!request) throw new ApiError(404, "Withdraw request not found");
+      if (request.status !== "pending") throw new ApiError(409, "This request has already been resolved");
+      const sellerId = String(request.sellerId);
+      await lockSellerFunds(sellerId, session);
+      if (req.body.approve) {
+        const funds = await sellerFunds(sellerId, session, String(request._id));
+        if (request.amount > funds.available) throw new ApiError(409, "Withdrawal exceeds the seller's available balance");
+        request.status = "paid";
+        await SellerLedger.create([{ sellerId, type: "withdrawal", amount: -request.amount, note: "Withdrawal paid" }], { session });
+        if (request.method === "wallet") await creditSellerWallet(sellerId, request.amount, `withdrawal-wallet:${request._id}`, session);
+      } else {
+        request.status = "rejected";
+        request.rejectionReason = req.body.rejectionReason;
+      }
+      request.processedAt = new Date();
+      request.processedBy = req.user!.id as never;
+      await request.save({ session });
+      result = request;
     });
-  } else {
-    request.status = "rejected";
-    request.rejectionReason = req.body.rejectionReason;
-  }
-  await request.save();
-  res.json(request);
+    res.json(result);
+  } finally { await session.endSession(); }
 }
 
 // --- Orders -------------------------------------------------------------------

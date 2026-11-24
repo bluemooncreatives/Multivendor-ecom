@@ -1,38 +1,50 @@
 import { env } from "../../config/env.js";
-import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment } from "./shared.js";
+import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment, assertVerifiedPayment } from "./shared.js";
 import * as paymentService from "../payment.service.js";
+import axios from "axios";
+import { ApiError } from "../../middleware/errorHandler.js";
 
 interface VoguePayCreds {
   merchantId: string;
+  email: string;
 }
 
-// NOTE: VoguePay (Nigeria) ceased operating as a payment processor some years
-// ago; this integration is implemented to the same request contract the legacy
-// app used, kept for structural parity, but there is no live service left to
-// actually process a transaction against — verify with the merchant account
-// provider before enabling this in production.
 export async function createVoguePaySession(orderId: string) {
-  const order = await getPendingOrderOrThrow(orderId);
+  const order = await getPendingOrderOrThrow(orderId, "voguepay");
   const creds = await getGatewayCredentials<VoguePayCreds>("voguepay");
 
   await recordPendingPayment(orderId, "voguepay", order.grandTotal, order.currency, String(order._id));
 
   const params = new URLSearchParams({
-    "v-merchant-id": creds.merchantId,
+    p: "linkToken",
+    v_merchant_id: creds.merchantId,
+    merchant_ref: orderId,
+    email: creds.email,
     memo: `Order ${order.code}`,
     total: String(order.grandTotal),
-    currency: order.currency,
+    cur: order.currency,
     notify_url: `${env.API_PUBLIC_URL}/api/v1/payments/voguepay/notify/${order._id}`,
-    v_o_a: "1", // return to store after payment
+    success_url: `${env.NEXT_PUBLIC_APP_URL}/en/checkout/order-confirmed?code=${order.code}`,
+    fail_url: `${env.NEXT_PUBLIC_APP_URL}/en/checkout?failed=1`,
   });
 
-  return { redirectUrl: `https://voguepay.com/pay/?${params.toString()}` };
+  const { data } = await axios.post("https://pay.voguepay.com", params, { timeout: 15_000 });
+  const link = typeof data === "string" ? data.trim() : data?.link;
+  if (typeof link !== "string" || !/^https:\/\/([\w-]+\.)?voguepay\.com\//.test(link)) {
+    throw new ApiError(502, "VoguePay did not return a payment link");
+  }
+  return { redirectUrl: link };
 }
 
-export async function handleVoguePayNotify(orderId: string, status: string) {
-  if (status === "Approved" || status === "success") {
-    await paymentService.settleOrderPayment(orderId, "voguepay");
-  } else {
-    await paymentService.failOrderPayment(orderId, "voguepay");
+export async function handleVoguePayNotify(orderId: string, transactionId: string) {
+  if (!transactionId) throw new ApiError(400, "A transaction id is required");
+  const creds = await getGatewayCredentials<VoguePayCreds>("voguepay");
+  const { data } = await axios.get("https://pay.voguepay.com", {
+    params: { v_transaction_id: transactionId, type: "json", v_merchant_id: creds.merchantId }, timeout: 15_000,
+  });
+  if (data.merchant_id !== creds.merchantId || data.merchant_ref !== orderId || data.transaction_id !== transactionId) {
+    throw new ApiError(409, "VoguePay transaction does not belong to this order");
   }
+  await assertVerifiedPayment(orderId, "voguepay", Number(data.total), data.cur);
+  if (data.status === "Approved") await paymentService.settleOrderPayment(orderId, "voguepay", transactionId);
 }

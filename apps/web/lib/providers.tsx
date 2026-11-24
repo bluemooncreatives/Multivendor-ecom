@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { SessionProvider, useSession } from "next-auth/react";
 import { Toaster } from "react-hot-toast";
-import { api, setAccessToken } from "@/lib/api";
+import axios from "axios";
+import { api, setAccessToken, registerRefreshHandler } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 
 // The Zustand auth store persists accessToken to localStorage, but the axios
@@ -14,9 +15,37 @@ import { useAuthStore } from "@/lib/store";
 // load and after login/logout, since the in-memory copy resets on full reload.
 function TokenSync() {
   const accessToken = useAuthStore((s) => s.accessToken);
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const client = useQueryClient();
+  const previousUser = useRef(userId);
+  useEffect(() => {
+    if (previousUser.current !== userId) {
+      previousUser.current = userId;
+      client.clear();
+    }
+  }, [userId, client]);
   useEffect(() => {
     setAccessToken(accessToken);
   }, [accessToken]);
+  useEffect(() => registerRefreshHandler(async () => {
+    const { refreshToken, user, setSession, clear } = useAuthStore.getState();
+    if (!refreshToken) return null;
+    try {
+      // A separate client keeps refresh failures out of the 401 interceptor.
+      const { data } = await axios.post<{ accessToken: string; refreshToken: string }>(
+        `${api.defaults.baseURL}/auth/refresh`, { refreshToken },
+      );
+      setAccessToken(data.accessToken);
+      setSession(user, data.accessToken, data.refreshToken);
+      return data.accessToken;
+    } catch (error) {
+      if (axios.isAxiosError(error) && [401, 403].includes(error.response?.status ?? 0)) {
+        setAccessToken(null);
+        clear();
+      }
+      return null;
+    }
+  }), []);
   return null;
 }
 

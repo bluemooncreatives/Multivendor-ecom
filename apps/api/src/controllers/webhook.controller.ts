@@ -3,7 +3,19 @@ import type { Request, Response } from "express";
 import Stripe from "stripe";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
-import { recordPaymentEventOnce, settleOrderPayment, failOrderPayment } from "../services/payment.service.js";
+import { recordPaymentEventOnce, completePaymentEvent, settleOrderPayment, failOrderPayment } from "../services/payment.service.js";
+import { verifyPaypalWebhook } from "../services/paypal.service.js";
+import { Payment } from "../models/Payment.js";
+import { Order } from "../models/Order.js";
+import { ApiError } from "../middleware/errorHandler.js";
+
+async function assertOrderAmount(orderId: string, method: string, amount: number, currency: string) {
+  const order = await Order.findById(orderId);
+  if (!order || order.paymentMethod !== method || !Number.isFinite(amount) ||
+      Math.round(order.grandTotal * 100) !== amount || order.currency.toUpperCase() !== currency?.toUpperCase()) {
+    throw new ApiError(409, "Payment amount, currency or order does not match");
+  }
+}
 
 const stripe = env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY) : null;
 
@@ -31,6 +43,7 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
     const session = event.data.object as Stripe.Checkout.Session;
     const orderId = session.metadata?.orderId;
     if (orderId && session.payment_status === "paid") {
+      await assertOrderAmount(orderId, "stripe", session.amount_total ?? NaN, session.currency ?? "");
       await settleOrderPayment(orderId, "stripe", String(session.payment_intent ?? session.id));
     }
   } else if (event.type === "checkout.session.expired") {
@@ -40,13 +53,17 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
   } else if (event.type === "payment_intent.succeeded") {
     const intent = event.data.object as Stripe.PaymentIntent;
     const orderId = intent.metadata.orderId;
-    if (orderId) await settleOrderPayment(orderId, "stripe", intent.id);
+    if (orderId) {
+      await assertOrderAmount(orderId, "stripe", intent.amount_received, intent.currency);
+      await settleOrderPayment(orderId, "stripe", intent.id);
+    }
   } else if (event.type === "payment_intent.payment_failed") {
     const intent = event.data.object as Stripe.PaymentIntent;
     const orderId = intent.metadata.orderId;
     if (orderId) await failOrderPayment(orderId, "stripe");
   }
 
+  await completePaymentEvent("stripe", event.id);
   res.status(200).json({ received: true });
 }
 
@@ -72,23 +89,21 @@ export async function razorpayWebhookHandler(req: Request, res: Response) {
     if (!isNew) return res.status(200).json({ received: true, deduped: true });
   }
 
-  const orderId: string | undefined = payload.payload?.order?.entity?.receipt;
   const paymentEntity = payload.payload?.payment?.entity;
+  const payment = paymentEntity?.order_id ? await Payment.findOne({ method: "razorpay", providerRef: paymentEntity.order_id }) : null;
+  const orderId = payment?.orderId ? String(payment.orderId) : undefined;
 
   if (payload.event === "payment.captured" && orderId) {
+    await assertOrderAmount(orderId, "razorpay", paymentEntity.amount, paymentEntity.currency);
     await settleOrderPayment(orderId, "razorpay", paymentEntity?.id);
   } else if (payload.event === "payment.failed" && orderId) {
     await failOrderPayment(orderId, "razorpay");
   }
 
+  if (eventId) await completePaymentEvent("razorpay", eventId);
   res.status(200).json({ received: true });
 }
 
-// NOTE: full PayPal webhook trust requires calling PayPal's
-// /v1/notifications/verify-webhook-signature endpoint with PAYPAL_WEBHOOK_ID
-// before acting on the event. That call is not wired up yet — until it is,
-// this handler only processes events when PAYPAL_WEBHOOK_ID is set, and it
-// still dedupes via PaymentEvent so at least replay/double-processing is safe.
 export async function paypalWebhookHandler(req: Request, res: Response) {
   if (!env.PAYPAL_WEBHOOK_ID) {
     return res.status(503).json({ message: "PayPal webhook verification is not configured" });
@@ -96,16 +111,21 @@ export async function paypalWebhookHandler(req: Request, res: Response) {
 
   const rawBody: Buffer = req.body;
   const event = JSON.parse(rawBody.toString("utf8"));
+  if (!(await verifyPaypalWebhook(req, event))) return res.status(400).json({ message: "Invalid signature" });
   const isNew = await recordPaymentEventOnce("paypal", event.id, event);
   if (!isNew) return res.status(200).json({ received: true, deduped: true });
 
-  const orderId: string | undefined = event.resource?.purchase_units?.[0]?.reference_id;
+  const paypalOrderId = event.resource?.supplementary_data?.related_ids?.order_id;
+  const payment = paypalOrderId ? await Payment.findOne({ method: "paypal", providerRef: paypalOrderId }) : null;
+  const orderId = payment?.orderId ? String(payment.orderId) : undefined;
 
   if (event.event_type === "PAYMENT.CAPTURE.COMPLETED" && orderId) {
+    await assertOrderAmount(orderId, "paypal", Math.round(Number(event.resource?.amount?.value) * 100), event.resource?.amount?.currency_code);
     await settleOrderPayment(orderId, "paypal", event.resource?.id);
   } else if (event.event_type === "PAYMENT.CAPTURE.DENIED" && orderId) {
     await failOrderPayment(orderId, "paypal");
   }
 
+  await completePaymentEvent("paypal", event.id);
   res.status(200).json({ received: true });
 }

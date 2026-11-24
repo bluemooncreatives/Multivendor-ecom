@@ -21,6 +21,7 @@ const userSchema = new Schema(
     provider: { type: String, enum: ["credentials", "google", "facebook"], default: "credentials" },
     providerId: { type: String, index: true, sparse: true },
     clubPoints: { type: Number, default: 0 },
+    financeRevision: { type: Number, default: 0, select: false },
     referralCode: { type: String, unique: true, sparse: true },
     referredBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },

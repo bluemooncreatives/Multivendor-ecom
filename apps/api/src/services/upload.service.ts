@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import type { Response } from "express";
 import { v2 as cloudinary } from "cloudinary";
 import { env } from "../config/env.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { publicUploadsRoot, privateUploadsRoot, legacyUploadsRoot } from "../config/storage.js";
 
 export type UploadKind = "image" | "document" | "digital";
 
@@ -78,8 +79,6 @@ export interface StoredFile {
   size: number;
 }
 
-const LOCAL_ROOT = path.resolve(fileURLToPath(import.meta.url), "../../../../../public/uploads");
-
 export async function storeUpload(file: UploadedFile, kind: UploadKind, ownerId: string): Promise<StoredFile> {
   const rules = ALLOWED[kind];
   const ext = path.extname(file.originalname).toLowerCase();
@@ -99,22 +98,24 @@ export async function storeUpload(file: UploadedFile, kind: UploadKind, ownerId:
   if (env.UPLOAD_DRIVER === "cloudinary") {
     return storeOnCloudinary(file, key, kind);
   }
-  return storeLocally(file, key);
+  if (env.UPLOAD_DRIVER === "s3") throw new ApiError(503, "S3 uploads are not configured");
+  return storeLocally(file, key, kind);
 }
 
-async function storeLocally(file: UploadedFile, key: string): Promise<StoredFile> {
-  const destination = path.join(LOCAL_ROOT, key);
+async function storeLocally(file: UploadedFile, key: string, kind: UploadKind): Promise<StoredFile> {
+  const root = kind === "digital" ? privateUploadsRoot : publicUploadsRoot;
+  const destination = path.join(root, key);
 
   // Defence in depth: even though `key` is generated, refuse anything that
   // resolves outside the uploads root.
-  if (!destination.startsWith(LOCAL_ROOT + path.sep)) {
+  if (!destination.startsWith(root + path.sep)) {
     throw new ApiError(400, "Invalid upload path");
   }
 
   await fs.mkdir(path.dirname(destination), { recursive: true });
   await fs.writeFile(destination, file.buffer);
 
-  return { url: `${env.API_PUBLIC_URL}/uploads/${key}`, key, size: file.size };
+  return { url: kind === "digital" ? `private-upload:///${key}` : `${env.API_PUBLIC_URL}/uploads/${key}`, key, size: file.size };
 }
 
 async function storeOnCloudinary(file: UploadedFile, key: string, kind: UploadKind): Promise<StoredFile> {
@@ -147,4 +148,37 @@ async function storeOnCloudinary(file: UploadedFile, key: string, kind: UploadKi
   });
 
   return { url: result.secure_url, key: result.public_id, size: result.bytes };
+}
+
+export async function sendDigitalFile(fileUrl: string, res: Response) {
+  const url = new URL(fileUrl);
+  const apiUrl = new URL(env.API_PUBLIC_URL);
+  const isLegacyLocal = url.origin === apiUrl.origin && url.pathname.startsWith("/uploads/digital/");
+  if (url.protocol === "private-upload:" || isLegacyLocal) {
+    const key = decodeURIComponent(isLegacyLocal ? url.pathname.slice("/uploads/".length) : url.pathname.slice(1));
+    if (!key.startsWith("digital/")) throw new ApiError(404, "File not found");
+    let destination = path.resolve(privateUploadsRoot, key);
+    if (!destination.startsWith(privateUploadsRoot + path.sep)) throw new ApiError(404, "File not found");
+    try { await fs.access(destination); } catch {
+      // Older uploads stay readable through this guarded route during migration.
+      destination = path.resolve(legacyUploadsRoot, key);
+      if (!destination.startsWith(legacyUploadsRoot + path.sep)) throw new ApiError(404, "File not found");
+      try { await fs.access(destination); } catch { throw new ApiError(404, "File not found"); }
+    }
+    res.setHeader("Cache-Control", "private, no-store");
+    await new Promise<void>((resolve, reject) => res.download(destination, (error) => error ? reject(error) : resolve()));
+    return;
+  }
+  const prefix = `/${env.CLOUDINARY_CLOUD_NAME}/raw/private/`;
+  if (url.hostname === "res.cloudinary.com" && url.pathname.startsWith(prefix)) {
+    const publicId = decodeURIComponent(url.pathname.slice(prefix.length).replace(/^v\d+\//, ""));
+    cloudinary.config({ cloud_name: env.CLOUDINARY_CLOUD_NAME, api_key: env.CLOUDINARY_API_KEY, api_secret: env.CLOUDINARY_API_SECRET });
+    const signed = cloudinary.utils.private_download_url(publicId, "", {
+      resource_type: "raw", type: "private", expires_at: Math.floor(Date.now() / 1000) + 60, attachment: true,
+    });
+    res.setHeader("Cache-Control", "private, no-store");
+    res.redirect(signed);
+    return;
+  }
+  throw new ApiError(409, "This digital file must be moved to private storage before it can be downloaded");
 }

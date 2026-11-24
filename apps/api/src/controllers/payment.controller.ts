@@ -6,6 +6,7 @@ import { ManualPaymentMethod } from "../models/Settings.js";
 import * as paymentService from "../services/payment.service.js";
 import * as paypalService from "../services/paypal.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { assertPayable } from "../services/order-state.js";
 
 export async function listManualPaymentMethodsHandler(_req: Request, res: Response) {
   res.json({ items: await ManualPaymentMethod.find({ active: true }) });
@@ -33,7 +34,9 @@ export async function updateManualPaymentMethodHandler(req: Request, res: Respon
 }
 
 async function assertOrderOwnership(orderId: string, req: Request) {
-  const filter = req.user ? { _id: orderId, userId: req.user.id } : { _id: orderId, guestId: req.header("x-guest-id") };
+  const guestId = req.header("x-guest-id");
+  if (!req.user && !guestId) throw new ApiError(401, "A payment owner is required");
+  const filter = req.user ? { _id: orderId, userId: req.user.id } : { _id: orderId, userId: null, guestId };
   const order = await Order.findOne(filter);
   if (!order) throw new ApiError(404, "Order not found");
   return order;
@@ -68,7 +71,7 @@ export const capturePaypalSchema = z.object({ paypalOrderId: z.string() });
 
 export async function capturePaypalOrderHandler(req: Request, res: Response) {
   const order = await assertOrderOwnership(String(req.params.orderId), req);
-  const result = await paypalService.capturePaypalOrder(req.body.paypalOrderId);
+  const result = await paypalService.capturePaypalOrder(req.body.paypalOrderId, String(order._id));
   if (result.status === "COMPLETED") {
     await paymentService.settleOrderPayment(String(order._id), "paypal", result.id);
   }
@@ -82,6 +85,7 @@ export const submitManualPaymentSchema = z.object({
 
 export async function submitManualPaymentHandler(req: Request, res: Response) {
   const order = await assertOrderOwnership(String(req.params.orderId), req);
+  assertPayable(order, "manual");
   const method = await ManualPaymentMethod.findById(req.body.methodId);
   if (!method || !method.active) throw new ApiError(404, "Payment method not available");
 
@@ -114,15 +118,11 @@ export async function approveManualPaymentHandler(req: Request, res: Response) {
   if (payment.status !== "pending") throw new ApiError(409, "This payment has already been resolved");
 
   if (req.body.approved) {
-    payment.status = "paid";
-    payment.manualApprovedBy = req.user!.id as never;
-    await payment.save();
     await paymentService.settleOrderPayment(String(payment.orderId), "manual");
+    await Payment.updateOne({ _id: payment._id, status: "paid" }, { manualApprovedBy: req.user!.id });
   } else {
-    payment.status = "failed";
-    await payment.save();
     await paymentService.failOrderPayment(String(payment.orderId), "manual");
   }
 
-  res.json(payment);
+  res.json(await Payment.findById(payment._id));
 }

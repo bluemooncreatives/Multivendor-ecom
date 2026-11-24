@@ -4,6 +4,7 @@ import { Order } from "../models/Order.js";
 import { Product } from "../models/Product.js";
 import { signDownloadToken, verifyDownloadToken } from "../services/digitalproduct.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { sendDigitalFile } from "../services/upload.service.js";
 
 // Every digital item across the customer's *paid* orders, with a fresh
 // request-download link per item (tokens are short-lived, not stored/reused).
@@ -40,7 +41,7 @@ export async function requestDownloadHandler(req: Request, res: Response) {
   const purchased = order.details.some((d) => d.items.some((i) => String(i.productId) === productId));
   if (!purchased) throw new ApiError(403, "This product was not purchased in that order");
 
-  const product = await Product.findOne({ _id: productId, isDigital: true });
+  const product = await Product.findOne({ _id: productId, isDigital: true }).select("+digitalFileUrl");
   if (!product?.digitalFileUrl) throw new ApiError(404, "No digital file available for this product");
 
   const token = signDownloadToken({ sub: req.user!.id, productId, orderId });
@@ -55,8 +56,12 @@ export async function downloadHandler(req: Request, res: Response) {
     throw new ApiError(400, "This download link is invalid or has expired");
   }
 
-  const product = await Product.findById(payload.productId);
+  const order = await Order.findOne({ _id: payload.orderId, userId: payload.sub, paymentStatus: "paid", status: { $nin: ["cancelled", "refunded"] } });
+  if (!order || !order.details.some((detail) => !["cancelled", "refunded"].includes(detail.status) && detail.items.some((item) => String(item.productId) === payload.productId))) {
+    throw new ApiError(403, "This order is no longer eligible for downloads");
+  }
+  const product = await Product.findOne({ _id: payload.productId, isDigital: true }).select("+digitalFileUrl");
   if (!product?.digitalFileUrl) throw new ApiError(404, "File not found");
 
-  res.redirect(product.digitalFileUrl);
+  await sendDigitalFile(product.digitalFileUrl, res);
 }

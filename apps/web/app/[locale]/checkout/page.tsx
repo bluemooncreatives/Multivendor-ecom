@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import toast from "react-hot-toast";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCart } from "@/lib/hooks/useCart";
 import {
   useCheckout,
+  useCheckoutOptions,
   useValidateCoupon,
   usePickupPoints,
   useClubPointBalance,
@@ -83,6 +84,7 @@ export default function CheckoutPage() {
   const isSignedIn = useAuthStore((s) => Boolean(s.accessToken));
 
   const checkout = useCheckout();
+  const { data: options } = useCheckoutOptions();
   const validateCoupon = useValidateCoupon();
   const { data: pickupPoints } = usePickupPoints();
   const { data: clubPoints } = useClubPointBalance(isSignedIn);
@@ -131,6 +133,9 @@ export default function CheckoutPage() {
   });
   const [deliveryChoices, setDeliveryChoices] = useState<Record<string, DeliveryChoice>>({});
   const [paymentMethod, setPaymentMethod] = useState<CheckoutInput["paymentMethod"]>("cod");
+  useEffect(() => {
+    if (options?.paymentMethods.length && !options.paymentMethods.includes(paymentMethod)) setPaymentMethod(options.paymentMethods[0]!);
+  }, [options, paymentMethod]);
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [pointsToSpend, setPointsToSpend] = useState(0);
@@ -421,7 +426,7 @@ export default function CheckoutPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              {PAYMENT_METHODS.map((method) => (
+              {PAYMENT_METHODS.filter((method) => options?.paymentMethods.includes(method.value)).map((method) => (
                 <label key={method.value} className="flex items-center gap-3 rounded-md border p-3 text-sm">
                   <input
                     type="radio"
@@ -437,7 +442,7 @@ export default function CheckoutPage() {
               <Button variant="outline" onClick={() => setStep("delivery")}>
                 Back
               </Button>
-              <Button className="flex-1" onClick={() => setStep("review")}>
+              <Button className="flex-1" onClick={() => setStep("review")} disabled={!options?.paymentMethods.includes(paymentMethod)}>
                 Continue
               </Button>
             </div>
@@ -514,7 +519,7 @@ export default function CheckoutPage() {
               <Button variant="outline" onClick={() => setStep("payment")}>
                 Back
               </Button>
-              <Button className="flex-1" onClick={handlePlaceOrder} disabled={checkout.isPending}>
+              <Button className="flex-1" onClick={handlePlaceOrder} disabled={checkout.isPending || !options?.paymentMethods.includes(paymentMethod)}>
                 {t("placeOrder")}
               </Button>
             </div>

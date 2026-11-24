@@ -60,8 +60,10 @@ export async function calculateShipping(
   if (shipping.length === 0) return costs;
 
   if (settings.mode === "flat") {
-    const share = Math.round((settings.flatShippingCost / shipping.length) * 100) / 100;
-    for (const bucket of shipping) costs.set(bucket, share);
+    const cents = Math.round(settings.flatShippingCost * 100);
+    const share = Math.floor(cents / shipping.length);
+    const remainder = cents % shipping.length;
+    shipping.forEach((bucket, index) => costs.set(bucket, (share + (index < remainder ? 1 : 0)) / 100));
     return costs;
   }
 

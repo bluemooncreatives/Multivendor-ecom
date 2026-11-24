@@ -248,7 +248,7 @@ addonRouter.post(
 addonRouter.post(
   "/refunds/:id/resolve",
   authenticate,
-  requirePermission("orders.manage"),
+  requirePermission("refunds.manage"),
   validateBody(resolveRefundSchema),
   asyncHandler(resolveRefundRequestHandler),
 );

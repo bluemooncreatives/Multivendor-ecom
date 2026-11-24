@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { env } from "../../config/env.js";
-import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment } from "./shared.js";
+import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment, assertVerifiedPayment } from "./shared.js";
 import * as paymentService from "../payment.service.js";
+import { ApiError } from "../../middleware/errorHandler.js";
 
 interface PayhereCreds {
   merchantId: string;
@@ -16,7 +17,7 @@ function md5(input: string) {
 // Payhere (Sri Lanka) requires an auto-submitting HTML form POST, not a simple
 // redirect link — the frontend builds that form from the fields returned here.
 export async function createPayhereSession(orderId: string) {
-  const order = await getPendingOrderOrThrow(orderId);
+  const order = await getPendingOrderOrThrow(orderId, "payhere");
   const creds = await getGatewayCredentials<PayhereCreds>("payhere");
   const addr = order.addressSnapshot as Record<string, string>;
 
@@ -64,13 +65,14 @@ export async function verifyPayhereNotify(input: {
     `${input.merchantId}${input.orderId}${input.amount}${input.currency}${input.statusCode}${hashedSecret}`,
   );
 
-  if (localSig !== input.receivedSig) {
-    throw new Error("Payhere notify signature mismatch");
+  if (localSig !== input.receivedSig.toUpperCase() || input.merchantId !== creds.merchantId) {
+    throw new ApiError(400, "Payhere notify signature mismatch");
   }
+  await assertVerifiedPayment(input.orderId, "payhere", Number(input.amount), input.currency, input.orderId);
 
   if (input.statusCode === "2") {
     await paymentService.settleOrderPayment(input.orderId, "payhere", input.paymentId);
-  } else {
+  } else if (["-1", "-2", "-3"].includes(input.statusCode)) {
     await paymentService.failOrderPayment(input.orderId, "payhere");
   }
 }

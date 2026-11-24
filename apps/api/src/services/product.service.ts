@@ -43,9 +43,8 @@ export async function searchProducts(params: ProductSearchParams) {
   if (params.colorId) filter.colors = params.colorId;
   // Variant attribute facets (size, material, …): a product matches if any one of
   // its variants carries the requested value.
-  for (const [name, value] of Object.entries(params.attributes ?? {})) {
-    filter[`variants.attributes.${name}`] = value;
-  }
+  const attributes = Object.entries(params.attributes ?? {});
+  if (attributes.length) filter.variants = { $elemMatch: Object.fromEntries(attributes.map(([name, value]) => [`attributes.${name}`, value])) };
   if (params.brandId) filter.brandId = params.brandId;
   if (params.sellerId) filter.sellerId = params.sellerId;
   if (params.tags?.length) filter.tags = { $all: params.tags };

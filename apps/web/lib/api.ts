@@ -23,11 +23,12 @@ api.interceptors.request.use((config) => {
 let refreshPromise: Promise<string | null> | null = null;
 
 export function registerRefreshHandler(handler: () => Promise<string | null>) {
-  api.interceptors.response.use(
+  const interceptor = api.interceptors.response.use(
     (res) => res,
     async (error) => {
       const original = error.config;
-      if (error.response?.status === 401 && !original._retry) {
+      const credentialRequest = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"].some((url) => original?.url === url);
+      if (original && error.response?.status === 401 && !original._retry && !credentialRequest) {
         original._retry = true;
         refreshPromise ??= handler().finally(() => {
           refreshPromise = null;
@@ -41,4 +42,5 @@ export function registerRefreshHandler(handler: () => Promise<string | null>) {
       return Promise.reject(error);
     },
   );
+  return () => api.interceptors.response.eject(interceptor);
 }

@@ -19,7 +19,7 @@ const HOSTS = {
  * so this returns form fields for the client to auto-submit rather than a URL.
  */
 export async function createTwoCheckoutSession(orderId: string) {
-  const order = await getPendingOrderOrThrow(orderId);
+  const order = await getPendingOrderOrThrow(orderId, "twocheckout");
   const { creds, sandbox } = await getGateway<TwoCheckoutCreds>("twocheckout");
 
   await recordPendingPayment(orderId, "twocheckout", order.grandTotal, order.currency, String(order._id));
@@ -69,7 +69,6 @@ export async function handleTwoCheckoutCallback(orderId: string, payload: Record
   const a = Buffer.from(received);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    await paymentService.failOrderPayment(orderId, "twocheckout");
     throw new ApiError(400, "Invalid 2Checkout signature");
   }
 

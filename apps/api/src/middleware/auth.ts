@@ -76,15 +76,8 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
 
 export function optionalAuthenticate(req: Request, _res: Response, next: NextFunction) {
   const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) return next();
-
-  try {
-    const payload = verifyAccessToken(header.slice("Bearer ".length));
-    req.user = { id: payload.sub, role: payload.role, permissions: payload.permissions };
-  } catch {
-    // Ignore invalid tokens on optional routes (e.g. guest cart) instead of rejecting.
-  }
-  next();
+  if (!header) return next();
+  return authenticate(req, _res, next);
 }
 
 export function requireRole(...roles: UserRole[]) {

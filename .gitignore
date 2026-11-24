@@ -21,3 +21,5 @@ yarn-error.log*
 
 # Existing marketplace media is treated as deployment data, not source code.
 /public/uploads/
+/data/uploads/
+/data/private-uploads/

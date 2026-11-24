@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Product } from "../models/Product.js";
 import { Order } from "../models/Order.js";
 import { User } from "../models/User.js";
+import { Wallet, WalletTransaction } from "../models/Wallet.js";
 import { SellerLedger } from "../models/Ledger.js";
 import { BusinessSetting } from "../models/Settings.js";
 import { calculateCommission } from "./commission.service.js";
@@ -44,6 +45,7 @@ export interface PosSaleInput {
   discount?: number;
   shippingCost?: number;
   paymentType?: "cash" | "card" | "wallet" | "manual";
+  idempotencyKey?: string;
 }
 
 /**
@@ -56,6 +58,9 @@ export interface PosSaleInput {
  * in the buyer's order history. Both are captured here.
  */
 export async function createPosSale(input: PosSaleInput) {
+  const key = `pos:${input.operatorId}:${input.idempotencyKey ?? randomUUID()}`;
+  const replay = await Order.findOne({ idempotencyKey: key });
+  if (replay) return replay;
   if (input.lines.length === 0) throw new ApiError(400, "At least one item is required");
   if (!input.customerId && !input.walkIn) {
     throw new ApiError(400, "Record the customer, or their name and phone for a walk-in");
@@ -70,6 +75,8 @@ export async function createPosSale(input: PosSaleInput) {
     let createdOrder: any;
 
     await session.withTransaction(async () => {
+      const existing = await Order.findOne({ idempotencyKey: key }).session(session);
+      if (existing) { createdOrder = existing; return; }
       const orderId = new mongoose.Types.ObjectId();
       const settings = await BusinessSetting.findOne({ key: "business" }).session(session);
       const storeTaxPercent = settings?.taxPercent ?? 0;
@@ -80,13 +87,14 @@ export async function createPosSale(input: PosSaleInput) {
       const bySeller = new Map<
         string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { sellerId: string | null; items: any[]; subtotal: number; categoryId: string | null }
+        { sellerId: string | null; items: any[]; subtotal: number; commission: number }
       >();
       const stockLines: StockLine[] = [];
       let subtotal = 0;
       let tax = 0;
 
       for (const line of input.lines) {
+        if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0) throw new ApiError(400, "Quantity must be a positive integer");
         // A seller operator is scoped to their own catalog; an admin operator may
         // ring up anything, which is what the legacy admin POS did.
         const filter = input.allowAnySeller
@@ -112,7 +120,7 @@ export async function createPosSale(input: PosSaleInput) {
         const lineSellerId = product.sellerId ? String(product.sellerId) : null;
         const key = lineSellerId ?? ADMIN_BUCKET;
         const bucket =
-          bySeller.get(key) ?? { sellerId: lineSellerId, items: [], subtotal: 0, categoryId: String(product.categoryId) };
+          bySeller.get(key) ?? { sellerId: lineSellerId, items: [], subtotal: 0, commission: 0 };
 
         bucket.items.push({
           productId: product._id,
@@ -122,8 +130,10 @@ export async function createPosSale(input: PosSaleInput) {
           quantity: line.quantity,
           unitPrice: priced.unitPrice,
           imageUrl: variant.imageUrl ?? product.images[0],
+          refundable: product.refundable,
         });
         bucket.subtotal += priced.lineSubtotal;
+        bucket.commission += (await calculateCommission(lineSellerId, priced.lineSubtotal, String(product.categoryId), session)).amount;
         bySeller.set(key, bucket);
 
         subtotal += priced.lineSubtotal;
@@ -144,6 +154,18 @@ export async function createPosSale(input: PosSaleInput) {
       const discount = Math.min(round2(input.discount ?? 0), subtotal);
       const shippingCost = round2(input.shippingCost ?? 0);
       const grandTotal = round2(Math.max(0, subtotal - discount + tax + shippingCost));
+      if (input.paymentType === "wallet") {
+        if (!customer) throw new ApiError(400, "Wallet payment requires a registered customer");
+        const wallet = await Wallet.findOneAndUpdate(
+          { userId: customer._id, currency: "INR", balance: { $gte: grandTotal } },
+          { $inc: { balance: -grandTotal } }, { session, new: true },
+        );
+        if (!wallet) throw new ApiError(402, "Insufficient wallet balance");
+        await WalletTransaction.create([{
+          userId: customer._id, amount: -grandTotal, balanceAfter: wallet.balance,
+          reason: "POS order payment", refType: "order", refId: orderId, idempotencyKey: `order:${orderId}:wallet-debit`,
+        }], { session });
+      }
 
       // Delivery is charged once for the whole sale, so it lands on the first
       // shipment rather than being duplicated across every vendor.
@@ -151,7 +173,8 @@ export async function createPosSale(input: PosSaleInput) {
       let shippingApplied = false;
 
       for (const bucket of bySeller.values()) {
-        const { rate, amount } = await calculateCommission(bucket.sellerId, bucket.subtotal, bucket.categoryId);
+        const amount = round2(bucket.commission);
+        const rate = bucket.subtotal > 0 ? round2(amount * 100 / bucket.subtotal) : 0;
 
         details.push({
           sellerId: bucket.sellerId,
@@ -217,8 +240,9 @@ export async function createPosSale(input: PosSaleInput) {
             // they record as manual; wallet is the one that moves money here.
             paymentMethod: input.paymentType === "wallet" ? "wallet" : "manual",
             paymentStatus: "paid",
+            inventoryStatus: "confirmed",
             status: "delivered",
-            idempotencyKey: `pos:${randomUUID()}`,
+            idempotencyKey: key,
           },
         ],
         { session },
@@ -228,6 +252,12 @@ export async function createPosSale(input: PosSaleInput) {
     });
 
     return createdOrder;
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000) {
+      const existing = await Order.findOne({ idempotencyKey: key });
+      if (existing) return existing;
+    }
+    throw error;
   } finally {
     await session.endSession();
   }

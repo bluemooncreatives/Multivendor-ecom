@@ -1,6 +1,7 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { signOut } from "next-auth/react";
 import { api, setAccessToken } from "@/lib/api";
 import { useAuthStore, useGuestStore } from "@/lib/store";
 import type { User } from "@ecommercemultivendor/types";
@@ -51,12 +52,15 @@ export function useRegister() {
 export function useLogout() {
   const clear = useAuthStore((s) => s.clear);
   const refreshToken = useAuthStore((s) => s.refreshToken);
+  const client = useQueryClient();
 
   return useMutation({
     mutationFn: async () => api.post("/auth/logout", { refreshToken }),
-    onSuccess: () => {
+    onSettled: async () => {
       setAccessToken(null);
       clear();
+      client.clear();
+      await signOut({ redirect: false });
     },
   });
 }

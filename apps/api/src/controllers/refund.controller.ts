@@ -6,6 +6,9 @@ import { RefundRequest, RefundConfig } from "../models/Refund.js";
 import { Wallet, WalletTransaction } from "../models/Wallet.js";
 import { SellerLedger } from "../models/Ledger.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { allocateUnits } from "../utils/allocation.js";
+import { ClubPointTransaction } from "../models/ClubPoints.js";
+import { User } from "../models/User.js";
 
 export async function getRefundConfig() {
   return (await RefundConfig.findOne({ key: "refund" })) ?? (await RefundConfig.create({}));
@@ -13,7 +16,7 @@ export async function getRefundConfig() {
 
 export const refundRequestSchema = z.object({
   orderId: z.string(),
-  sellerId: z.string(),
+  sellerId: z.string().nullable().transform((value) => value === "null" || value === "__admin__" ? null : value),
   reason: z.string().min(1).max(2000),
   images: z.array(z.string().url()).max(6).default([]),
 });
@@ -28,9 +31,10 @@ export async function createRefundRequestHandler(req: Request, res: Response) {
   if (!order) throw new ApiError(404, "Order not found");
   if (order.paymentStatus !== "paid") throw new ApiError(409, "Only paid orders can be refunded");
 
-  const detail = order.details.find((d) => String(d.sellerId) === req.body.sellerId);
+  const detail = order.details.find((d) => String(d.sellerId) === String(req.body.sellerId));
   if (!detail) throw new ApiError(404, "That seller has no items on this order");
   if (detail.status !== "delivered") throw new ApiError(409, "You can request a refund once the items are delivered");
+  if (detail.items.some((item) => !item.refundable)) throw new ApiError(409, "This shipment contains non-refundable items; contact support");
 
   if (config.requestWindowDays > 0 && detail.deliveredAt) {
     const deadline = new Date(detail.deliveredAt.getTime() + config.requestWindowDays * 24 * 60 * 60 * 1000);
@@ -54,7 +58,7 @@ export async function createRefundRequestHandler(req: Request, res: Response) {
     userId: req.user!.id,
     reason: req.body.reason,
     images: req.body.images,
-    amount: detail.subtotal,
+    amount: refundableMerchandise(order, order.details.indexOf(detail)),
   });
   res.status(201).json(request);
 }
@@ -71,17 +75,18 @@ export async function getRefundEligibilityHandler(req: Request, res: Response) {
   }).select("sellerId status");
   const claimed = new Set(existing.map((r) => String(r.sellerId)));
 
-  const shipments = order.details.map((detail) => {
+  const shipments = order.details.map((detail, index) => {
     const deadline =
       config.requestWindowDays > 0 && detail.deliveredAt
         ? new Date(detail.deliveredAt.getTime() + config.requestWindowDays * 24 * 60 * 60 * 1000)
         : null;
     return {
       sellerId: String(detail.sellerId),
-      amount: detail.subtotal,
+      amount: refundableMerchandise(order, index),
       eligible:
         order.paymentStatus === "paid" &&
         detail.status === "delivered" &&
+        detail.items.every((item) => item.refundable) &&
         !claimed.has(String(detail.sellerId)) &&
         (!deadline || new Date() <= deadline),
       windowClosesAt: deadline,
@@ -123,9 +128,14 @@ export async function resolveRefundRequestHandler(req: Request, res: Response) {
       }
 
       if (req.body.approve) {
+        const order = await Order.findOne({ _id: request.orderId, userId: request.userId, paymentStatus: "paid" }).session(session);
+        const index = order?.details.findIndex((detail) => String(detail.sellerId) === String(request.sellerId)) ?? -1;
+        const detail = index >= 0 ? order!.details[index]! : null;
+        if (!order || !detail || detail.status !== "delivered") throw new ApiError(409, "These items are no longer eligible for a refund");
+        request.amount = refundableMerchandise(order, index);
         const wallet = await Wallet.findOneAndUpdate(
-          { userId: request.userId },
-          { $inc: { balance: request.amount } },
+          { userId: request.userId, currency: order.currency },
+          { $inc: { balance: request.amount }, $setOnInsert: { currency: order.currency } },
           { session, new: true, upsert: true },
         );
         await WalletTransaction.create(
@@ -142,10 +152,19 @@ export async function resolveRefundRequestHandler(req: Request, res: Response) {
           ],
           { session },
         );
-        await SellerLedger.create(
-          [{ sellerId: request.sellerId, orderId: request.orderId, type: "refund", amount: -request.amount, note: "Refund approved" }],
-          { session },
-        );
+        if (request.sellerId) await SellerLedger.create([
+          { sellerId: request.sellerId, orderId: request.orderId, type: "refund", amount: -detail.subtotal, note: "Refund approved" },
+          { sellerId: request.sellerId, orderId: request.orderId, type: "commission", amount: detail.commissionAmount, note: "Refund commission reversal" },
+        ], { session, ordered: true });
+        const points = detail.clubPointsSpent ?? allocateUnits(order.clubPointsSpent, order.details.map((line) => line.subtotal))[index]!;
+        if (points > 0) {
+          await ClubPointTransaction.create([{ userId: request.userId, points, orderId: order._id,
+            reason: "Refunded order items", idempotencyKey: `refund-points:${request._id}` }], { session });
+          await User.updateOne({ _id: request.userId }, { $inc: { clubPoints: points } }, { session });
+        }
+        detail.status = "refunded";
+        if (order.details.every((line) => ["refunded", "cancelled"].includes(line.status))) order.status = "refunded";
+        await order.save({ session });
         request.status = "refunded";
       } else {
         request.status = "rejected";
@@ -159,6 +178,12 @@ export async function resolveRefundRequestHandler(req: Request, res: Response) {
   } finally {
     await session.endSession();
   }
+}
+
+function refundableMerchandise(order: InstanceType<typeof Order>, index: number) {
+  const detail = order.details[index]!;
+  const discount = detail.discount ?? allocateUnits(Math.round(order.discount * 100), order.details.map((line) => line.subtotal))[index]! / 100;
+  return Math.max(0, Math.round((detail.subtotal - discount) * 100) / 100);
 }
 
 export const sellerRefundDecisionSchema = z.object({

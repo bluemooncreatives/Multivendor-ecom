@@ -55,6 +55,12 @@ describe("calculateShipping", () => {
     expect([...costs.values()].reduce((a, b) => a + b, 0)).toBe(60);
   });
 
+  it("preserves every cent when the shipping charge cannot divide evenly", async () => {
+    const costs = await calculateShipping([line("s1"), line("s2"), line("s3")], { ...flat, flatShippingCost: 10 });
+    expect([...costs.values()]).toEqual([3.34, 3.33, 3.33]);
+    expect(Math.round([...costs.values()].reduce((sum, cost) => sum + cost, 0) * 100)).toBe(1000);
+  });
+
   // The legacy version divided by the whole cart, so collecting one shipment in
   // person silently left the others paying for it.
   it("excludes pickup shipments from the flat split rather than making others absorb it", async () => {

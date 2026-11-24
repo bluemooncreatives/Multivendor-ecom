@@ -6,6 +6,11 @@ import * as orderService from "../services/order.service.js";
 import { streamOrderInvoice } from "../services/invoice.service.js";
 import { Order } from "../models/Order.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { checkoutOptions } from "../services/payment-options.service.js";
+
+export async function checkoutOptionsHandler(req: Request, res: Response) {
+  res.json(await checkoutOptions(req.user ? { userId: req.user.id } : {}));
+}
 
 const inlineAddressSchema = z.object({
   line1: z.string().min(1),
@@ -21,7 +26,7 @@ export const checkoutSchema = z
   .object({
     addressId: z.string().optional(),
     address: inlineAddressSchema.optional(),
-    paymentMethod: z.enum(["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius"]),
+    paymentMethod: z.enum(["stripe", "razorpay", "paypal", "cod", "wallet", "manual", "sslcommerz", "instamojo", "paystack", "voguepay", "payhere", "ngenius", "paytm", "mpesa", "flutterwave", "twocheckout"]),
     couponCode: z.string().optional(),
     // Per-seller home-delivery vs pickup choice from the delivery-info step.
     // Keys are seller ids, or "__admin__" for In-House items.
@@ -69,7 +74,7 @@ export async function checkoutHandler(req: Request, res: Response) {
 
 export async function getOrderHandler(req: Request, res: Response) {
   const order = await orderService.getOrderForRequester(String(req.params.id), req.user!);
-  res.json(order);
+  res.json(req.user!.role === "seller" && String(order.userId) !== req.user!.id ? orderService.sellerOrderView(order, req.user!.id) : order);
 }
 
 export async function listMyOrdersHandler(req: Request, res: Response) {
@@ -107,6 +112,6 @@ export async function downloadInvoiceHandler(req: Request, res: Response) {
   const order = await orderService.getOrderForRequester(String(req.params.id), req.user!);
   const role = req.user!.role;
 
-  const variant = role === "seller" ? "seller" : role === "admin" || role === "staff" ? "admin" : "customer";
+  const variant = String(order.userId) === req.user!.id ? "customer" : role === "seller" ? "seller" : role === "admin" || role === "staff" ? "admin" : "customer";
   await streamOrderInvoice(order, res, { variant, sellerId: req.user!.id });
 }

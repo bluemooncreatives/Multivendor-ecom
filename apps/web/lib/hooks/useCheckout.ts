@@ -47,6 +47,16 @@ export function useCheckout() {
   });
 }
 
+export function useCheckoutOptions() {
+  const signedIn = useAuthStore((state) => Boolean(state.accessToken));
+  return useQuery({
+    queryKey: ["checkout-options", signedIn],
+    queryFn: async () => (await api.get<{
+      paymentMethods: PaymentMethod[]; guestCheckout: boolean; coupons: boolean; pickupPoints: boolean;
+    }>("/orders/options")).data,
+  });
+}
+
 export interface PickupPoint {
   id: string;
   name: string;

@@ -14,6 +14,7 @@ import {
 } from "../services/bulkexport.service.js";
 import { assertSellerCanAddProduct } from "../services/quota.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import mongoose from "mongoose";
 
 const variantInput = z.object({
   sku: z.string().min(1),
@@ -95,7 +96,7 @@ export async function getProductsByIdsHandler(req: Request, res: Response) {
     .split(",")
     .filter(Boolean)
     .slice(0, 10);
-  const products = await Product.find({ _id: { $in: ids }, published: true });
+  const products = await Product.find({ _id: { $in: ids }, published: true, approvalStatus: "approved" });
   res.json({ items: products });
 }
 
@@ -183,25 +184,51 @@ const MODERATED_FIELDS = [
   "shippingCost",
   "videoLink",
   "pdfSpecUrl",
+  "digitalFileUrl",
 ] as const;
 
 export async function updateProductHandler(req: Request, res: Response) {
-  const product = await Product.findOne({ _id: req.params.id, sellerId: req.user!.id });
-  if (!product) throw new ApiError(404, "Product not found");
-  if (req.body.variants) assertUniqueSkus(req.body.variants);
-  await normaliseTaxonomy(req.body);
+  res.json(await updateProductRecord({ _id: req.params.id, sellerId: req.user!.id }, req.body, true));
+}
 
-  const needsReview =
-    product.approvalStatus === "approved" &&
-    MODERATED_FIELDS.some((f) => req.body[f] !== undefined && JSON.stringify(req.body[f]) !== JSON.stringify(product.get(f)));
-
-  Object.assign(product, req.body);
-  if (needsReview) {
-    product.approvalStatus = "pending";
-    product.published = false;
-  }
-  await product.save();
-  res.json(product);
+async function updateProductRecord(filter: Record<string, unknown>, input: Partial<z.infer<typeof productSchema>>, moderate: boolean) {
+  if (input.variants) assertUniqueSkus(input.variants);
+  await normaliseTaxonomy(input);
+  const session = await mongoose.startSession();
+  try {
+    let result!: InstanceType<typeof Product>;
+    await session.withTransaction(async () => {
+      const product = await Product.findOne(filter).select("+digitalFileUrl").session(session);
+      if (!product) throw new ApiError(404, "Product not found");
+      const body = { ...input };
+      let variantsChanged = false;
+      if (input.variants) {
+        for (const variant of product.variants) {
+          if (variant.reserved > 0 && !input.variants.some((v: { sku: string }) => v.sku === variant.sku)) {
+            throw new ApiError(409, "A variant with reserved stock cannot be removed or renamed");
+          }
+        }
+        body.variants = input.variants.map((variant) => {
+          const previous = product.variants.find((v) => v.sku === variant.sku);
+          if (variant.stock < (previous?.reserved ?? 0)) throw new ApiError(409, "Stock cannot be lower than its active reservations");
+          return { ...variant, reserved: previous?.reserved ?? 0 };
+        });
+        const authored = (variants: { sku: string; price: number; comparePrice?: number | null; attributes?: Record<string, string> | Map<string, string>; imageUrl?: string | null }[]) => variants.map((variant) => ({
+          sku: variant.sku, price: variant.price, comparePrice: variant.comparePrice ?? null,
+          attributes: Object.fromEntries(Object.entries(variant.attributes instanceof Map ? Object.fromEntries(variant.attributes) : variant.attributes ?? {}).sort(([a], [b]) => a.localeCompare(b))),
+          imageUrl: variant.imageUrl ?? null,
+        })).sort((a, b) => a.sku.localeCompare(b.sku));
+        variantsChanged = JSON.stringify(authored(product.variants)) !== JSON.stringify(authored(body.variants!));
+      }
+      const needsReview = moderate && product.approvalStatus === "approved" && (variantsChanged ||
+        MODERATED_FIELDS.some((field) => body[field] !== undefined && JSON.stringify(body[field]) !== JSON.stringify(product.get(field))));
+      Object.assign(product, body);
+      if (needsReview) { product.approvalStatus = "pending"; product.published = false; }
+      await product.save({ session });
+      result = product;
+    });
+    return result;
+  } finally { await session.endSession(); }
 }
 
 // Duplicate SKUs inside one product would make variant-level stock updates
@@ -226,7 +253,8 @@ export async function deleteProductHandler(req: Request, res: Response) {
 // Legacy "duplicate product" silently dropped the variants array. Cloning here
 // always deep-copies variants (with fresh SKUs) so stock/pricing survive intact.
 export async function cloneProductHandler(req: Request, res: Response) {
-  const original = await Product.findOne({ _id: req.params.id, sellerId: req.user!.id });
+  await assertSellerCanAddProduct(req.user!.id);
+  const original = await Product.findOne({ _id: req.params.id, sellerId: req.user!.id }).select("+digitalFileUrl");
   if (!original) throw new ApiError(404, "Product not found");
 
   // Copy every authored field, then override the identity/lifecycle ones. Listing
@@ -254,7 +282,7 @@ export async function cloneProductHandler(req: Request, res: Response) {
 }
 
 export async function listSellerProductsHandler(req: Request, res: Response) {
-  const products = await Product.find({ sellerId: req.user!.id }).sort({ createdAt: -1 });
+  const products = await Product.find({ sellerId: req.user!.id }).select("+digitalFileUrl").sort({ createdAt: -1 });
   res.json({ items: products });
 }
 
@@ -352,7 +380,7 @@ export async function listAllProductsHandler(req: Request, res: Response) {
   if (req.query.q) filter.name = { $regex: String(req.query.q).slice(0, 80), $options: "i" };
 
   const [items, total] = await Promise.all([
-    Product.find(filter).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize),
+    Product.find(filter).select("+digitalFileUrl").sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize),
     Product.countDocuments(filter),
   ]);
   res.json({ items, total, page, pageSize });
@@ -361,10 +389,7 @@ export async function listAllProductsHandler(req: Request, res: Response) {
 // Staff edit of any seller's listing (the seller-scoped updateProductHandler
 // deliberately refuses to touch products the requester does not own).
 export async function adminUpdateProductHandler(req: Request, res: Response) {
-  if (req.body.variants) assertUniqueSkus(req.body.variants);
-  const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  if (!product) throw new ApiError(404, "Product not found");
-  res.json(product);
+  res.json(await updateProductRecord({ _id: req.params.id }, req.body, false));
 }
 
 export async function exportProductsHandler(req: Request, res: Response) {

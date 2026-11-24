@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Search, Trash2 } from "lucide-react";
 import {
@@ -36,6 +36,7 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
   const [query, setQuery] = useState("");
   const { data: results, isFetching } = usePosProductSearch(query);
   const createSale = useCreatePosSale();
+  const attempt = useRef<string | null>(null);
 
   const [lines, setLines] = useState<Line[]>([]);
   const [discount, setDiscount] = useState(0);
@@ -92,6 +93,7 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
 
     try {
       const order = await createSale.mutateAsync({
+        idempotencyKey: attempt.current ??= crypto.randomUUID(),
         items: lines.map((l) => ({ productId: l.productId, variantSku: l.variantSku, quantity: l.quantity })),
         walkIn: {
           name: walkIn.name,
@@ -107,6 +109,7 @@ export function PosTerminal({ scope }: { scope: "seller" | "admin" }) {
       });
 
       toast.success(`Sale recorded: ${order.code}`);
+      attempt.current = null;
       setLines([]);
       setDiscount(0);
       setShippingCost(0);

@@ -4,6 +4,7 @@ import { GatewayIntent } from "../../models/GatewayIntent.js";
 import { Payment } from "../../models/Payment.js";
 import { ApiError } from "../../middleware/errorHandler.js";
 import { decryptSecret } from "../../utils/secrets.js";
+import { assertPayable } from "../order-state.js";
 
 export type GatewayCode =
   | "sslcommerz"
@@ -36,7 +37,8 @@ export async function getGateway<T>(code: GatewayCode): Promise<{ creds: T; sand
 }
 
 export async function getGatewayCredentials<T>(code: GatewayCode): Promise<T> {
-  return (await getGateway<T>(code)).creds;
+  const { creds, sandbox } = await getGateway<T>(code);
+  return { ...creds, sandbox };
 }
 
 /**
@@ -48,17 +50,31 @@ export async function getGatewayCredentials<T>(code: GatewayCode): Promise<T> {
  * purchases are the latter. The two expose the same fields the gateway services
  * read, so no service needs to know which it was handed.
  */
-export async function getPendingOrderOrThrow(payableId: string) {
+export async function getPendingOrderOrThrow(payableId: string, method?: GatewayCode) {
   const order = await Order.findById(payableId);
   if (order) {
-    if (order.paymentStatus === "paid") throw new ApiError(409, "This is already paid");
+    assertPayable(order, method);
     return order as unknown as PayableLike;
   }
 
   const intent = await GatewayIntent.findById(payableId);
   if (!intent) throw new ApiError(404, "Payment not found");
-  if (intent.paymentStatus === "paid") throw new ApiError(409, "This is already paid");
+  if (!["pending", "unpaid"].includes(intent.paymentStatus)) throw new ApiError(409, "This payment is closed");
+  if (method && intent.paymentMethod !== method) throw new ApiError(409, "Payment method does not match");
   return intent as unknown as PayableLike;
+}
+
+// Call only with values obtained from the provider's authenticated verification
+// response, never directly with an incoming callback's amount/status fields.
+export async function assertVerifiedPayment(payableId: string, method: GatewayCode, amount: number, currency: string, providerRef?: string) {
+  const payable = await Order.findById(payableId) ?? await GatewayIntent.findById(payableId);
+  if (!payable || payable.paymentMethod !== method || !Number.isFinite(amount) ||
+      Math.round(payable.grandTotal * 100) !== Math.round(amount * 100) || payable.currency !== currency?.toUpperCase()) {
+    throw new ApiError(409, "Verified payment does not match the order amount or currency");
+  }
+  if (providerRef && !await Payment.exists({ $or: [{ orderId: payableId }, { intentId: payableId }], method, providerRef })) {
+    throw new ApiError(409, "Verified payment does not belong to this order");
+  }
 }
 
 /** The subset of an Order that the gateway services actually read. */
@@ -85,16 +101,15 @@ export async function recordPendingPayment(
   const ownership = isOrder ? { orderId: payableId, intentId: null } : { orderId: null, intentId: payableId };
 
   await Payment.findOneAndUpdate(
-    { ...(isOrder ? { orderId: payableId } : { intentId: payableId }), method },
-    {
+    { ...(isOrder ? { orderId: payableId } : { intentId: payableId }), method, status: { $nin: ["paid", "refunded"] } },
+    { $set: { providerRef }, $setOnInsert: {
       ...ownership,
       method,
       amount,
       currency,
       status: "pending",
-      providerRef,
       idempotencyKey: `payable:${payableId}:${method}`,
-    },
+    } },
     { upsert: true },
   );
 }

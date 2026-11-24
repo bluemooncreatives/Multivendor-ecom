@@ -1,7 +1,7 @@
 import axios from "axios";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { env } from "../../config/env.js";
-import { getGateway, getPendingOrderOrThrow, recordPendingPayment } from "./shared.js";
+import { getGateway, getPendingOrderOrThrow, recordPendingPayment, assertVerifiedPayment } from "./shared.js";
 import * as paymentService from "../payment.service.js";
 import { ApiError } from "../../middleware/errorHandler.js";
 
@@ -65,7 +65,7 @@ export function verifyChecksum(params: Record<string, string>, key: string, chec
 }
 
 export async function createPaytmSession(orderId: string) {
-  const order = await getPendingOrderOrThrow(orderId);
+  const order = await getPendingOrderOrThrow(orderId, "paytm");
   const { creds, sandbox } = await getGateway<PaytmCreds>("paytm");
   const host = sandbox ? HOSTS.sandbox : HOSTS.live;
 
@@ -109,9 +109,10 @@ export async function handlePaytmCallback(orderId: string, payload: Record<strin
   // An unsigned or mis-signed callback is treated as a failure, never a payment:
   // this endpoint is public, so the checksum is the only proof it came from Paytm.
   if (!CHECKSUMHASH || !verifyChecksum(params, creds.merchantKey, CHECKSUMHASH)) {
-    await paymentService.failOrderPayment(orderId, "paytm");
     throw new ApiError(400, "Invalid Paytm checksum");
   }
+  if (params.ORDERID !== orderId || params.MID !== creds.merchantId) throw new ApiError(409, "Paytm reference does not match");
+  await assertVerifiedPayment(orderId, "paytm", Number(params.TXNAMOUNT), params.CURRENCY ?? "", orderId);
 
   if (params.STATUS === "TXN_SUCCESS") {
     await paymentService.settleOrderPayment(orderId, "paytm", params.TXNID);

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useCoupons, useSaveCoupon, useDeleteCoupon, useCouponUsage, type Coupon } from "@/lib/hooks/useAdminCommerce";
+import toast from "react-hot-toast";
+import { useCoupons, useSaveCoupon, useDeleteCoupon, useCouponUsage, useAdminCategories, useAdminProducts, type Coupon } from "@/lib/hooks/useAdminCommerce";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,12 +15,18 @@ const BLANK = {
   value: 10,
   minOrderValue: 0,
   usageLimitPerUser: 1,
+  scope: "cart" as const,
+  productIds: [] as string[],
+  categoryIds: [] as string[],
 };
 
 export default function AdminCouponsPage() {
   const { data: coupons } = useCoupons();
   const saveCoupon = useSaveCoupon();
   const deleteCoupon = useDeleteCoupon();
+  const { data: categories } = useAdminCategories();
+  const [productSearch, setProductSearch] = useState("");
+  const { data: products } = useAdminProducts({ q: productSearch });
 
   const [editing, setEditing] = useState<Partial<Coupon> & { id?: string }>(BLANK);
   const [usageFor, setUsageFor] = useState<string | null>(null);
@@ -33,10 +40,12 @@ export default function AdminCouponsPage() {
         code: editing.code?.toUpperCase(),
         // Empty inputs come back as "" — send null so the API stores "no limit"
         // rather than rejecting an empty string as a number.
-        maxDiscount: editing.maxDiscount || null,
-        usageLimitTotal: editing.usageLimitTotal || null,
+        maxDiscount: editing.maxDiscount ?? null,
+        usageLimitTotal: editing.usageLimitTotal ?? null,
+        startsAt: editing.startsAt ? new Date(editing.startsAt).toISOString() : undefined,
+        expiresAt: editing.expiresAt ? new Date(`${editing.expiresAt.slice(0, 10)}T23:59:59.999Z`).toISOString() : undefined,
       },
-      { onSuccess: () => setEditing(BLANK) },
+      { onSuccess: () => setEditing(BLANK), onError: (error: any) => toast.error(error?.response?.data?.message ?? "Could not save coupon") },
     );
   }
 
@@ -50,6 +59,44 @@ export default function AdminCouponsPage() {
         </CardHeader>
         <CardContent>
           <form className="grid gap-4 md:grid-cols-3" onSubmit={submit}>
+            <div className="space-y-1 md:col-span-3">
+              <Label htmlFor="scope">Applies to</Label>
+              <select id="scope" className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                value={editing.scope ?? "cart"} onChange={(event) => setEditing({ ...editing, scope: event.target.value as "cart" | "product" })}>
+                <option value="cart">Entire cart</option>
+                <option value="product">Selected products or categories</option>
+              </select>
+            </div>
+            {editing.scope === "product" && (
+              <div className="grid gap-4 md:col-span-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="coupon-products">Find eligible products</Label>
+                  <Input id="coupon-products" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Search products" />
+                  <p className="text-xs text-muted-foreground">{editing.productIds?.length ?? 0} selected</p>
+                  <div className="max-h-40 space-y-1 overflow-auto rounded border p-2">
+                    {products?.items.map((product) => (
+                      <label key={product.id} className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={editing.productIds?.includes(product.id) ?? false} onChange={(event) => setEditing({ ...editing,
+                          productIds: event.target.checked ? [...(editing.productIds ?? []), product.id] : editing.productIds?.filter((id) => id !== product.id) })} />
+                        {product.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Eligible categories (includes descendants)</Label>
+                  <div className="max-h-52 space-y-1 overflow-auto rounded border p-2">
+                    {categories?.map((category) => (
+                      <label key={category.id} className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={editing.categoryIds?.includes(category.id) ?? false} onChange={(event) => setEditing({ ...editing,
+                          categoryIds: event.target.checked ? [...(editing.categoryIds ?? []), category.id] : editing.categoryIds?.filter((id) => id !== category.id) })} />
+                        {category.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="space-y-1">
               <Label htmlFor="code">Code</Label>
               <Input

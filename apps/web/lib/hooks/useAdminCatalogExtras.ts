@@ -495,7 +495,8 @@ export interface PaymentGatewayConfig {
   id: string;
   code: string;
   enabled: boolean;
-  credentials: Record<string, unknown>;
+  sandbox: boolean;
+  configuredFields: string[];
 }
 
 export function useGatewayConfigs() {
@@ -508,8 +509,8 @@ export function useGatewayConfigs() {
 export function useSaveGatewayConfig() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { code: string; enabled: boolean; credentials: Record<string, unknown> }) =>
-      (await api.put(`/payments/admin/gateways/${input.code}`, { enabled: input.enabled, credentials: input.credentials })).data,
+    mutationFn: async (input: { code: string; enabled: boolean; sandbox: boolean; credentials: Record<string, unknown> }) =>
+      (await api.put(`/payments/admin/gateways/${input.code}`, { enabled: input.enabled, sandbox: input.sandbox, credentials: input.credentials })).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "gateways"] }),
   });
 }

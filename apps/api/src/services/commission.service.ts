@@ -1,6 +1,7 @@
 import { SellerPackagePayment } from "../models/Package.js";
 import { BusinessSetting } from "../models/Settings.js";
 import { Category } from "../models/Category.js";
+import type { ClientSession } from "mongoose";
 
 const DEFAULT_COMMISSION_PERCENT = 10;
 
@@ -15,6 +16,7 @@ export async function calculateCommission(
   sellerId: string | null,
   subtotal: number,
   categoryId?: string | null,
+  session?: ClientSession,
 ): Promise<{ rate: number; amount: number }> {
   if (!sellerId) return { rate: 0, amount: 0 };
 
@@ -24,23 +26,24 @@ export async function calculateCommission(
     expiresAt: { $gt: new Date() },
   })
     .sort({ expiresAt: -1 })
-    .populate("packageId");
+    .populate("packageId")
+    .session(session ?? null);
 
   const override = (activePackage?.packageId as unknown as { commissionRateOverride?: number } | null)
     ?.commissionRateOverride;
 
-  const rate = override ?? (await resolveBaseRate(categoryId));
+  const rate = override ?? (await resolveBaseRate(categoryId, session));
   const amount = Math.round(((subtotal * rate) / 100) * 100) / 100;
 
   return { rate, amount };
 }
 
-async function resolveBaseRate(categoryId?: string | null): Promise<number> {
-  const settings = await BusinessSetting.findOne({ key: "business" });
+async function resolveBaseRate(categoryId?: string | null, session?: ClientSession): Promise<number> {
+  const settings = await BusinessSetting.findOne({ key: "business" }).session(session ?? null);
   const globalRate = settings?.commissionPercent ?? DEFAULT_COMMISSION_PERCENT;
 
   if (!categoryId || !settings?.activation?.categoryBasedCommission) return globalRate;
 
-  const category = await Category.findById(categoryId, { commissionRate: 1 });
+  const category = await Category.findById(categoryId, { commissionRate: 1 }).session(session ?? null);
   return category?.commissionRate ?? globalRate;
 }

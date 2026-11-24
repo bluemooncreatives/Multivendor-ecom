@@ -10,6 +10,7 @@ const orderItemSchema = new Schema(
     quantity: { type: Number, required: true, min: 1 },
     unitPrice: { type: Number, required: true, min: 0 }, // server-computed, never client-trusted
     imageUrl: String,
+    refundable: { type: Boolean, default: true },
   },
   { _id: false },
 );
@@ -26,6 +27,8 @@ const orderDetailSchema = new Schema(
     commissionRate: { type: Number, required: true, min: 0 },
     commissionAmount: { type: Number, required: true, min: 0 },
     shippingCost: { type: Number, required: true, min: 0, default: 0 },
+    discount: { type: Number, min: 0, default: null },
+    clubPointsSpent: { type: Number, min: 0, default: null },
     // Set when the shopper chose in-person collection for this seller's items
     // instead of home delivery; drives the admin pickup-point day sheet.
     pickupPointId: { type: Schema.Types.ObjectId, ref: "PickupPoint", default: null, index: true },
@@ -73,6 +76,7 @@ const orderSchema = new Schema(
       default: "unpaid",
       index: true,
     },
+    inventoryStatus: { type: String, enum: ["reserved", "confirmed", "released", null], default: null },
     status: {
       type: String,
       enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"],

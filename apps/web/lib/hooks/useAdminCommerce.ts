@@ -11,6 +11,9 @@ export interface Coupon {
   code: string;
   type: "flat" | "percent";
   value: number;
+  scope: "cart" | "product";
+  productIds: string[];
+  categoryIds: string[];
   minOrderValue: number;
   maxDiscount: number | null;
   usageLimitTotal: number | null;

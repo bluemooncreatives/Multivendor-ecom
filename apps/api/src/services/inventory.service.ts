@@ -23,6 +23,7 @@ export interface StockLine {
 // Mongoose has no query-builder support for pipeline-style updates.
 export async function reserveStock(lines: StockLine[], orderId: string, session: ClientSession) {
   for (const line of lines) {
+    if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0) throw new ApiError(400, "Stock quantity must be a positive integer");
     const result = await Product.collection.updateOne(
       { _id: new Types.ObjectId(line.productId), "variants.sku": line.variantSku },
       [
@@ -66,11 +67,12 @@ export async function reserveStock(lines: StockLine[], orderId: string, session:
 // Converts a reservation into an actual stock decrement (payment confirmed / COD order placed).
 export async function confirmReservation(lines: StockLine[], orderId: string, session: ClientSession) {
   for (const line of lines) {
-    await Product.updateOne(
-      { _id: line.productId, "variants.sku": line.variantSku },
+    const result = await Product.updateOne(
+      { _id: line.productId, variants: { $elemMatch: { sku: line.variantSku, reserved: { $gte: line.quantity }, stock: { $gte: line.quantity } } } },
       { $inc: { "variants.$[v].reserved": -line.quantity, "variants.$[v].stock": -line.quantity } },
       { session, arrayFilters: [{ "v.sku": line.variantSku }] },
     );
+    if (result.modifiedCount !== 1) throw new ApiError(409, "The stock reservation is no longer available");
     await InventoryMovement.create(
       [{ productId: line.productId, variantSku: line.variantSku, type: "confirm", quantity: line.quantity, orderId }],
       { session },
@@ -81,11 +83,12 @@ export async function confirmReservation(lines: StockLine[], orderId: string, se
 // Releases a reservation without touching sellable stock (order cancelled before payment).
 export async function releaseReservation(lines: StockLine[], orderId: string, session: ClientSession) {
   for (const line of lines) {
-    await Product.updateOne(
-      { _id: line.productId, "variants.sku": line.variantSku },
+    const result = await Product.updateOne(
+      { _id: line.productId, variants: { $elemMatch: { sku: line.variantSku, reserved: { $gte: line.quantity } } } },
       { $inc: { "variants.$[v].reserved": -line.quantity } },
       { session, arrayFilters: [{ "v.sku": line.variantSku }] },
     );
+    if (result.modifiedCount !== 1) throw new ApiError(409, "The stock reservation is no longer available");
     await InventoryMovement.create(
       [{ productId: line.productId, variantSku: line.variantSku, type: "release", quantity: line.quantity, orderId }],
       { session },

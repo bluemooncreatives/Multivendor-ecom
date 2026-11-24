@@ -11,12 +11,15 @@ import {
   CustomerPackage,
   CustomerPackagePayment,
 } from "../models/Package.js";
-import { Payment, PaymentEvent } from "../models/Payment.js";
+import { Payment, PaymentEvent, PaymentReceipt } from "../models/Payment.js";
 import { SellerLedger } from "../models/Ledger.js";
 import { confirmReservation, releaseReservation, type StockLine } from "./inventory.service.js";
 import { creditAffiliateForOrder, reverseAffiliateForOrder } from "./affiliate.service.js";
 import { env } from "../config/env.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { assertPayable, inventoryStatus } from "./order-state.js";
+import { restorePointsForOrder } from "./clubpoints.service.js";
+import { CouponUsage } from "../models/Coupon.js";
 
 const stripe = env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY) : null;
 const razorpay =
@@ -40,15 +43,17 @@ export async function createStripeIntent(orderId: string) {
   if (!stripe) throw new ApiError(503, "Stripe is not configured");
   const order = await Order.findById(orderId);
   if (!order) throw new ApiError(404, "Order not found");
-  if (order.paymentStatus === "paid") throw new ApiError(409, "Order is already paid");
+  assertPayable(order, "stripe");
+  const existing = await Payment.findOne({ orderId, method: "stripe" });
+  if (existing?.providerRef?.startsWith("cs_")) throw new ApiError(409, "Continue the existing hosted checkout");
 
   const intent = await stripe.paymentIntents.create({
     amount: Math.round(order.grandTotal * 100),
     currency: order.currency.toLowerCase(),
     metadata: { orderId: String(order._id) },
-  });
+  }, { idempotencyKey: `order:${order._id}:stripe-intent` });
 
-  await Payment.create({
+  await Payment.findOneAndUpdate({ orderId: order._id, method: "stripe" }, { $setOnInsert: {
     orderId: order._id,
     method: "stripe",
     amount: order.grandTotal,
@@ -56,7 +61,7 @@ export async function createStripeIntent(orderId: string) {
     status: "pending",
     providerRef: intent.id,
     idempotencyKey: `order:${order._id}:stripe`,
-  });
+  } }, { upsert: true });
 
   return { clientSecret: intent.client_secret };
 }
@@ -73,7 +78,9 @@ export async function createStripeCheckoutSession(orderId: string) {
   if (!stripe) throw new ApiError(503, "Stripe is not configured");
   const order = await Order.findById(orderId);
   if (!order) throw new ApiError(404, "Order not found");
-  if (order.paymentStatus === "paid") throw new ApiError(409, "Order is already paid");
+  assertPayable(order, "stripe");
+  const existing = await Payment.findOne({ orderId, method: "stripe" });
+  if (existing?.providerRef?.startsWith("pi_")) throw new ApiError(409, "Continue the existing card payment");
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -93,11 +100,11 @@ export async function createStripeCheckoutSession(orderId: string) {
     payment_intent_data: { metadata: { orderId: String(order._id) } },
     success_url: `${env.NEXT_PUBLIC_APP_URL}/en/checkout/order-confirmed?code=${order.code}`,
     cancel_url: `${env.NEXT_PUBLIC_APP_URL}/en/checkout?cancelled=1`,
-  });
+  }, { idempotencyKey: `order:${order._id}:stripe-checkout` });
 
   await Payment.findOneAndUpdate(
     { orderId: order._id, method: "stripe" },
-    {
+    { $setOnInsert: {
       orderId: order._id,
       method: "stripe",
       amount: order.grandTotal,
@@ -105,7 +112,7 @@ export async function createStripeCheckoutSession(orderId: string) {
       status: "pending",
       providerRef: session.id,
       idempotencyKey: `order:${order._id}:stripe`,
-    },
+    } },
     { upsert: true },
   );
 
@@ -116,7 +123,9 @@ export async function createRazorpayOrder(orderId: string) {
   if (!razorpay) throw new ApiError(503, "Razorpay is not configured");
   const order = await Order.findById(orderId);
   if (!order) throw new ApiError(404, "Order not found");
-  if (order.paymentStatus === "paid") throw new ApiError(409, "Order is already paid");
+  assertPayable(order, "razorpay");
+  const existing = await Payment.findOne({ orderId: order._id, method: "razorpay", status: "pending" });
+  if (existing?.providerRef) return { razorpayOrderId: existing.providerRef, amount: Math.round(order.grandTotal * 100), currency: order.currency };
 
   const rpOrder = await razorpay.orders.create({
     amount: Math.round(order.grandTotal * 100),
@@ -124,7 +133,7 @@ export async function createRazorpayOrder(orderId: string) {
     receipt: String(order._id),
   });
 
-  await Payment.create({
+  await Payment.findOneAndUpdate({ orderId: order._id, method: "razorpay" }, {
     orderId: order._id,
     method: "razorpay",
     amount: order.grandTotal,
@@ -132,7 +141,7 @@ export async function createRazorpayOrder(orderId: string) {
     status: "pending",
     providerRef: rpOrder.id,
     idempotencyKey: `order:${order._id}:razorpay`,
-  });
+  }, { upsert: true });
 
   return { razorpayOrderId: rpOrder.id, amount: rpOrder.amount, currency: rpOrder.currency };
 }
@@ -152,14 +161,15 @@ async function settleGatewayIntent(intentId: string, method: string, providerRef
   try {
     await session.withTransaction(async () => {
       const intent = await GatewayIntent.findOneAndUpdate(
-        { _id: intentId, fulfilledAt: null },
+        { _id: intentId, fulfilledAt: null, paymentMethod: method, paymentStatus: { $in: ["pending", "unpaid"] } },
         { paymentStatus: "paid", fulfilledAt: new Date(), providerRef },
         { session, new: true },
       );
       // Already fulfilled — a replayed notification, so there is nothing to do.
       if (!intent) return;
+      if (providerRef) await claimReceipt(intentId, method, providerRef, session);
 
-      await Payment.updateOne({ intentId: intent._id, method }, { status: "paid", providerRef }, { session });
+      await Payment.updateOne({ intentId: intent._id, method }, { status: "paid", settlementRef: providerRef }, { session });
 
       if (intent.purpose === "wallet_recharge") {
         const wallet = await Wallet.findOneAndUpdate(
@@ -247,19 +257,23 @@ export async function settleOrderPayment(orderId: string, method: string, provid
   let settled = false;
   try {
     await session.withTransaction(async () => {
+      settled = false;
       const order = await Order.findById(orderId).session(session);
       if (!order) throw new ApiError(404, "Order not found");
-      if (order.paymentStatus === "paid") return; // already settled — webhook replay is a no-op
+      if (order.paymentStatus === "paid") { settled = true; return; }
+      assertPayable(order, method);
+      if (providerRef) await claimReceipt(orderId, method, providerRef, session);
 
-      const lines = stockLinesFromOrder(order);
-      await confirmReservation(lines, String(order._id), session);
+      const needsConfirmation = inventoryStatus(order) === "reserved";
+      if (needsConfirmation) await confirmReservation(stockLinesFromOrder(order), String(order._id), session);
 
       for (const detail of order.details) {
-        detail.status = "confirmed";
+        if (detail.status === "pending") detail.status = "confirmed";
+        if (!needsConfirmation && method !== "cod") continue;
         if (!detail.sellerId) continue; // admin-owned line: no vendor to credit
         await SellerLedger.create(
           [
-            { sellerId: detail.sellerId, orderId: order._id, type: "sale", amount: detail.subtotal, note: "Order paid" },
+            ...(method === "cod" ? [] : [{ sellerId: detail.sellerId, orderId: order._id, type: "sale", amount: detail.subtotal, note: "Order paid" }]),
             {
               sellerId: detail.sellerId,
               orderId: order._id,
@@ -273,12 +287,14 @@ export async function settleOrderPayment(orderId: string, method: string, provid
       }
 
       order.paymentStatus = "paid";
-      order.status = "confirmed";
+      order.inventoryStatus = "confirmed";
+      order.paymentStatusViewed = false;
+      if (order.status === "pending") order.status = "confirmed";
       await order.save({ session });
 
       await Payment.updateOne(
         { orderId: order._id, method },
-        { status: "paid", providerRef },
+        { status: "paid", settlementRef: providerRef },
         { session },
       );
       settled = true;
@@ -295,54 +311,75 @@ export async function settleOrderPayment(orderId: string, method: string, provid
 }
 
 export async function failOrderPayment(orderId: string, method: string) {
-  const intent = await GatewayIntent.findById(orderId);
-  if (intent) {
+  if (await GatewayIntent.exists({ _id: orderId })) {
     // Nothing to unwind: an intent holds no stock and grants nothing until it is
     // fulfilled, so failing it is just a status write.
-    if (intent.paymentStatus !== "paid") {
-      intent.paymentStatus = "failed";
-      await intent.save();
-      await Payment.updateOne({ intentId: intent._id, method }, { status: "failed" });
-    }
+    await GatewayIntent.updateOne(
+      { _id: orderId, paymentMethod: method, fulfilledAt: null, paymentStatus: { $in: ["pending", "unpaid"] } },
+      { paymentStatus: "failed" },
+    );
     return;
   }
 
   const session = await mongoose.startSession();
+  let failed = false;
   try {
     await session.withTransaction(async () => {
+      failed = false;
       const order = await Order.findById(orderId).session(session);
-      if (!order || order.paymentStatus === "paid") return;
+      if (!order || order.paymentStatus === "paid" || order.paymentMethod !== method) return;
+      if (["cancelled", "refunded"].includes(order.status) || inventoryStatus(order) !== "reserved") return;
 
       const lines = stockLinesFromOrder(order);
       await releaseReservation(lines, String(order._id), session);
 
       order.paymentStatus = "failed";
       order.status = "cancelled";
+      order.inventoryStatus = "released";
+      for (const detail of order.details) { detail.status = "cancelled"; detail.cancelledAt = new Date(); }
       await order.save({ session });
+      await restorePointsForOrder(String(order._id), session);
+      await CouponUsage.deleteMany({ orderId: order._id }).session(session);
 
       await Payment.updateOne({ orderId: order._id, method }, { status: "failed" }, { session });
+      failed = true;
     });
   } finally {
     await session.endSession();
   }
 
-  // A late failure after a provisional credit (e.g. a chargeback event) must claw
-  // the referral commission back; a no-op when nothing was ever credited.
-  await reverseAffiliateForOrder(orderId);
+  if (failed) await reverseAffiliateForOrder(orderId);
 }
 
-// Deduplicates webhook deliveries: the unique index on (provider, eventId) makes
-// a second delivery of the same event throw E11000, which we treat as "already handled".
+// A recorded but unfinished delivery stays retryable. The handlers mark it
+// complete only after settlement succeeds; each settlement is itself idempotent.
 export async function recordPaymentEventOnce(provider: "stripe" | "razorpay" | "paypal", eventId: string, payload: unknown) {
   try {
-    await PaymentEvent.create({ provider, eventId, payload });
+    await PaymentEvent.create({ provider, eventId, payload, processedAt: null });
     return true;
   } catch (err: unknown) {
-    if ((err as { code?: number }).code === 11000) return false;
+    if ((err as { code?: number }).code === 11000) {
+      const event = await PaymentEvent.findOne({ provider, eventId });
+      return !event?.processedAt;
+    }
     throw err;
   }
 }
 
 export function newManualPaymentReference() {
   return randomUUID();
+}
+
+export async function completePaymentEvent(provider: string, eventId: string) {
+  await PaymentEvent.updateOne({ provider, eventId }, { processedAt: new Date() });
+}
+
+async function claimReceipt(payableId: string, method: string, reference: string, session: mongoose.ClientSession) {
+  const key = `${method}:${reference}`;
+  const receipt = await PaymentReceipt.findById(key).session(session);
+  if (receipt) {
+    if (String(receipt.payableId) !== payableId) throw new ApiError(409, "This provider transaction has already paid another order");
+    return;
+  }
+  await PaymentReceipt.create([{ _id: key, payableId }], { session });
 }

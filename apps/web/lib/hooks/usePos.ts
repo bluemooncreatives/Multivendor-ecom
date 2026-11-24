@@ -35,6 +35,7 @@ export function usePosProductSearch(query: string) {
 }
 
 export interface PosSaleInput {
+  idempotencyKey: string;
   items: { productId: string; variantSku: string; quantity: number }[];
   sellerId?: string | null;
   customerId?: string | null;

@@ -1,0 +1,355 @@
+{
+  "scope": "HTTP page shells and static assets only; no authenticated browser workflows",
+  "checked": 87,
+  "failed": [],
+  "results": [
+    {
+      "path": "/download/product_bulk_demo.xlsx",
+      "status": 200
+    },
+    {
+      "path": "/en",
+      "status": 200
+    },
+    {
+      "path": "/en/admin",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/addons",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/affiliate",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/attributes",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/bulk-tools",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/club-points",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/conversations",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/coupons",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/flash-deals",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/homepage",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/links",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/localization",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/newsletter",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/orders",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/packages",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/pages",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/payment-gateways",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/pickup-points",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/policies",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/pos",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/products",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/refunds",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/reports",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/reviews",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/sellers",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/settings",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/sms",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/staff",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/taxonomy",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/tickets",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/users",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/wallet-recharges",
+      "status": 200
+    },
+    {
+      "path": "/en/admin/withdrawals",
+      "status": 200
+    },
+    {
+      "path": "/en/become-seller",
+      "status": 200
+    },
+    {
+      "path": "/en/brands",
+      "status": 200
+    },
+    {
+      "path": "/en/cart",
+      "status": 200
+    },
+    {
+      "path": "/en/categories",
+      "status": 200
+    },
+    {
+      "path": "/en/checkout",
+      "status": 200
+    },
+    {
+      "path": "/en/checkout/order-confirmed",
+      "status": 200
+    },
+    {
+      "path": "/en/classifieds",
+      "status": 200
+    },
+    {
+      "path": "/en/compare",
+      "status": 200
+    },
+    {
+      "path": "/en/customer-packages",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/addresses",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/affiliate",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/classifieds",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/club-points",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/conversations",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/downloads",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/orders",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/profile",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/refunds",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/tickets",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/wallet",
+      "status": 200
+    },
+    {
+      "path": "/en/dashboard/wishlist",
+      "status": 200
+    },
+    {
+      "path": "/en/delivery-info",
+      "status": 200
+    },
+    {
+      "path": "/en/forgot-password",
+      "status": 200
+    },
+    {
+      "path": "/en/login",
+      "status": 200
+    },
+    {
+      "path": "/en/policies/privacy",
+      "status": 200
+    },
+    {
+      "path": "/en/policies/return",
+      "status": 200
+    },
+    {
+      "path": "/en/policies/seller",
+      "status": 200
+    },
+    {
+      "path": "/en/policies/support",
+      "status": 200
+    },
+    {
+      "path": "/en/policies/terms",
+      "status": 200
+    },
+    {
+      "path": "/en/products",
+      "status": 200
+    },
+    {
+      "path": "/en/register",
+      "status": 200
+    },
+    {
+      "path": "/en/reset-password",
+      "status": 200
+    },
+    {
+      "path": "/en/seller",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/conversations",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/ledger",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/orders",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/package",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/pos",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/products",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/products/bulk-upload",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/refunds",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/reviews",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/shop",
+      "status": 200
+    },
+    {
+      "path": "/en/seller/withdrawals",
+      "status": 200
+    },
+    {
+      "path": "/en/shipping-info",
+      "status": 200
+    },
+    {
+      "path": "/en/track-order",
+      "status": 200
+    },
+    {
+      "path": "/en/verify-email",
+      "status": 200
+    },
+    {
+      "path": "/en/wishlist",
+      "status": 200
+    },
+    {
+      "path": "/favicon.ico",
+      "status": 200
+    },
+    {
+      "path": "/frontend/images/placeholder.jpg",
+      "status": 200
+    },
+    {
+      "path": "/pos_banner.jpg",
+      "status": 200
+    }
+  ]
+}

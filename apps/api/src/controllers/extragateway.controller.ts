@@ -47,8 +47,7 @@ export async function sslcommerzSuccessHandler(req: Request, res: Response) {
   res.redirect(`${req.protocol}://${req.get("host")}/en/checkout/order-confirmed?code=${req.body.tran_id}`);
 }
 export async function sslcommerzFailOrCancelHandler(req: Request, res: Response) {
-  await paymentService.failOrderPayment(String(req.params.orderId), "sslcommerz");
-  res.redirect(`${req.protocol}://${req.get("host")}/en/checkout`);
+  res.redirect(`${env.NEXT_PUBLIC_APP_URL}/en/checkout?cancelled=1`);
 }
 export async function sslcommerzIpnHandler(req: Request, res: Response) {
   await sslcommerz.validateSslcommerzPayment(String(req.body.val_id), String(req.params.orderId));
@@ -71,7 +70,7 @@ export async function paystackCallbackHandler(req: Request, res: Response) {
 
 export const voguePayNotifySchema = z.object({ transaction_id: z.string().optional(), status: z.string() });
 export async function voguePayNotifyHandler(req: Request, res: Response) {
-  await voguepay.handleVoguePayNotify(String(req.params.orderId), String(req.body.status));
+  await voguepay.handleVoguePayNotify(String(req.params.orderId), String(req.body.transaction_id ?? ""));
   res.status(200).send("OK");
 }
 
@@ -116,7 +115,7 @@ export async function createMpesaPushHandler(req: Request, res: Response) {
 // Safaricom retries until it gets a 200, so this always acknowledges: a non-200
 // would have them replay a result already recorded.
 export async function mpesaCallbackHandler(req: Request, res: Response) {
-  await mpesa.handleMpesaCallback(String(req.params.orderId), req.body);
+  await mpesa.handleMpesaCallback(String(req.params.orderId), req.body, String(req.query.token ?? ""));
   res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
 }
 

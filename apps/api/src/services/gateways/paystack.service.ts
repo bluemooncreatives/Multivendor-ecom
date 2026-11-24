@@ -1,7 +1,7 @@
 import axios from "axios";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../../config/env.js";
-import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment } from "./shared.js";
+import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment, assertVerifiedPayment } from "./shared.js";
 import * as paymentService from "../payment.service.js";
 import { ApiError } from "../../middleware/errorHandler.js";
 
@@ -11,7 +11,7 @@ interface PaystackCreds {
 }
 
 export async function createPaystackTransaction(orderId: string) {
-  const order = await getPendingOrderOrThrow(orderId);
+  const order = await getPendingOrderOrThrow(orderId, "paystack");
   const creds = await getGatewayCredentials<PaystackCreds>("paystack");
 
   const { data } = await axios.post(
@@ -38,9 +38,11 @@ export async function verifyPaystackTransaction(reference: string, orderId: stri
   });
 
   if (data.data?.status === "success") {
+    if (data.data.reference !== reference) throw new ApiError(409, "Payment reference does not match");
+    await assertVerifiedPayment(orderId, "paystack", Number(data.data.amount) / 100, data.data.currency, reference);
     await paymentService.settleOrderPayment(orderId, "paystack", reference);
   } else {
-    await paymentService.failOrderPayment(orderId, "paystack");
+    throw new ApiError(409, "PayStack has not confirmed this payment");
   }
 }
 

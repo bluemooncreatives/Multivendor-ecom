@@ -1,6 +1,6 @@
 import axios from "axios";
 import { env } from "../../config/env.js";
-import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment } from "./shared.js";
+import { getGatewayCredentials, getPendingOrderOrThrow, recordPendingPayment, assertVerifiedPayment } from "./shared.js";
 import * as paymentService from "../payment.service.js";
 import { ApiError } from "../../middleware/errorHandler.js";
 
@@ -18,7 +18,7 @@ function baseUrl(sandbox?: boolean) {
 // redirect the shopper to; the actual payment result arrives at ipn_url (server
 // to server) plus success/fail/cancel redirects (browser).
 export async function createSslcommerzSession(orderId: string) {
-  const order = await getPendingOrderOrThrow(orderId);
+  const order = await getPendingOrderOrThrow(orderId, "sslcommerz");
   const creds = await getGatewayCredentials<SslcommerzCreds>("sslcommerz");
 
   const addr = order.addressSnapshot as Record<string, string>;
@@ -61,8 +61,10 @@ export async function validateSslcommerzPayment(valId: string, orderId: string) 
   });
 
   if (data.status === "VALID" || data.status === "VALIDATED") {
+    if (data.tran_id !== orderId) throw new ApiError(409, "Payment reference does not match");
+    await assertVerifiedPayment(orderId, "sslcommerz", Number(data.amount), data.currency);
     await paymentService.settleOrderPayment(orderId, "sslcommerz", valId);
   } else {
-    await paymentService.failOrderPayment(orderId, "sslcommerz");
+    throw new ApiError(409, "SSLCommerz has not confirmed this payment");
   }
 }

@@ -2,10 +2,11 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { Order } from "../models/Order.js";
 import { PickupPoint } from "../models/Marketing.js";
-import { settleOrderPayment } from "../services/payment.service.js";
+import { settleOrderPayment, failOrderPayment } from "../services/payment.service.js";
 import { cancelOrder } from "../services/order.service.js";
 import { awardClubPointsForOrder } from "../services/clubpoints.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { inventoryStatus } from "../services/order-state.js";
 
 export const updateOrderStatusSchema = z.object({
   status: z.enum(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]),
@@ -18,12 +19,18 @@ export async function updateOrderStatusHandler(req: Request, res: Response) {
   const order = await Order.findById(req.params.id);
   if (!order) throw new ApiError(404, "Order not found");
   if (order.status === "refunded") throw new ApiError(409, "A refunded order cannot change status");
+  if (order.status === "cancelled") throw new ApiError(409, "A cancelled order cannot change status");
 
   // Cancelling has side effects (restock, ledger reversal, wallet refund), so it
   // routes through cancelOrder rather than being a plain field write.
   if (req.body.status === "cancelled") {
     return res.json(await cancelOrder(String(order._id), req.user!));
   }
+  if (req.body.status !== order.status && inventoryStatus(order) !== "confirmed") {
+    throw new ApiError(409, "Confirm payment before starting fulfillment");
+  }
+  const sequence = ["pending", "confirmed", "processing", "shipped", "delivered"];
+  if (sequence.indexOf(req.body.status) < sequence.indexOf(order.status)) throw new ApiError(409, "Fulfillment cannot move backwards");
 
   order.status = req.body.status as never;
   // Flag the change as unseen so the customer's order list can mark it updated.
@@ -60,6 +67,11 @@ export async function updateOrderPaymentStatusHandler(req: Request, res: Respons
 
   if (order.paymentStatus === "paid") {
     throw new ApiError(409, "A paid order cannot be marked unpaid; issue a refund instead");
+  }
+  if (["cancelled", "refunded"].includes(order.status)) throw new ApiError(409, "This order is closed");
+  if (req.body.paymentStatus === "failed") {
+    await failOrderPayment(String(order._id), order.paymentMethod);
+    return res.json(await Order.findById(order._id));
   }
   order.paymentStatus = req.body.paymentStatus as never;
   order.paymentStatusViewed = false;

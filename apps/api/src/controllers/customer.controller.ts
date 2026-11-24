@@ -66,6 +66,7 @@ export async function createAddressHandler(req: Request, res: Response) {
 }
 
 export async function updateAddressHandler(req: Request, res: Response) {
+  if (!await Address.exists({ _id: req.params.id, userId: req.user!.id })) throw new ApiError(404, "Address not found");
   if (req.body.isDefault) {
     await Address.updateMany({ userId: req.user!.id }, { isDefault: false });
   }
@@ -133,7 +134,7 @@ export async function listAdminTicketsHandler(req: Request, res: Response) {
 }
 
 export async function getTicketHandler(req: Request, res: Response) {
-  const filter = req.user!.role === "customer" ? { _id: req.params.id, userId: req.user!.id } : { _id: req.params.id };
+  const filter = canManageTickets(req) ? { _id: req.params.id } : { _id: req.params.id, userId: req.user!.id };
   const ticket = await Ticket.findOne(filter)
     .populate("userId", "name email")
     .populate("replies.authorId", "name role avatarUrl");
@@ -144,13 +145,13 @@ export async function getTicketHandler(req: Request, res: Response) {
 export const replyTicketSchema = z.object({ message: z.string().min(1) });
 
 export async function replyTicketHandler(req: Request, res: Response) {
-  const filter = req.user!.role === "customer" ? { _id: req.params.id, userId: req.user!.id } : { _id: req.params.id };
+  const filter = canManageTickets(req) ? { _id: req.params.id } : { _id: req.params.id, userId: req.user!.id };
   const ticket = await Ticket.findOne(filter);
   if (!ticket) throw new ApiError(404, "Ticket not found");
   if (ticket.status === "closed") throw new ApiError(409, "This ticket is closed. Open a new one to continue.");
 
   ticket.replies.push({ authorId: req.user!.id, message: req.body.message } as never);
-  ticket.status = req.user!.role === "customer" ? "open" : "answered";
+  ticket.status = canManageTickets(req) ? "answered" : "open";
   await ticket.save();
   res.json(ticket);
 }
@@ -163,7 +164,7 @@ export const updateTicketSchema = z.object({
 // A customer may close their own ticket but cannot reopen or reprioritise it —
 // triage stays with support, so nobody can jump the queue by setting "high".
 export async function updateTicketHandler(req: Request, res: Response) {
-  const isStaff = req.user!.role === "admin" || req.user!.role === "staff";
+  const isStaff = canManageTickets(req);
   if (!isStaff) {
     if (req.body.priority !== undefined) throw new ApiError(403, "Only support staff can set ticket priority");
     if (req.body.status !== "closed") throw new ApiError(403, "You can only close your own ticket");
@@ -173,6 +174,10 @@ export async function updateTicketHandler(req: Request, res: Response) {
   const ticket = await Ticket.findOneAndUpdate(filter, req.body, { new: true });
   if (!ticket) throw new ApiError(404, "Ticket not found");
   res.json(ticket);
+}
+
+function canManageTickets(req: Request) {
+  return req.user?.role === "admin" || (req.user?.role === "staff" && req.user.permissions?.includes("tickets.manage"));
 }
 
 // --- Admin: customer import ------------------------------------------------------

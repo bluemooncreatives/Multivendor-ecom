@@ -18,6 +18,7 @@ const couponSchema = new Schema(
     startsAt: Date,
     expiresAt: Date,
     active: { type: Boolean, default: true },
+    redemptionVersion: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

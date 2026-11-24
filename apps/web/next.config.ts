@@ -10,11 +10,13 @@ import createNextIntlPlugin from "next-intl/plugin";
 config({ path: path.resolve(__dirname, "../../.env") });
 
 const withNextIntl = createNextIntlPlugin("./i18n.ts");
+const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns: [
+      { protocol: apiUrl.protocol.slice(0, -1) as "http" | "https", hostname: apiUrl.hostname, port: apiUrl.port, pathname: "/uploads/**" },
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "**.s3.amazonaws.com" },
       { protocol: "https", hostname: "images.unsplash.com" },

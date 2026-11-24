@@ -15,7 +15,7 @@ function ownerFilter({ userId, guestId }: CartOwner) {
 }
 
 async function findVariant(productId: string, variantSku: string) {
-  const product = await Product.findOne({ _id: productId, published: true });
+  const product = await Product.findOne({ _id: productId, published: true, approvalStatus: "approved" });
   if (!product) throw new ApiError(404, "Product not found");
   const variant = product.variants.find((v) => v.sku === variantSku);
   if (!variant) throw new ApiError(404, "Variant not found");
@@ -79,7 +79,10 @@ export async function getCartWithDetails(owner: CartOwner) {
 // Stock is re-checked against `stock - reserved` (available, not gross) every time
 // a quantity is set — on add, on quantity change, and again on guest-cart merge.
 export async function setCartItem(owner: CartOwner, productId: string, variantSku: string, quantity: number) {
-  const { variant } = await findVariant(productId, variantSku);
+  if (!Number.isSafeInteger(quantity) || quantity < 0) throw new ApiError(400, "Quantity must be a non-negative integer");
+  if (quantity === 0) { await removeCartItem(owner, productId, variantSku); return; }
+  const { product, variant } = await findVariant(productId, variantSku);
+  if (quantity < product.minOrderQty) throw new ApiError(400, `Minimum quantity is ${product.minOrderQty}`);
   const available = variant.stock - variant.reserved;
   if (quantity > available) {
     throw new ApiError(409, `Only ${available} unit(s) of this variant are available`);
@@ -116,7 +119,9 @@ export async function mergeGuestCartIntoUser(guestId: string, userId: string) {
   const userCart = (await Cart.findOne({ userId })) ?? new Cart({ userId, items: [] });
 
   for (const guestItem of guestCart.items) {
-    const { variant } = await findVariant(guestItem.productId.toString(), guestItem.variantSku);
+    const product = await Product.findOne({ _id: guestItem.productId, published: true, approvalStatus: "approved" });
+    const variant = product?.variants.find((v) => v.sku === guestItem.variantSku);
+    if (!product || !variant) continue;
     const existing = userCart.items.find(
       (i) => i.productId.toString() === guestItem.productId.toString() && i.variantSku === guestItem.variantSku,
     );
@@ -124,7 +129,10 @@ export async function mergeGuestCartIntoUser(guestId: string, userId: string) {
     const available = variant.stock - variant.reserved;
     const finalQty = Math.min(combinedQty, available);
 
-    if (finalQty <= 0) continue;
+    if (finalQty < product.minOrderQty) {
+      if (existing) userCart.items.splice(userCart.items.indexOf(existing), 1);
+      continue;
+    }
     if (existing) {
       existing.quantity = finalQty;
     } else {

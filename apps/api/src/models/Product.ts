@@ -58,7 +58,7 @@ const productSchema = new Schema(
     },
     minOrderQty: { type: Number, default: 1, min: 1 },
     isDigital: { type: Boolean, default: false },
-    digitalFileUrl: { type: String, default: null }, // never served directly; gated by download token
+    digitalFileUrl: { type: String, default: null, select: false },
     refundable: { type: Boolean, default: true },
     videoProvider: { type: String, enum: ["youtube", "dailymotion", "vimeo", null], default: null },
     videoLink: { type: String, default: null },

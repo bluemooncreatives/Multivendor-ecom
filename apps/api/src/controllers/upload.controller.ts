@@ -30,6 +30,9 @@ export async function uploadManyHandler(req: Request, res: Response) {
 
   const kind = String(req.query.kind ?? "image") as UploadKind;
   if (!KINDS.includes(kind)) throw new ApiError(400, `kind must be one of: ${KINDS.join(", ")}`);
+  if (kind === "digital" && !["seller", "admin", "staff"].includes(req.user!.role)) {
+    throw new ApiError(403, "Only sellers and staff can upload digital products");
+  }
 
   const stored = [];
   for (const file of files) {
