@@ -7,6 +7,7 @@ import { cancelOrder } from "../services/order.service.js";
 import { awardClubPointsForOrder } from "../services/clubpoints.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { inventoryStatus } from "../services/order-state.js";
+import { getManagedPickupPoint, pickupOrderView } from "../services/pickuppoint.service.js";
 
 export const updateOrderStatusSchema = z.object({
   status: z.enum(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]),
@@ -91,8 +92,7 @@ export async function listOrdersByPickupPointHandler(req: Request, res: Response
   const { pickupPointId } = req.query as { pickupPointId?: string };
   if (!pickupPointId) throw new ApiError(400, "pickupPointId is required");
 
-  const point = await PickupPoint.findById(pickupPointId);
-  if (!point) throw new ApiError(404, "Pickup point not found");
+  const point = await getManagedPickupPoint(pickupPointId, req.user!);
 
   // Reads details[].pickupPointId, which checkout now writes. This previously
   // queried addressSnapshot.pickupPointId — a field nothing ever populated, so the
@@ -100,5 +100,5 @@ export async function listOrdersByPickupPointHandler(req: Request, res: Response
   const items = await Order.find({ "details.pickupPointId": pickupPointId })
     .sort({ createdAt: -1 })
     .limit(200);
-  res.json({ pickupPoint: point, items });
+  res.json({ pickupPoint: point, items: items.map((order) => pickupOrderView(order, pickupPointId)) });
 }

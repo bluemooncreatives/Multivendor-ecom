@@ -9,6 +9,8 @@ import {
   updatePickupPointHandler,
   deletePickupPointHandler,
   pickupPointSchema,
+  fulfillPickupShipmentHandler,
+  pickupFulfillmentSchema,
 } from "../controllers/pickuppoint.controller.js";
 
 export const pickupPointRouter = Router();
@@ -30,3 +32,4 @@ pickupPointRouter.patch(
   asyncHandler(updatePickupPointHandler),
 );
 pickupPointRouter.delete("/admin/:id", authenticate, requirePermission("pickuppoints.manage"), asyncHandler(deletePickupPointHandler));
+pickupPointRouter.patch("/admin/:id/orders/:orderId", authenticate, requirePermission("pickuppoints.manage"), validateBody(pickupFulfillmentSchema), asyncHandler(fulfillPickupShipmentHandler));

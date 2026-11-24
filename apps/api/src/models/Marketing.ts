@@ -13,6 +13,7 @@ export const Subscriber = model("Subscriber", subscriberSchema);
 
 const pickupPointSchema = new Schema(
   {
+    staffId: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
     name: { type: String, required: true },
     address: { type: String, required: true },
     city: { type: String, required: true },
