@@ -13,19 +13,23 @@ vi.mock("../invoice.service.js", () => ({ renderInvoiceBuffer: vi.fn() }));
 
 import { createOrder } from "../checkout.service.js";
 import { cancelOrder } from "../order.service.js";
-import { settleOrderPayment, failOrderPayment, recordPaymentEventOnce, completePaymentEvent } from "../payment.service.js";
+import { settleOrderPayment, failOrderPayment, recordPaymentEventOnce, completePaymentEvent, expireAbandonedOrders, listLateCaptures } from "../payment.service.js";
 import { createPosSale } from "../pos.service.js";
-import { Product } from "../../models/Product.js";
+import { runMaintenanceOnce, withJobLock, JobLock } from "../scheduler.service.js";
+import { Product, FlashDeal } from "../../models/Product.js";
 import { Category } from "../../models/Category.js";
 import { Cart } from "../../models/Cart.js";
 import { Order } from "../../models/Order.js";
 import { Coupon, CouponUsage } from "../../models/Coupon.js";
 import { BusinessSetting, GeneralSetting, Addon } from "../../models/Settings.js";
+import { Shop } from "../../models/Shop.js";
+import { SellerPackage, SellerPackagePayment, CustomerPackage } from "../../models/Package.js";
+import { purchaseSellerPackage, purchaseCustomerPackage, consumeSellerUpload, consumeCustomerUpload, assertSellerPackageValid, unpublishExpiredSellerProducts } from "../package.service.js";
 import { SellerLedger } from "../../models/Ledger.js";
 import { Wallet, WalletTransaction } from "../../models/Wallet.js";
 import { User } from "../../models/User.js";
 import { ClubPointConfig } from "../../models/ClubPoints.js";
-import { mergeGuestCartIntoUser, setCartItem } from "../cart.service.js";
+import { mergeGuestCartIntoUser, setCartItem, getCartWithDetails } from "../cart.service.js";
 import type { CheckoutInput } from "../checkout.service.js";
 import { createApp } from "../../app.js";
 import { signDownloadToken } from "../digitalproduct.service.js";
@@ -431,5 +435,525 @@ describe("checkout and settlement with real transactions", () => {
     await expect(settleOrderPayment(String(secondOrder._id), "stripe", "one-real-transaction")).rejects.toThrow(/another order/);
     expect((await stock(second.product._id)).stock).toBe(10);
     expect((await Order.findById(secondOrder._id))!.paymentStatus).toBe("pending");
+  });
+});
+
+describe("flash deal campaign pricing and allowance", () => {
+  const dealWindow = () => ({ startsAt: new Date(Date.now() - 3_600_000), endsAt: new Date(Date.now() + 3_600_000) });
+
+  async function campaign(product: unknown, overrides: Record<string, unknown> = {}, dealOverrides: Record<string, unknown> = {}) {
+    return FlashDeal.create({
+      title: "Campaign",
+      slug: `campaign-${id()}`,
+      ...dealWindow(),
+      active: true,
+      products: [{ productId: product, variantSku: "sku", discountType: "percent", discount: 50, dealStock: null, ...overrides }],
+      ...dealOverrides,
+    });
+  }
+
+  it("prices the line from the campaign instead of the product's own discount, and taxes the deal price", async () => {
+    // Product discount 10% and tax 10%: without the campaign a unit costs 90 + 9 tax.
+    const { product, input } = await fixture({ discount: 10, discountType: "percent", tax: 10, taxType: "percent" });
+    await campaign(product._id); // 50% off, replaces the 10%
+
+    const order = await createOrder(input);
+    expect(order.details[0].items[0].unitPrice).toBe(50);
+    expect(order.details[0].items[0].listPrice).toBe(100);
+    expect(order.details[0].subtotal).toBe(100); // 2 units at 50
+    expect(order.tax).toBe(10); // 10% of the discounted subtotal, not of 180
+    expect(order.grandTotal).toBe(110);
+  });
+
+  it("applies a fixed-amount campaign discount like the legacy 'amount' type", async () => {
+    const { product, input } = await fixture({ discount: 10, discountType: "percent" });
+    await campaign(product._id, { discountType: "flat", discount: 30 });
+
+    const order = await createOrder(input);
+    expect(order.details[0].items[0].unitPrice).toBe(70);
+  });
+
+  it("ignores a campaign that has not started, has ended, or is inactive", async () => {
+    const scheduled = await fixture({ discount: 10, discountType: "percent" });
+    await campaign(scheduled.product._id, {}, { startsAt: new Date(Date.now() + 86_400_000), endsAt: new Date(Date.now() + 172_800_000) });
+    expect((await createOrder(scheduled.input)).details[0].items[0].unitPrice).toBe(90);
+
+    const ended = await fixture({ discount: 10, discountType: "percent" });
+    await campaign(ended.product._id, {}, { startsAt: new Date(Date.now() - 172_800_000), endsAt: new Date(Date.now() - 86_400_000) });
+    expect((await createOrder(ended.input)).details[0].items[0].unitPrice).toBe(90);
+
+    const paused = await fixture({ discount: 10, discountType: "percent" });
+    await campaign(paused.product._id, {}, { active: false });
+    expect((await createOrder(paused.input)).details[0].items[0].unitPrice).toBe(90);
+  });
+
+  it("only discounts the variant the campaign names", async () => {
+    const userId = id();
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const product = await Product.create({ name: "Two variants", slug: `product-${id()}`, addedBy: "admin", sellerId: null,
+      categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved", discount: 0,
+      variants: [{ sku: "sku", price: 100, stock: 10, reserved: 0 }, { sku: "other", price: 100, stock: 10, reserved: 0 }] });
+    await campaign(product._id);
+    await Cart.create({ userId, items: [
+      { productId: product._id, variantSku: "sku", quantity: 1 },
+      { productId: product._id, variantSku: "other", quantity: 1 },
+    ] });
+
+    const order = await createOrder({ owner: { userId: String(userId) }, address, paymentMethod: "cod", idempotencyKey: `checkout-${id()}` });
+    const prices = Object.fromEntries(order.details[0].items.map((item: { variantSku: string; unitPrice: number }) => [item.variantSku, item.unitPrice]));
+    expect(prices).toEqual({ sku: 50, other: 100 });
+  });
+
+  it("consumes the campaign allowance and stops quoting the deal once it is spent", async () => {
+    const first = await fixture({ discount: 0 });
+    await campaign(first.product._id, { dealStock: 2 });
+
+    const firstOrder = await createOrder(first.input); // 2 units, exactly the allowance
+    expect(firstOrder.details[0].items[0].unitPrice).toBe(50);
+    const deal = await FlashDeal.findOne({ "products.productId": first.product._id });
+    expect(deal!.products[0]!.dealSold).toBe(2);
+
+    // A second shopper on the same (sold-out) campaign line pays the normal price
+    // rather than being quoted a deal the allowance can no longer cover.
+    const secondUser = id();
+    await Cart.create({ userId: secondUser, items: [{ productId: first.product._id, variantSku: "sku", quantity: 1 }] });
+    const secondOrder = await createOrder({ owner: { userId: String(secondUser) }, address, paymentMethod: "cod", idempotencyKey: `checkout-${id()}` });
+    expect(secondOrder.details[0].items[0].unitPrice).toBe(100);
+    expect(secondOrder.details[0].items[0].flashDealId).toBeNull();
+    expect((await FlashDeal.findById(deal!._id))!.products[0]!.dealSold).toBe(2);
+  });
+
+  it("does not oversell the allowance when two checkouts race for the last units", async () => {
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const product = await Product.create({ name: "Scarce deal", slug: `product-${id()}`, addedBy: "admin", sellerId: null,
+      categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved", discount: 0,
+      variants: [{ sku: "sku", price: 100, stock: 10, reserved: 0 }] });
+    await campaign(product._id, { dealStock: 2 });
+
+    const buyers = await Promise.all([id(), id()].map(async (userId) => {
+      await Cart.create({ userId, items: [{ productId: product._id, variantSku: "sku", quantity: 2 }] });
+      return { owner: { userId: String(userId) }, address, paymentMethod: "cod" as const, idempotencyKey: `checkout-${id()}` };
+    }));
+    const results = await Promise.allSettled(buyers.map((input) => createOrder(input)));
+
+    const sold = (await FlashDeal.findOne({ "products.productId": product._id }))!.products[0]!.dealSold;
+    expect(sold).toBe(2); // never 4
+    const dealPriced = results.filter((result) =>
+      result.status === "fulfilled" && result.value.details[0].items[0].unitPrice === 50);
+    expect(dealPriced).toHaveLength(1);
+  });
+
+  it("returns the allowance when the order is cancelled", async () => {
+    const { product, input } = await fixture({ discount: 0 });
+    const deal = await campaign(product._id, { dealStock: 5 });
+    const order = await createOrder(input);
+    expect((await FlashDeal.findById(deal._id))!.products[0]!.dealSold).toBe(2);
+
+    await cancelOrder(String(order._id), { id: String(input.owner.userId), role: "customer", permissions: [] } as never);
+    expect((await FlashDeal.findById(deal._id))!.products[0]!.dealSold).toBe(0);
+  });
+
+  it("returns the allowance when a gateway payment fails, and not twice on a replay", async () => {
+    const { product, input } = await fixture({ discount: 0 });
+    const deal = await campaign(product._id, { dealStock: 5 });
+    const order = await createOrder({ ...input, paymentMethod: "stripe" });
+    expect((await FlashDeal.findById(deal._id))!.products[0]!.dealSold).toBe(2);
+
+    await failOrderPayment(String(order._id), "stripe");
+    await failOrderPayment(String(order._id), "stripe");
+    expect((await FlashDeal.findById(deal._id))!.products[0]!.dealSold).toBe(0);
+  });
+
+  it("survives a campaign deleted after the order was placed", async () => {
+    const { product, input } = await fixture({ discount: 0 });
+    const deal = await campaign(product._id, { dealStock: 5 });
+    const order = await createOrder(input);
+    await FlashDeal.deleteOne({ _id: deal._id });
+
+    await expect(cancelOrder(String(order._id), { id: String(input.owner.userId), role: "customer", permissions: [] } as never)).resolves.toBeTruthy();
+    expect((await Order.findById(order._id))!.status).toBe("cancelled");
+  });
+
+  it("quotes the campaign price in the cart, matching what is charged", async () => {
+    const userId = id();
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const product = await Product.create({ name: "Carted deal", slug: `product-${id()}`, addedBy: "admin", sellerId: null,
+      categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved", discount: 10, discountType: "percent",
+      variants: [{ sku: "sku", price: 100, stock: 10, reserved: 0 }] });
+    await campaign(product._id);
+    await setCartItem({ userId: String(userId) }, String(product._id), "sku", 2);
+
+    const cart = await getCartWithDetails({ userId: String(userId) });
+    expect(cart.items[0]!.unitPrice).toBe(50);
+    expect(cart.items[0]!.listPrice).toBe(100);
+    expect(cart.subtotal).toBe(100);
+
+    const order = await createOrder({ owner: { userId: String(userId) }, address, paymentMethod: "cod", idempotencyKey: `checkout-${id()}` });
+    expect(order.details[0].subtotal).toBe(cart.subtotal);
+  });
+
+  it("prices a POS till line from the live campaign too", async () => {
+    const { product } = await fixture({ discount: 0 });
+    await campaign(product._id, { dealStock: 3 });
+
+    const sale = await createPosSale({ sellerId: null, operatorId: String(id()), allowAnySeller: true,
+      walkIn: { name: "Walk in", phone: "9000000000" },
+      lines: [{ productId: String(product._id), variantSku: "sku", quantity: 1 }], paymentType: "cash", idempotencyKey: `pos-${id()}` });
+
+    expect(sale.details[0].items[0].unitPrice).toBe(50);
+    expect((await FlashDeal.findOne({ "products.productId": product._id }))!.products[0]!.dealSold).toBe(1);
+  });
+});
+
+describe("seller and customer package purchases", () => {
+  async function sellerWithShop(balance = 1000) {
+    const seller = await User.create({ name: "Seller", email: `seller-${id()}@example.com`, passwordHash: "x", role: "seller" });
+    await Shop.create({ sellerId: seller._id, name: `Shop ${id()}`, slug: `shop-${id()}` });
+    if (balance > 0) await Wallet.create({ userId: seller._id, currency: "INR", balance });
+    return seller;
+  }
+
+  async function plan(overrides: Record<string, unknown> = {}) {
+    return SellerPackage.create({ name: "Plan", price: 100, durationDays: 30, productLimit: 5, digitalProductLimit: 2, ...overrides });
+  }
+
+  beforeEach(async () => {
+    await Addon.create({ key: "seller_subscription", name: "Seller subscription", enabled: true });
+  });
+
+  it("debits the wallet, records the payment and grants the allowance in one transaction", async () => {
+    const seller = await sellerWithShop();
+    const pkg = await plan();
+
+    const payment = await purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` });
+
+    expect(payment.status).toBe("paid");
+    expect((await Wallet.findOne({ userId: seller._id }))!.balance).toBe(900);
+    const shop = await Shop.findOne({ sellerId: seller._id });
+    expect(shop!.remainingUploads).toBe(5);
+    expect(shop!.remainingDigitalUploads).toBe(2);
+    expect(shop!.packageInvalidAt!.getTime()).toBeGreaterThan(Date.now());
+    expect(String(shop!.sellerPackageId)).toBe(String(pkg._id));
+  });
+
+  it("charges once for a replayed purchase key, and refuses another account's key", async () => {
+    const seller = await sellerWithShop();
+    const pkg = await plan();
+    const key = `buy-${id()}`;
+
+    const [first, second] = await Promise.all([
+      purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: key }),
+      purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: key }),
+    ]);
+
+    expect(String(first._id)).toBe(String(second._id));
+    expect((await Wallet.findOne({ userId: seller._id }))!.balance).toBe(900);
+    expect((await Shop.findOne({ sellerId: seller._id }))!.remainingUploads).toBe(5);
+    expect(await SellerPackagePayment.countDocuments({ sellerId: seller._id })).toBe(1);
+
+    const other = await sellerWithShop();
+    await expect(purchaseSellerPackage({ userId: String(other._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: key }))
+      .rejects.toThrow(/already in use/);
+  });
+
+  it("adds a renewal's uploads to what is left and recomputes the expiry from the purchase", async () => {
+    const seller = await sellerWithShop();
+    const pkg = await plan();
+    await purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` });
+    await consumeSellerUpload(String(seller._id), "product");
+    await purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` });
+
+    const shop = await Shop.findOne({ sellerId: seller._id });
+    expect(shop!.remainingUploads).toBe(9); // 5 - 1 + 5
+    expect((await Wallet.findOne({ userId: seller._id }))!.balance).toBe(800);
+  });
+
+  it("refuses a purchase the wallet cannot cover, and grants nothing", async () => {
+    const seller = await sellerWithShop(50);
+    const pkg = await plan({ price: 100 });
+
+    await expect(purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` }))
+      .rejects.toThrow(/Insufficient/);
+    expect((await Wallet.findOne({ userId: seller._id }))!.balance).toBe(50);
+    expect((await Shop.findOne({ sellerId: seller._id }))!.remainingUploads).toBe(0);
+    expect(await SellerPackagePayment.countDocuments({ sellerId: seller._id })).toBe(0);
+  });
+
+  it("lets a free plan be taken once but not re-taken while it is the current plan", async () => {
+    const seller = await sellerWithShop(0);
+    const free = await plan({ price: 0 });
+
+    const payment = await purchaseSellerPackage({ userId: String(seller._id), packageId: String(free._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` });
+    expect(payment.status).toBe("paid");
+    await expect(purchaseSellerPackage({ userId: String(seller._id), packageId: String(free._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` }))
+      .rejects.toThrow(/cannot purchase this package anymore/);
+  });
+
+  it("grants nothing for an offline purchase until an admin approves it", async () => {
+    const seller = await sellerWithShop();
+    const pkg = await plan();
+    const payment = await purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "manual", idempotencyKey: `buy-${id()}` });
+
+    expect(payment.status).toBe("pending");
+    expect((await Shop.findOne({ sellerId: seller._id }))!.remainingUploads).toBe(0);
+    expect((await Wallet.findOne({ userId: seller._id }))!.balance).toBe(1000); // nothing taken
+
+    const admin = await User.create({ name: "Admin", email: `admin-${id()}@example.com`, passwordHash: "x", role: "admin" });
+    const token = signAccessToken({ sub: String(admin._id), role: "admin" });
+    const approve = () => fetch(`${base}/api/v1/addons/admin/packages/seller/payments/${payment._id}/approve`, {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ approve: true }),
+    });
+    const [one, two] = await Promise.all([approve(), approve()]);
+    expect([one.status, two.status].sort()).toEqual([200, 409]);
+    expect((await Shop.findOne({ sellerId: seller._id }))!.remainingUploads).toBe(5); // granted exactly once
+  });
+
+  it("consumes one upload per listing, by kind, and refuses once the allowance is spent", async () => {
+    const seller = await sellerWithShop();
+    const pkg = await plan({ productLimit: 1, digitalProductLimit: 1 });
+    await purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` });
+
+    await consumeSellerUpload(String(seller._id), "product");
+    await consumeSellerUpload(String(seller._id), "digital");
+    await expect(consumeSellerUpload(String(seller._id), "product")).rejects.toThrow(/upload limit/);
+    await expect(consumeSellerUpload(String(seller._id), "digital")).rejects.toThrow(/digital upload limit/);
+  });
+
+  it("does not let concurrent uploads spend the same last allowance", async () => {
+    const seller = await sellerWithShop();
+    const pkg = await plan({ productLimit: 1 });
+    await purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` });
+
+    const results = await Promise.allSettled([
+      consumeSellerUpload(String(seller._id), "product"),
+      consumeSellerUpload(String(seller._id), "product"),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect((await Shop.findOne({ sellerId: seller._id }))!.remainingUploads).toBe(0);
+  });
+
+  it("gives the upload back when the listing it was taken for is not created", async () => {
+    const seller = await sellerWithShop();
+    const pkg = await plan({ productLimit: 2 });
+    await purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` });
+
+    const release = await consumeSellerUpload(String(seller._id), "product");
+    expect((await Shop.findOne({ sellerId: seller._id }))!.remainingUploads).toBe(1);
+    await release();
+    expect((await Shop.findOne({ sellerId: seller._id }))!.remainingUploads).toBe(2);
+  });
+
+  it("refuses uploads and publishing once the subscription has lapsed, and unpublishes the catalogue", async () => {
+    const seller = await sellerWithShop();
+    const pkg = await plan();
+    await purchaseSellerPackage({ userId: String(seller._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: `buy-${id()}` });
+
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    await Product.create({ name: "Listed", slug: `product-${id()}`, addedBy: "seller", sellerId: seller._id,
+      categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved",
+      variants: [{ sku: "sku", price: 100, stock: 1, reserved: 0 }] });
+
+    // Backdate the expiry, as the passage of time would.
+    await Shop.updateOne({ sellerId: seller._id }, { packageInvalidAt: new Date(Date.now() - 86_400_000) });
+
+    await expect(consumeSellerUpload(String(seller._id), "product")).rejects.toThrow(/expired/);
+    await expect(assertSellerPackageValid(String(seller._id))).rejects.toThrow(/expired/);
+
+    expect(await unpublishExpiredSellerProducts()).toEqual({ sellers: 1, unpublished: 1 });
+    expect(await Product.countDocuments({ sellerId: seller._id, published: true })).toBe(0);
+    // A second sweep finds nothing left to change.
+    expect((await unpublishExpiredSellerProducts()).unpublished).toBe(0);
+  });
+
+  it("leaves uploads unlimited while the subscription add-on is switched off", async () => {
+    await Addon.updateOne({ key: "seller_subscription" }, { enabled: false });
+    const seller = await sellerWithShop();
+    const release = await consumeSellerUpload(String(seller._id), "product");
+    await release();
+    expect((await Shop.findOne({ sellerId: seller._id }))!.remainingUploads).toBe(0);
+  });
+
+  it("grants a customer classified allowance once and consumes it per listing", async () => {
+    await Addon.create({ key: "classified_products", name: "Classified products", enabled: true });
+    const user = await User.create({ name: "Customer", email: `cust-${id()}@example.com`, passwordHash: "x", role: "customer" });
+    await Wallet.create({ userId: user._id, currency: "INR", balance: 500 });
+    const pkg = await CustomerPackage.create({ name: "Listings", price: 100, durationDays: 30, classifiedListingLimit: 1 });
+
+    const key = `cbuy-${id()}`;
+    await purchaseCustomerPackage({ userId: String(user._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: key });
+    await purchaseCustomerPackage({ userId: String(user._id), packageId: String(pkg._id), paymentMethod: "wallet", idempotencyKey: key });
+    expect((await Wallet.findOne({ userId: user._id }))!.balance).toBe(400);
+    expect((await User.findById(user._id))!.remainingUploads).toBe(1);
+
+    await consumeCustomerUpload(String(user._id));
+    await expect(consumeCustomerUpload(String(user._id))).rejects.toThrow(/upload limit/);
+  });
+});
+
+describe("abandoned checkouts and late captures", () => {
+  async function age(orderId: unknown, minutes: number) {
+    // Mongoose marks `createdAt` immutable, so the native collection is used to
+    // age the row the way the passage of time would.
+    await Order.collection.updateOne({ _id: orderId as never }, { $set: { createdAt: new Date(Date.now() - minutes * 60_000) } });
+  }
+
+  it("releases stock, campaign allowance, points and coupon use from an abandoned gateway checkout", async () => {
+    const { product, input, userId } = await fixture({ discount: 0 });
+    const deal = await FlashDeal.create({
+      title: "Campaign", slug: `campaign-${id()}`, active: true,
+      startsAt: new Date(Date.now() - 3_600_000), endsAt: new Date(Date.now() + 3_600_000),
+      products: [{ productId: product._id, variantSku: "sku", discountType: "percent", discount: 50, dealStock: 5 }],
+    });
+    const coupon = await Coupon.create({ code: `ABANDON${id()}`, type: "percent", value: 10, active: true });
+    await ClubPointConfig.create({ pointsPerCurrency: 1, currencyPerPoint: 1 });
+    await User.updateOne({ _id: userId }, { clubPoints: 10 }, { upsert: true });
+
+    const order = await createOrder({ ...input, paymentMethod: "stripe", couponCode: coupon.code });
+    expect((await stock(product._id)).reserved).toBe(2);
+    expect(await CouponUsage.countDocuments({ orderId: order._id })).toBe(1);
+
+    // Too young to sweep.
+    expect((await expireAbandonedOrders(60)).expired).toBe(0);
+    expect((await stock(product._id)).reserved).toBe(2);
+
+    await age(order._id, 120);
+    const result = await expireAbandonedOrders(60);
+    expect(result.expired).toBe(1);
+
+    const swept = await Order.findById(order._id);
+    expect(swept!.status).toBe("cancelled");
+    expect(swept!.paymentStatus).toBe("failed");
+    expect(swept!.inventoryStatus).toBe("released");
+    const variant = await stock(product._id);
+    expect(variant.reserved).toBe(0);
+    expect(variant.stock).toBe(10); // never consumed
+    expect((await FlashDeal.findById(deal._id))!.products[0]!.dealSold).toBe(0);
+    expect(await CouponUsage.countDocuments({ orderId: order._id })).toBe(0);
+
+    // Idempotent: a second sweep finds nothing and does not double-release.
+    expect((await expireAbandonedOrders(60)).expired).toBe(0);
+    expect((await stock(product._id)).reserved).toBe(0);
+  });
+
+  it("leaves COD, wallet and already-paid orders alone", async () => {
+    const cod = await fixture();
+    const codOrder = await createOrder(cod.input);
+    await age(codOrder._id, 600);
+
+    const paid = await fixture();
+    const paidOrder = await createOrder({ ...paid.input, paymentMethod: "stripe" });
+    await settleOrderPayment(String(paidOrder._id), "stripe", `txn-${id()}`);
+    await age(paidOrder._id, 600);
+
+    expect((await expireAbandonedOrders(60)).expired).toBe(0);
+    expect((await Order.findById(codOrder._id))!.status).toBe("confirmed");
+    expect((await Order.findById(paidOrder._id))!.paymentStatus).toBe("paid");
+  });
+
+  it("records a capture that arrives after the checkout was swept, for refund, and does not fulfil it", async () => {
+    const { product, input } = await fixture();
+    const order = await createOrder({ ...input, paymentMethod: "stripe" });
+    await age(order._id, 120);
+    await expireAbandonedOrders(60);
+
+    const ref = `late-${id()}`;
+    await expect(settleOrderPayment(String(order._id), "stripe", ref)).rejects.toThrow(/closed before the payment settled/);
+
+    const captures = await listLateCaptures();
+    expect(captures).toHaveLength(1);
+    expect(captures[0]!.requiresRefund).toBe(true);
+    expect(captures[0]!.amount).toBe((await Order.findById(order._id))!.grandTotal);
+
+    // Nothing was fulfilled: the order stays closed and the stock stays on sale.
+    const closed = await Order.findById(order._id);
+    expect(closed!.paymentStatus).toBe("failed");
+    expect((await stock(product._id)).stock).toBe(10);
+
+    // The same provider transaction cannot then be used to pay a different order.
+    const other = await fixture();
+    const otherOrder = await createOrder({ ...other.input, paymentMethod: "stripe" });
+    await expect(settleOrderPayment(String(otherOrder._id), "stripe", ref)).rejects.toThrow(/another order/);
+
+    // A replayed late notification records one capture, not two.
+    await expect(settleOrderPayment(String(order._id), "stripe", ref)).rejects.toThrow(/closed before the payment settled/);
+    expect(await listLateCaptures()).toHaveLength(1);
+  });
+
+  it("does not sweep a checkout that settles while the sweep is deciding", async () => {
+    const { product, input } = await fixture();
+    const order = await createOrder({ ...input, paymentMethod: "stripe" });
+    await age(order._id, 120);
+
+    const [sweep, settle] = await Promise.allSettled([
+      expireAbandonedOrders(60),
+      settleOrderPayment(String(order._id), "stripe", `race-${id()}`),
+    ]);
+
+    const settled = await Order.findById(order._id);
+    // Whichever of the two won, the order is never both paid and released, and the
+    // money is never silently dropped.
+    if (settled!.paymentStatus === "paid") {
+      expect(settle.status).toBe("fulfilled");
+      expect(settled!.inventoryStatus).toBe("confirmed");
+      expect((await stock(product._id)).stock).toBe(8);
+      expect(sweep.status === "fulfilled" && sweep.value.expired).toBe(0);
+      expect(await listLateCaptures()).toHaveLength(0);
+    } else {
+      expect(settled!.inventoryStatus).toBe("released");
+      expect((await stock(product._id)).stock).toBe(10);
+      // The sweep got there first, so the capture is held for refund.
+      expect(settle.status).toBe("rejected");
+      expect(await listLateCaptures()).toHaveLength(1);
+    }
+  });
+});
+
+describe("background maintenance", () => {
+  it("runs each sweep once per interval even when two instances tick together", async () => {
+    const { product, input } = await fixture();
+    const order = await createOrder({ ...input, paymentMethod: "stripe" });
+    await Order.collection.updateOne({ _id: order._id as never }, { $set: { createdAt: new Date(Date.now() - 7_200_000) } });
+
+    // Two instances, one interval: the lock means one of them does the work.
+    const [first, second] = await Promise.all([
+      runMaintenanceOnce({ reservationTtlMinutes: 60 }),
+      runMaintenanceOnce({ reservationTtlMinutes: 60 }),
+    ]);
+    const didWork = [first, second].filter((result) => result.abandoned !== null);
+    expect(didWork).toHaveLength(1);
+    expect(didWork[0]!.abandoned!.expired).toBe(1);
+
+    expect((await Order.findById(order._id))!.status).toBe("cancelled");
+    expect((await stock(product._id)).reserved).toBe(0);
+  });
+
+  it("releases its lock after a run so the next interval can work again", async () => {
+    await runMaintenanceOnce();
+    const lock = await JobLock.findById("expire-abandoned-orders");
+    expect(lock!.lastRunAt).toBeTruthy();
+    expect(lock!.lockedUntil.getTime()).toBeLessThanOrEqual(Date.now());
+
+    // A second run is admitted (and finds nothing to do).
+    const again = await runMaintenanceOnce();
+    expect(again.abandoned).not.toBeNull();
+    expect(again.abandoned!.expired).toBe(0);
+  });
+
+  it("releases its lock when the work throws, so a failure is not a permanent stall", async () => {
+    await expect(withJobLock("boom", 15, async () => { throw new Error("sweep failed"); })).rejects.toThrow(/sweep failed/);
+    const lock = await JobLock.findById("boom");
+    expect(lock!.lockedUntil.getTime()).toBeLessThanOrEqual(Date.now());
+    await expect(withJobLock("boom", 15, async () => "second attempt")).resolves.toBe("second attempt");
+  });
+
+  it("does not admit a second run while a lease is held", async () => {
+    // Hold the lease, then try to claim it.
+    const held = withJobLock("slow", 15, async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return "done";
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(await withJobLock("slow", 15, async () => "other")).toBeNull();
+    expect(await held).toBe("done");
   });
 });

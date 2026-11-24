@@ -9,6 +9,7 @@ import type { AuthenticatedUser } from "../middleware/auth.js";
 import { inventoryStatus } from "./order-state.js";
 import { restorePointsForOrder } from "./clubpoints.service.js";
 import { CouponUsage } from "../models/Coupon.js";
+import { releaseDealStock, dealLinesFromOrder } from "./flashdeal.service.js";
 
 // IDOR guard: customers only ever see their own orders; sellers only orders
 // containing at least one of their own items; staff/admin can see any.
@@ -142,6 +143,9 @@ export async function cancelOrder(orderId: string, requester: AuthenticatedUser)
         );
         order.paymentStatus = "refunded";
       }
+
+      // Any flash-deal allowance the order consumed is returned to the campaign.
+      await releaseDealStock(dealLinesFromOrder(order), session);
 
       order.status = "cancelled";
       order.inventoryStatus = "released";

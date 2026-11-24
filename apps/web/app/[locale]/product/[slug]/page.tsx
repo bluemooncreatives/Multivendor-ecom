@@ -50,9 +50,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   if (!product) return <div className="container py-10">Product not found.</div>;
 
   const available = variant?.stock ?? 0;
-  const comparePrice = variant?.comparePrice;
-  const price = variant?.price ?? product.basePrice;
-  const hasDiscount = !!comparePrice && comparePrice > price;
+  // The selected variant's server-computed price (live flash-deal campaign first,
+  // then the product's own discount) — the same figure the cart will charge.
+  const variantPricing = product.pricing?.variants.find((v) => v.sku === variant?.sku);
+  const listPrice = variantPricing?.listPrice ?? variant?.comparePrice ?? variant?.price ?? product.basePrice;
+  const price = variantPricing?.price ?? variant?.price ?? product.basePrice;
+  const hasDiscount = listPrice > price;
+  const onFlashDeal = product.pricing?.discountSource === "flash_deal" && !!variantPricing && variantPricing.price < variantPricing.listPrice;
   const relatedProducts = (related?.items ?? []).filter((p) => p.id !== product.id).slice(0, 5);
   const isWishlisted = !!wishlist?.find((item) => item.productId.id === product.id);
   const isComparing = compareIds.includes(product.id);
@@ -108,13 +112,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             {available > 0 ? `${available} in stock` : "Out of stock"}
           </Badge>
 
-          <div className="flex items-baseline gap-3 border-t pt-4">
+          <div className="flex flex-wrap items-baseline gap-3 border-t pt-4">
             {hasDiscount && (
               <span className="text-lg text-muted-foreground line-through">
-                {display(comparePrice as number, product.currency)}
+                {display(listPrice, product.currency)}
               </span>
             )}
             <span className="text-2xl font-bold text-primary">{display(price, product.currency)}</span>
+            {onFlashDeal && (
+              <Badge variant="destructive">
+                {product.pricing?.flashDealTitle ?? "Flash deal"} · {product.pricing?.discountPercent}% off
+              </Badge>
+            )}
           </div>
 
           {product.variants.length > 1 && (

@@ -12,9 +12,10 @@ import {
   exportBrandsCsv,
   exportCustomersCsv,
 } from "../services/bulkexport.service.js";
-import { assertSellerCanAddProduct } from "../services/quota.service.js";
+import { consumeSellerUpload, assertSellerPackageValid } from "../services/package.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import mongoose from "mongoose";
+import { decorateProductsPricing, decorateProductPricing } from "../services/pricing.service.js";
 
 const variantInput = z.object({
   sku: z.string().min(1),
@@ -97,14 +98,14 @@ export async function getProductsByIdsHandler(req: Request, res: Response) {
     .filter(Boolean)
     .slice(0, 10);
   const products = await Product.find({ _id: { $in: ids }, published: true, approvalStatus: "approved" });
-  res.json({ items: products });
+  res.json({ items: await decorateProductsPricing(products) });
 }
 
 export async function getProductHandler(req: Request, res: Response) {
   const product = await Product.findOne({ slug: req.params.slug, published: true, approvalStatus: "approved" });
   if (!product) throw new ApiError(404, "Product not found");
   await Product.updateOne({ _id: product._id }, { $inc: { viewCount: 1 } });
-  res.json(product);
+  res.json(await decorateProductPricing(product));
 }
 
 // The form submits whichever levels the seller picked. `categoryId` is rewritten to
@@ -130,18 +131,26 @@ async function normaliseTaxonomy(body: Record<string, unknown>) {
 }
 
 export async function createProductHandler(req: Request, res: Response) {
-  await assertSellerCanAddProduct(req.user!.id);
   assertUniqueSkus(req.body.variants);
   await normaliseTaxonomy(req.body);
 
-  const product = await Product.create({
-    ...req.body,
-    sellerId: req.user!.id,
-    addedBy: "seller",
-    published: false,
-    approvalStatus: "pending",
-  });
-  res.status(201).json(product);
+  // The allowance is consumed before the insert, not after it as the legacy
+  // controller did: two concurrent uploads both passed its `remaining_uploads > 0`
+  // check and drove the counter negative. A failed insert gives the upload back.
+  const release = await consumeSellerUpload(req.user!.id, req.body.isDigital ? "digital" : "product");
+  try {
+    const product = await Product.create({
+      ...req.body,
+      sellerId: req.user!.id,
+      addedBy: "seller",
+      published: false,
+      approvalStatus: "pending",
+    });
+    res.status(201).json(product);
+  } catch (error) {
+    await release();
+    throw error;
+  }
 }
 
 // Admin-owned ("In House") listings: no seller, and no moderation queue to pass
@@ -253,9 +262,10 @@ export async function deleteProductHandler(req: Request, res: Response) {
 // Legacy "duplicate product" silently dropped the variants array. Cloning here
 // always deep-copies variants (with fresh SKUs) so stock/pricing survive intact.
 export async function cloneProductHandler(req: Request, res: Response) {
-  await assertSellerCanAddProduct(req.user!.id);
   const original = await Product.findOne({ _id: req.params.id, sellerId: req.user!.id }).select("+digitalFileUrl");
   if (!original) throw new ApiError(404, "Product not found");
+  // A clone is a new listing, so it spends an upload from the seller's allowance.
+  const release = await consumeSellerUpload(req.user!.id, original.isDigital ? "digital" : "product");
 
   // Copy every authored field, then override the identity/lifecycle ones. Listing
   // fields explicitly (as the first version did) meant each new product field had
@@ -263,7 +273,9 @@ export async function cloneProductHandler(req: Request, res: Response) {
   const { _id, createdAt, updatedAt, ...copyable } = original.toObject();
   const stamp = Date.now();
 
-  const clone = await Product.create({
+  let clone;
+  try {
+    clone = await Product.create({
     ...copyable,
     name: `${original.name} (Copy)`,
     slug: `${original.slug}-copy-${stamp}`,
@@ -276,7 +288,11 @@ export async function cloneProductHandler(req: Request, res: Response) {
     wishlistCount: 0,
     published: false,
     approvalStatus: "pending",
-  });
+    });
+  } catch (error) {
+    await release();
+    throw error;
+  }
 
   res.status(201).json(clone);
 }
@@ -358,6 +374,11 @@ export async function updateProductFlagsHandler(req: Request, res: Response) {
   // live by flipping this flag (the legacy toggle bypassed approval entirely).
   if (update.published && product.approvalStatus !== "approved") {
     throw new ApiError(409, "This product must be approved before it can be published");
+  }
+  // Legacy `updatePublished` refused to publish a seller listing while that
+  // seller's subscription had lapsed.
+  if (update.published && product.addedBy === "seller" && product.sellerId) {
+    await assertSellerPackageValid(String(product.sellerId));
   }
 
   Object.assign(product, update);

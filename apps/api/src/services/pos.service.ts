@@ -8,6 +8,7 @@ import { SellerLedger } from "../models/Ledger.js";
 import { BusinessSetting } from "../models/Settings.js";
 import { calculateCommission } from "./commission.service.js";
 import { reserveStock, confirmReservation, type StockLine } from "./inventory.service.js";
+import { resolveFlashDeals, reserveDealStock, dealKey, type DealStockLine } from "./flashdeal.service.js";
 import { priceLine, ADMIN_BUCKET } from "./shipping.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
@@ -90,8 +91,16 @@ export async function createPosSale(input: PosSaleInput) {
         { sellerId: string | null; items: any[]; subtotal: number; commission: number }
       >();
       const stockLines: StockLine[] = [];
+      const dealLines: DealStockLine[] = [];
       let subtotal = 0;
       let tax = 0;
+
+      // The legacy counter (`PosController@addToCart`) priced a till line through
+      // the same flash-deal scan as the storefront, so a campaign applies here too.
+      const flashDeals = await resolveFlashDeals(
+        input.lines.map((line) => ({ productId: String(line.productId), variantSku: line.variantSku })),
+        { session },
+      );
 
       for (const line of input.lines) {
         if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0) throw new ApiError(400, "Quantity must be a positive integer");
@@ -107,11 +116,15 @@ export async function createPosSale(input: PosSaleInput) {
         const variant = product.variants.find((v) => v.sku === line.variantSku);
         if (!variant) throw new ApiError(404, `No variant "${line.variantSku}" on ${product.name}`);
 
+        const flashDeal = flashDeals.get(dealKey(String(product._id), variant.sku)) ?? null;
         const priced = priceLine({
           unitPrice: variant.price,
           quantity: line.quantity,
           discount: product.discount ?? 0,
           discountType: (product.discountType ?? "percent") as "flat" | "percent",
+          flashDiscount: flashDeal
+            ? { discount: flashDeal.discount, discountType: flashDeal.discountType }
+            : null,
           tax: product.tax ?? null,
           taxType: (product.taxType ?? "percent") as "flat" | "percent",
           storeTaxPercent,
@@ -129,6 +142,8 @@ export async function createPosSale(input: PosSaleInput) {
           attributes: variant.attributes,
           quantity: line.quantity,
           unitPrice: priced.unitPrice,
+          listPrice: variant.price,
+          flashDealId: flashDeal ? flashDeal.dealId : null,
           imageUrl: variant.imageUrl ?? product.images[0],
           refundable: product.refundable,
         });
@@ -140,10 +155,19 @@ export async function createPosSale(input: PosSaleInput) {
         tax += priced.lineTax;
 
         stockLines.push({ productId: String(product._id), variantSku: variant.sku, quantity: line.quantity });
+        if (flashDeal) {
+          dealLines.push({
+            dealId: flashDeal.dealId,
+            productId: String(product._id),
+            variantSku: variant.sku,
+            quantity: line.quantity,
+          });
+        }
         await Product.updateOne({ _id: product._id }, { $inc: { numOfSale: line.quantity } }, { session });
       }
 
       await reserveStock(stockLines, String(orderId), session);
+      await reserveDealStock(dealLines, session);
       await confirmReservation(stockLines, String(orderId), session);
 
       subtotal = round2(subtotal);

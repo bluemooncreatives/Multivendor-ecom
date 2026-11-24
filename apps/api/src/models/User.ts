@@ -24,6 +24,11 @@ const userSchema = new Schema(
     financeRevision: { type: Number, default: 0, select: false },
     referralCode: { type: String, unique: true, sparse: true },
     referredBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    // Classified-listing allowance bought through a customer package (legacy
+    // `users.remaining_uploads`), consumed one per listing.
+    customerPackageId: { type: Schema.Types.ObjectId, ref: "CustomerPackage", default: null },
+    remainingUploads: { type: Number, default: 0, min: 0 },
+    packageInvalidAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

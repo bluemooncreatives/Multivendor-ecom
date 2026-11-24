@@ -7,6 +7,7 @@ import { Cart } from "../models/Cart.js";
 import { Product } from "../models/Product.js";
 import { Category } from "../models/Category.js";
 import { priceLine } from "../services/shipping.service.js";
+import { resolveFlashDeals, dealKey } from "../services/flashdeal.service.js";
 
 export const couponSchema = z.object({
   code: z.string().trim().min(3).max(30),
@@ -82,11 +83,19 @@ export async function validateCouponHandler(req: Request, res: Response) {
   if (!cart?.items.length) throw new ApiError(400, "Your cart is empty");
   const products = await Product.find({ _id: { $in: cart.items.map((item) => item.productId) }, published: true, approvalStatus: "approved" });
   const categories = await Category.find({ _id: { $in: products.map((product) => product.categoryId) } });
+  // Previewing against the campaign price keeps the quoted discount identical to
+  // the one checkout will compute.
+  const flashDeals = await resolveFlashDeals(
+    cart.items.map((item) => ({ productId: String(item.productId), variantSku: item.variantSku })),
+  );
   const lines = cart.items.map((item) => {
     const product = products.find((p) => String(p._id) === String(item.productId));
     const variant = product?.variants.find((v) => v.sku === item.variantSku);
     if (!product || !variant) throw new ApiError(409, "One of your cart items is no longer available");
-    const priced = priceLine({ unitPrice: variant.price, quantity: item.quantity, discount: product.discount, discountType: product.discountType, tax: 0, taxType: "flat", storeTaxPercent: 0 });
+    const flashDeal = flashDeals.get(dealKey(String(product._id), item.variantSku)) ?? null;
+    const priced = priceLine({ unitPrice: variant.price, quantity: item.quantity, discount: product.discount, discountType: product.discountType,
+      flashDiscount: flashDeal ? { discount: flashDeal.discount, discountType: flashDeal.discountType } : null,
+      tax: 0, taxType: "flat", storeTaxPercent: 0 });
     return { productId: String(product._id), categoryId: String(product.categoryId),
       categoryPath: categories.find((c) => String(c._id) === String(product.categoryId))?.ancestors.map(String) ?? [],
       lineSubtotal: priced.lineSubtotal };

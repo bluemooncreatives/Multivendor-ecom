@@ -1,6 +1,7 @@
 import { FilterQuery } from "mongoose";
 import { Product } from "../models/Product.js";
 import { Category } from "../models/Category.js";
+import { decorateProductsPricing } from "./pricing.service.js";
 
 export interface ProductSearchParams {
   q?: string;
@@ -77,5 +78,6 @@ export async function searchProducts(params: ProductSearchParams) {
     Product.countDocuments(filter),
   ]);
 
-  return { items, page, pageSize, total };
+  // Every card renders the campaign/discount price the cart will honour.
+  return { items: await decorateProductsPricing(items), page, pageSize, total };
 }

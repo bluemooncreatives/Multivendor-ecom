@@ -107,6 +107,12 @@ const flashDealSchema = new Schema(
     // The public campaign page is /flash-deal/{slug}, matching the legacy route.
     slug: { type: String, required: true, unique: true, index: true },
     bannerUrl: String,
+    // Legacy campaign styling (flash_deals.text_color / background_color), kept so
+    // an imported campaign renders with the colours it was authored with.
+    textColor: { type: String, default: null },
+    backgroundColor: { type: String, default: null },
+    // Legacy `featured`: at most one campaign is promoted on the home page.
+    featured: { type: Boolean, default: false, index: true },
     startsAt: { type: Date, required: true },
     endsAt: { type: Date, required: true },
     active: { type: Boolean, default: true },
@@ -114,8 +120,15 @@ const flashDealSchema = new Schema(
       {
         productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
         variantSku: { type: String, required: true },
-        discountPercent: { type: Number, required: true, min: 0, max: 90 },
-        dealStock: { type: Number, required: true, min: 0 },
+        // Legacy flash_deal_products.discount / discount_type: a campaign may cut a
+        // percentage *or* a fixed amount off the line's list price, and it replaces
+        // (never stacks with) the product's own discount.
+        discountType: { type: String, enum: ["percent", "flat"], default: "percent" },
+        discount: { type: Number, required: true, min: 0 },
+        // Campaign allowance. Null means unlimited, which is what the legacy app
+        // did — it capped nothing beyond the product's own stock.
+        dealStock: { type: Number, default: null, min: 0 },
+        dealSold: { type: Number, default: 0, min: 0 },
       },
     ],
   },

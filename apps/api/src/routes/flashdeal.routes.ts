@@ -11,6 +11,7 @@ import {
   updateFlashDealHandler,
   deleteFlashDealHandler,
   flashDealSchema,
+  flashDealPatchSchema,
 } from "../controllers/flashdeal.controller.js";
 
 export const flashDealRouter = Router();
@@ -31,7 +32,7 @@ flashDealRouter.patch(
   "/admin/:id",
   authenticate,
   requirePermission("flashdeals.manage"),
-  validateBody(flashDealSchema.partial()),
+  validateBody(flashDealPatchSchema),
   asyncHandler(updateFlashDealHandler),
 );
 flashDealRouter.delete("/admin/:id", authenticate, requirePermission("flashdeals.manage"), asyncHandler(deleteFlashDealHandler));

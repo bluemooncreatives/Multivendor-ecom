@@ -180,8 +180,15 @@ export function useMyCustomerSubscription() {
 export function usePurchasePackage(kind: "seller" | "customer") {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { packageId: string; paymentMethod: "wallet" | "manual" }) =>
-      (await api.post(`/addons/packages/${kind}/purchase`, input)).data,
+    // The purchase key makes a retry (or a double-click) a no-op server-side
+    // instead of a second wallet debit.
+    mutationFn: async (input: { packageId: string; paymentMethod: "wallet" | "manual"; idempotencyKey?: string }) =>
+      (
+        await api.post(`/addons/packages/${kind}/purchase`, {
+          ...input,
+          idempotencyKey: input.idempotencyKey ?? `${kind}-package-${crypto.randomUUID()}`,
+        })
+      ).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["packages", kind] });
       queryClient.invalidateQueries({ queryKey: ["wallet"] });

@@ -45,7 +45,7 @@ export default function AdminPackagesPage() {
   );
 }
 
-const BLANK_SELLER = { name: "", price: 0, durationDays: 30, productLimit: 50, commissionRateOverride: null };
+const BLANK_SELLER = { name: "", price: 0, durationDays: 30, productLimit: 50, digitalProductLimit: 0, commissionRateOverride: null };
 
 function SellerPackages() {
   const { data: packages } = useAdminSellerPackages();
@@ -60,7 +60,7 @@ function SellerPackages() {
       </CardHeader>
       <CardContent className="space-y-4">
         <form
-          className="grid gap-4 md:grid-cols-5"
+          className="grid gap-4 md:grid-cols-6"
           onSubmit={(e) => {
             e.preventDefault();
             save.mutate(form, { onSuccess: () => setForm(BLANK_SELLER) });
@@ -91,13 +91,25 @@ function SellerPackages() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="sp-limit">Product limit</Label>
+            {/* An allowance of uploads granted by the plan, not a cap on how many
+                listings may exist — a deleted listing does not return an upload. */}
+            <Label htmlFor="sp-limit">Product uploads</Label>
             <Input
               id="sp-limit"
               type="number"
               min={0}
               value={form.productLimit ?? 0}
               onChange={(e) => setForm({ ...form, productLimit: Number(e.target.value) })}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="sp-digital-limit">Digital uploads</Label>
+            <Input
+              id="sp-digital-limit"
+              type="number"
+              min={0}
+              value={form.digitalProductLimit ?? 0}
+              onChange={(e) => setForm({ ...form, digitalProductLimit: Number(e.target.value) })}
             />
           </div>
           <div className="space-y-1">
@@ -113,7 +125,7 @@ function SellerPackages() {
               onChange={(e) => setForm({ ...form, commissionRateOverride: e.target.value ? Number(e.target.value) : null })}
             />
           </div>
-          <div className="flex items-end gap-2 md:col-span-5">
+          <div className="flex items-end gap-2 md:col-span-6">
             <Button type="submit" disabled={save.isPending}>
               {form.id ? "Save changes" : "Add package"}
             </Button>
@@ -131,7 +143,8 @@ function SellerPackages() {
               <div>
                 <span className="font-medium">{pkg.name}</span>{" "}
                 <span className="text-muted-foreground">
-                  {pkg.price} / {pkg.durationDays} days · up to {pkg.productLimit} products
+                  {pkg.price} / {pkg.durationDays} days · {pkg.productLimit} product upload(s)
+                  {!!pkg.digitalProductLimit && ` · ${pkg.digitalProductLimit} digital upload(s)`}
                   {pkg.commissionRateOverride !== null && ` · ${pkg.commissionRateOverride}% commission`}
                 </span>
               </div>

@@ -16,7 +16,8 @@
     "audit:migration": "python scripts/audit-migration.py",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
-    "seed": "npm run seed -w apps/api"
+    "seed": "npm run seed -w apps/api",
+    "migrate:legacy": "npm run migrate:legacy -w apps/api --"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

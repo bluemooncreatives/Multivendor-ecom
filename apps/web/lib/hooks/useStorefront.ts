@@ -15,8 +15,17 @@ export interface FlashDealProduct {
     basePrice: number;
   } | null;
   variantSku: string;
+  discountType: "percent" | "flat";
+  discount: number;
+  /** All four below are computed by the API from the variant that is actually sold. */
+  listPrice: number | null;
+  dealPrice: number | null;
   discountPercent: number;
-  dealStock: number;
+  /** Null when the campaign allowance is unlimited. */
+  dealStock: number | null;
+  remaining: number | null;
+  available: number;
+  soldOut: boolean;
 }
 
 export interface FlashDeal {
@@ -24,6 +33,9 @@ export interface FlashDeal {
   title: string;
   slug: string;
   bannerUrl?: string;
+  textColor?: string | null;
+  backgroundColor?: string | null;
+  featured?: boolean;
   startsAt: string;
   endsAt: string;
   products: FlashDealProduct[];

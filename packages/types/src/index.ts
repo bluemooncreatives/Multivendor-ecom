@@ -86,6 +86,24 @@ export interface ProductVariant {
   imageUrl?: string;
 }
 
+/**
+ * Server-computed display pricing: the live flash-deal campaign price when one
+ * applies, otherwise the product's own discount, for the cheapest variant. Always
+ * prefer this over raw variant prices when showing a price to a shopper — it is the
+ * figure the cart and checkout will charge (tax is shown separately).
+ */
+export interface ProductPricing {
+  listPrice: number;
+  price: number;
+  maxPrice: number;
+  discountPercent: number;
+  discountSource: "flash_deal" | "product" | "none";
+  flashDealId: string | null;
+  flashDealSlug: string | null;
+  flashDealTitle: string | null;
+  variants: { sku: string; listPrice: number; price: number }[];
+}
+
 export interface Product {
   id: ID;
   sellerId: ID;
@@ -104,6 +122,8 @@ export interface Product {
   currency: string;
   ratingAverage: number;
   ratingCount: number;
+  /** Present on storefront catalog responses (search, detail, by-ids). */
+  pricing?: ProductPricing;
   createdAt: string;
 }
 

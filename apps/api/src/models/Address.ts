@@ -36,7 +36,9 @@ const reviewSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true, index: true },
-    orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true },
+    // Normally the purchase being reviewed. Null only for reviews carried over from
+    // the previous system, whose schema had no order reference at all.
+    orderId: { type: Schema.Types.ObjectId, ref: "Order", default: null },
     rating: { type: Number, required: true, min: 1, max: 5 },
     comment: String,
     images: { type: [String], default: [] },

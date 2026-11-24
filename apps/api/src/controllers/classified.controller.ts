@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { CustomerProduct } from "../models/CustomerProduct.js";
 import { Category } from "../models/Category.js";
-import { assertCustomerCanAddClassified } from "../services/quota.service.js";
+import { consumeCustomerUpload } from "../services/package.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
 export const classifiedSchema = z.object({
@@ -81,10 +81,18 @@ async function uniqueSlug(base: string): Promise<string> {
 }
 
 export async function createClassifiedHandler(req: Request, res: Response) {
-  await assertCustomerCanAddClassified(req.user!.id);
-  const slug = await uniqueSlug(req.body.slug || req.body.title);
-  const item = await CustomerProduct.create({ ...req.body, slug, userId: req.user!.id, status: "pending" });
-  res.status(201).json(item);
+  // Legacy `CustomerProductController@store` decremented `users.remaining_uploads`
+  // once per listing; the allowance is consumed up front here so two concurrent
+  // posts cannot both spend the last upload.
+  const release = await consumeCustomerUpload(req.user!.id);
+  try {
+    const slug = await uniqueSlug(req.body.slug || req.body.title);
+    const item = await CustomerProduct.create({ ...req.body, slug, userId: req.user!.id, status: "pending" });
+    res.status(201).json(item);
+  } catch (error) {
+    await release();
+    throw error;
+  }
 }
 
 export async function listMyClassifiedsHandler(req: Request, res: Response) {

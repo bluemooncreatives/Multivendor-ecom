@@ -94,22 +94,30 @@ function round2(value: number): number {
 }
 
 /**
- * Per-unit price after the product's own discount, and the tax that price attracts.
+ * Per-unit price after the applicable discount, and the tax that price attracts.
  * Legacy applied both at line level; the rewrite had collapsed them into one global
  * tax percentage applied to the whole order.
+ *
+ * A live flash-deal campaign *replaces* the product's own discount rather than
+ * stacking with it, exactly as the legacy helpers did (`if (!$inFlashDeal) { ... }`).
  */
 export function priceLine(input: {
   unitPrice: number;
   quantity: number;
   discount: number;
   discountType: "flat" | "percent";
+  /** Live campaign discount for this line; takes precedence over the product's own. */
+  flashDiscount?: { discount: number; discountType: "flat" | "percent" } | null;
   /** Null falls back to the store-wide rate. */
   tax: number | null;
   taxType: "flat" | "percent";
   storeTaxPercent: number;
 }): { unitPrice: number; lineSubtotal: number; lineTax: number } {
+  const applied = input.flashDiscount
+    ? { discount: input.flashDiscount.discount, discountType: input.flashDiscount.discountType }
+    : { discount: input.discount, discountType: input.discountType };
   const discountPerUnit =
-    input.discountType === "percent" ? (input.unitPrice * input.discount) / 100 : input.discount;
+    applied.discountType === "percent" ? (input.unitPrice * applied.discount) / 100 : applied.discount;
 
   // Never let a misconfigured discount drive the price below zero.
   const unitPrice = Math.max(0, round2(input.unitPrice - discountPerUnit));

@@ -36,7 +36,10 @@ export default function FlashDealPage({ params }: { params: Promise<{ slug: stri
           .filter((entry) => entry.productId)
           .map((entry) => {
             const product = entry.productId!;
-            const dealPrice = product.basePrice * (1 - entry.discountPercent / 100);
+            // Server-computed: the deal price comes from the variant that is
+            // actually sold, and is the same figure the cart and checkout charge.
+            const dealPrice = entry.dealPrice ?? product.basePrice;
+            const listPrice = entry.listPrice ?? product.basePrice;
 
             return (
               <Card key={`${product.id}-${entry.variantSku}`} className="overflow-hidden">
@@ -49,12 +52,18 @@ export default function FlashDealPage({ params }: { params: Promise<{ slug: stri
                     <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
                     <div className="flex items-baseline gap-2">
                       <span className="font-bold text-primary">{display(dealPrice, product.currency)}</span>
-                      <span className="text-xs text-muted-foreground line-through">
-                        {display(product.basePrice, product.currency)}
-                      </span>
+                      {listPrice > dealPrice && (
+                        <span className="text-xs text-muted-foreground line-through">
+                          {display(listPrice, product.currency)}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {entry.dealStock > 0 ? `${entry.dealStock} left at this price` : "Sold out"}
+                      {entry.soldOut
+                        ? "Sold out"
+                        : entry.remaining === null
+                          ? "Available now"
+                          : `${entry.available} left at this price`}
                     </p>
                   </CardContent>
                 </Link>

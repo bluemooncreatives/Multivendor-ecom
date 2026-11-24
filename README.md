@@ -3,6 +3,8 @@
 The migration is in progress. Read [migration status](docs/migration/STATUS.md)
 and [validation results](docs/migration/VALIDATION.md) before using or removing
 legacy code. Full PHP feature parity and production acceptance are not complete.
+To move the old database across, follow the
+[legacy data import runbook](docs/migration/DATA-IMPORT.md).
 
 ```text
 apps/
@@ -16,7 +18,8 @@ apps/
       controllers/          Request/response handling
       services/             Business rules and gateway adapters
       models/               MongoDB schemas
-      scripts/              Demo seed and taxonomy migration
+      scripts/              Demo seed, taxonomy migration, legacy data import
+        legacy/             mysqldump reader and legacy -> MongoDB importer
       utils/                Shared backend helpers
     tsconfig.build.json     Production build; excludes tests
   web/
@@ -31,7 +34,7 @@ data/
   mongodb/                  Legacy export reference
   uploads/                  Runtime public uploads (ignored)
   private-uploads/          Paid files (ignored; never statically served)
-docs/migration/             Comparison inventory and progress
+docs/migration/             Comparison inventory, progress and import runbook
 scripts/                   Read-only source inventory utility
 legacy-ecommercemultivendor/ Migration reference; retained pending acceptance
 ```
@@ -55,6 +58,21 @@ npm run audit:migration
 # After the production build:
 python scripts/smoke-web.py
 ```
+
+Importing the previous system's database (rehearse with `--dry-run` first, and
+read [the runbook](docs/migration/DATA-IMPORT.md) before writing):
+
+```powershell
+npm run migrate:legacy -- `
+  --dump ../../legacy-ecommercemultivendor/software_ecommercemvendor22.sql `
+  --dry-run --report ../../import-report.json
+```
+
+Two maintenance sweeps are exposed as admin endpoints and need a scheduler to
+call them: `POST /api/v1/admin/payments/expire-abandoned` releases stock held by
+checkouts that were never paid for, and
+`POST /api/v1/addons/admin/packages/unpublish-expired` unpublishes the catalogue
+of sellers whose subscription has lapsed.
 
 Integration tests start a disposable MongoDB 8.0.17 replica set. Its first run
 downloads the platform-specific MongoDB binary; subsequent runs use the cache.

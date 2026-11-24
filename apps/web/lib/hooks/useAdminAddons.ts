@@ -228,7 +228,10 @@ export interface SellerPackage {
   name: string;
   price: number;
   durationDays: number;
+  /** Uploads the plan grants (legacy product_upload), added to what is left. */
   productLimit: number;
+  digitalProductLimit?: number;
+  logoUrl?: string | null;
   commissionRateOverride: number | null;
   active: boolean;
 }

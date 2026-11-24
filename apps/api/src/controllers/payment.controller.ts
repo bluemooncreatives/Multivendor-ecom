@@ -126,3 +126,19 @@ export async function approveManualPaymentHandler(req: Request, res: Response) {
 
   res.json(await Payment.findById(payment._id));
 }
+
+// --- Operations: abandoned checkouts and late captures ------------------------
+
+export const expireAbandonedSchema = z.object({
+  /** Minutes a gateway checkout may hold stock. Defaults to the service constant. */
+  ttlMinutes: z.coerce.number().int().min(5).max(10080).optional(),
+});
+
+export async function expireAbandonedOrdersHandler(req: Request, res: Response) {
+  const { ttlMinutes } = expireAbandonedSchema.parse(req.query);
+  res.json(await paymentService.expireAbandonedOrders(ttlMinutes));
+}
+
+export async function listLateCapturesHandler(_req: Request, res: Response) {
+  res.json({ items: await paymentService.listLateCaptures() });
+}

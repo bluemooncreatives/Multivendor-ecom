@@ -9,6 +9,12 @@ const orderItemSchema = new Schema(
     attributes: { type: Map, of: String, default: {} },
     quantity: { type: Number, required: true, min: 1 },
     unitPrice: { type: Number, required: true, min: 0 }, // server-computed, never client-trusted
+    // Pre-discount list price of the variant at purchase time, so an invoice can
+    // show what was struck through and a refund can be reasoned about later.
+    listPrice: { type: Number, default: null, min: 0 },
+    // Set when a live flash-deal campaign priced this line. Identifies whose
+    // campaign allowance to return if the order is cancelled or the payment fails.
+    flashDealId: { type: Schema.Types.ObjectId, ref: "FlashDeal", default: null },
     imageUrl: String,
     refundable: { type: Boolean, default: true },
   },

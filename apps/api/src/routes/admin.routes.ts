@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { expireAbandonedOrdersHandler, listLateCapturesHandler } from "../controllers/payment.controller.js";
 import {
   dashboardSummaryHandler,
   listUsersHandler,
@@ -188,6 +189,20 @@ adminRouter.post(
   requirePermission("tickets.manage"),
   validateBody(replyTicketSchema),
   asyncHandler(replyTicketHandler),
+);
+
+// Reclaims stock held by checkouts that were never paid for, and lists captures
+// that arrived after their order closed (money taken at the provider that an
+// operator still has to refund).
+adminRouter.post(
+  "/payments/expire-abandoned",
+  requirePermission("payments.manage"),
+  asyncHandler(expireAbandonedOrdersHandler),
+);
+adminRouter.get(
+  "/payments/late-captures",
+  requirePermission("payments.manage"),
+  asyncHandler(listLateCapturesHandler),
 );
 
 adminRouter.get("/wallet-recharges", requirePermission("payments.manage"), asyncHandler(listAdminRechargeRequestsHandler));

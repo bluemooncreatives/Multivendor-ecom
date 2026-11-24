@@ -65,14 +65,47 @@ export function useDeleteColor() {
 
 // --- Flash deals -----------------------------------------------------------------
 
+export interface FlashDealLineInput {
+  productId: string;
+  variantSku: string;
+  discountType: "percent" | "flat";
+  discount: number;
+  /** Null = unlimited campaign allowance, which is what the legacy app did. */
+  dealStock: number | null;
+}
+
+export interface FlashDealInput {
+  title: string;
+  bannerUrl?: string;
+  textColor?: string | null;
+  backgroundColor?: string | null;
+  featured?: boolean;
+  active?: boolean;
+  startsAt: string;
+  endsAt: string;
+  products: FlashDealLineInput[];
+}
+
 export interface FlashDeal {
   id: string;
   title: string;
+  slug: string;
   bannerUrl?: string;
+  textColor?: string | null;
+  backgroundColor?: string | null;
+  featured?: boolean;
   startsAt: string;
   endsAt: string;
   active: boolean;
-  products: { productId: string; variantSku: string; discountPercent: number; dealStock: number }[];
+  products: (FlashDealLineInput & {
+    listPrice: number | null;
+    dealPrice: number | null;
+    discountPercent: number;
+    dealSold: number;
+    remaining: number | null;
+    available: number;
+    soldOut: boolean;
+  })[];
 }
 
 export function useAdminFlashDeals() {
@@ -85,13 +118,16 @@ export function useAdminFlashDeals() {
 export function useCreateFlashDeal() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      title: string;
-      bannerUrl?: string;
-      startsAt: string;
-      endsAt: string;
-      products: { productId: string; variantSku: string; discountPercent: number; dealStock: number }[];
-    }) => (await api.post("/flash-deals/admin", input)).data,
+    mutationFn: async (input: FlashDealInput) => (await api.post("/flash-deals/admin", input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "flash-deals"] }),
+  });
+}
+
+export function useUpdateFlashDeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<FlashDealInput> & { id: string }) =>
+      (await api.patch(`/flash-deals/admin/${id}`, input)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "flash-deals"] }),
   });
 }

@@ -16,6 +16,7 @@ import { renderInvoiceBuffer } from "./invoice.service.js";
 import { sendOrderConfirmationEmail } from "./email.service.js";
 import { calculateCommission } from "./commission.service.js";
 import { reserveStock, confirmReservation, type StockLine } from "./inventory.service.js";
+import { resolveFlashDeals, reserveDealStock, dealKey, type DealStockLine } from "./flashdeal.service.js";
 import { validateCoupon, recordCouponUsage, type CouponLine } from "./coupon.service.js";
 import { calculateShipping, priceLine, sellerKey, type ShippableLine } from "./shipping.service.js";
 import { spendPointsForOrder } from "./clubpoints.service.js";
@@ -113,8 +114,17 @@ export async function createOrder(input: CheckoutInput) {
         { items: any[]; subtotal: number; tax: number; commission: number; sellerId: string | null }
       >();
       const stockLines: StockLine[] = [];
+      const dealLines: DealStockLine[] = [];
       const shippableLines: ShippableLine[] = [];
       const couponLines: CouponLine[] = [];
+
+      // One campaign resolution for the whole cart, inside the transaction, so
+      // every line is priced against the same campaign state the allowance is
+      // then reserved from.
+      const flashDeals = await resolveFlashDeals(
+        cart.items.map((item) => ({ productId: String(item.productId), variantSku: item.variantSku })),
+        { session },
+      );
 
       for (const cartItem of cart.items) {
         const product = await Product.findById(cartItem.productId).session(session);
@@ -129,11 +139,15 @@ export async function createOrder(input: CheckoutInput) {
         // Discount and tax are resolved per line from the product's own settings,
         // falling back to the store rate — the previous version applied a single
         // global tax percentage to the whole order and ignored product discounts.
+        const flashDeal = flashDeals.get(dealKey(String(product._id), variant.sku)) ?? null;
         const { unitPrice, lineSubtotal, lineTax } = priceLine({
           unitPrice: variant.price,
           quantity: cartItem.quantity,
           discount: product.discount ?? 0,
           discountType: (product.discountType ?? "percent") as "flat" | "percent",
+          flashDiscount: flashDeal
+            ? { discount: flashDeal.discount, discountType: flashDeal.discountType }
+            : null,
           tax: product.tax ?? null,
           taxType: (product.taxType ?? "percent") as "flat" | "percent",
           storeTaxPercent,
@@ -156,6 +170,8 @@ export async function createOrder(input: CheckoutInput) {
           attributes: variant.attributes,
           quantity: cartItem.quantity,
           unitPrice,
+          listPrice: variant.price,
+          flashDealId: flashDeal ? flashDeal.dealId : null,
           imageUrl: variant.imageUrl ?? product.images[0],
           refundable: product.refundable,
         });
@@ -166,6 +182,14 @@ export async function createOrder(input: CheckoutInput) {
         bySeller.set(key, bucket);
 
         stockLines.push({ productId: String(product._id), variantSku: variant.sku, quantity: cartItem.quantity });
+        if (flashDeal) {
+          dealLines.push({
+            dealId: flashDeal.dealId,
+            productId: String(product._id),
+            variantSku: variant.sku,
+            quantity: cartItem.quantity,
+          });
+        }
         shippableLines.push({
           sellerId,
           quantity: cartItem.quantity,
@@ -181,6 +205,9 @@ export async function createOrder(input: CheckoutInput) {
       }
 
       await reserveStock(stockLines, String(orderId), session);
+      // Campaign allowance is consumed together with the stock hold: a shopper who
+      // was quoted the deal price keeps it, and the cap cannot be oversold.
+      await reserveDealStock(dealLines, session);
 
       // Category ancestors let a coupon scoped to a parent category match products
       // filed under any of its descendants.

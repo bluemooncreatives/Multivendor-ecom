@@ -23,6 +23,16 @@ const shopSchema = new Schema(
     verificationDocs: { type: [String], default: [] },
     // Answers to the admin-composed verification form, keyed by field id.
     verificationAnswers: { type: Schema.Types.Mixed, default: {} },
+    // Seller subscription state, mirroring the legacy `sellers` columns
+    // seller_package_id / remaining_uploads / remaining_digital_uploads /
+    // invalid_at. Quota is a *counter* consumed per upload, not a live product
+    // count: deleting a listing does not hand the allowance back, exactly as in
+    // the legacy app, and a renewal adds to whatever is left.
+    sellerPackageId: { type: Schema.Types.ObjectId, ref: "SellerPackage", default: null },
+    remainingUploads: { type: Number, default: 0, min: 0 },
+    remainingDigitalUploads: { type: Number, default: 0, min: 0 },
+    /** Subscription expiry. Null means no subscription has ever been activated. */
+    packageInvalidAt: { type: Date, default: null, index: true },
   },
   { timestamps: true },
 );

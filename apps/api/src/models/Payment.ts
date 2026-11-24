@@ -22,6 +22,11 @@ const paymentSchema = new Schema(
     manualProofUrl: String, // receipt upload for manual/offline payments
     manualApprovedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     failureReason: String,
+    // A capture that arrived after its order was closed (abandoned, cancelled or
+    // already failed). The money is really at the provider, so the capture is
+    // recorded and flagged instead of being discarded with a 409, and an operator
+    // refunds it. Nothing is confirmed or fulfilled for such a payment.
+    requiresRefund: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

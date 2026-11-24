@@ -2,6 +2,7 @@ import { Cart } from "../models/Cart.js";
 import { Product } from "../models/Product.js";
 import { Shop } from "../models/Shop.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { resolveFlashDeals, flashDealUnitPrice, dealKey } from "./flashdeal.service.js";
 
 export interface CartOwner {
   userId?: string;
@@ -41,18 +42,28 @@ export async function getCartWithDetails(owner: CartOwner) {
   const shops = await Shop.find({ sellerId: { $in: sellerIds } }, { sellerId: 1, name: 1 }).lean();
   const shopNameBySeller = new Map(shops.map((s) => [String(s.sellerId), s.name]));
 
+  // Same campaign resolution checkout uses, so the cart never quotes a price the
+  // order will not honour.
+  const flashDeals = await resolveFlashDeals(
+    cart.items.map((item) => ({ productId: String(item.productId), variantSku: item.variantSku })),
+  );
+
   const items = cart.items.map((item) => {
     const product = productMap.get(item.productId.toString());
     const variant = product?.variants.find((v) => v.sku === item.variantSku);
 
     // Per-unit discount, so the cart shows the price the shopper will actually be
-    // charged rather than the pre-discount variant price.
+    // charged rather than the pre-discount variant price. A live campaign replaces
+    // the product's own discount rather than stacking with it.
     const listPrice = variant?.price ?? 0;
+    const flashDeal = flashDeals.get(dealKey(String(item.productId), item.variantSku)) ?? null;
     const discountPerUnit =
       (product?.discountType ?? "percent") === "percent"
         ? (listPrice * (product?.discount ?? 0)) / 100
         : (product?.discount ?? 0);
-    const unitPrice = Math.max(0, Math.round((listPrice - discountPerUnit) * 100) / 100);
+    const unitPrice = flashDeal
+      ? flashDealUnitPrice(listPrice, flashDeal)
+      : Math.max(0, Math.round((listPrice - discountPerUnit) * 100) / 100);
 
     return {
       productId: String(item.productId),
@@ -68,6 +79,8 @@ export async function getCartWithDetails(owner: CartOwner) {
       quantity: item.quantity,
       listPrice,
       unitPrice,
+      flashDealId: flashDeal?.dealId ?? null,
+      flashDealTitle: flashDeal?.title ?? null,
       lineTotal: Math.round(unitPrice * item.quantity * 100) / 100,
       available: variant ? variant.stock - variant.reserved : 0,
     };

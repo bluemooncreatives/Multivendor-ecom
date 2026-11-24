@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "seed": "tsx src/scripts/seed.ts",
     "migrate:taxonomy": "tsx src/scripts/migrate-taxonomy.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "migrate:legacy": "tsx src/scripts/migrate-legacy.ts"
   },
   "dependencies": {
     "@ecommercemultivendor/types": "*",

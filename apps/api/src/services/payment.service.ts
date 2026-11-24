@@ -14,9 +14,12 @@ import {
 import { Payment, PaymentEvent, PaymentReceipt } from "../models/Payment.js";
 import { SellerLedger } from "../models/Ledger.js";
 import { confirmReservation, releaseReservation, type StockLine } from "./inventory.service.js";
+import { releaseDealStock, dealLinesFromOrder } from "./flashdeal.service.js";
+import { grantSellerAllowance, grantCustomerAllowance } from "./package.service.js";
 import { creditAffiliateForOrder, reverseAffiliateForOrder } from "./affiliate.service.js";
 import { env } from "../config/env.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { logger } from "../config/logger.js";
 import { assertPayable, inventoryStatus } from "./order-state.js";
 import { restorePointsForOrder } from "./clubpoints.service.js";
 import { CouponUsage } from "../models/Coupon.js";
@@ -215,10 +218,17 @@ async function settleGatewayIntent(intentId: string, method: string, providerRef
               expiresAt: new Date(startsAt.getTime() + pkg.durationDays * 86_400_000),
               paymentMethod: method,
               status: "paid",
+              // The intent is the purchase key: a replayed callback cannot create
+              // a second subscription row for the same payment.
+              idempotencyKey: `intent:${intent._id}`,
+              activatedAt: startsAt,
             },
           ],
           { session },
         );
+        // Gateway purchases grant the same upload allowance and expiry as a wallet
+        // purchase; without this the seller paid and received nothing.
+        await grantSellerAllowance(String(intent.userId), pkg, startsAt, session);
         return;
       }
 
@@ -235,10 +245,13 @@ async function settleGatewayIntent(intentId: string, method: string, providerRef
             expiresAt: new Date(startsAt.getTime() + pkg.durationDays * 86_400_000),
             paymentMethod: method,
             status: "paid",
+            idempotencyKey: `intent:${intent._id}`,
+            activatedAt: startsAt,
           },
         ],
         { session },
       );
+      await grantCustomerAllowance(String(intent.userId), pkg, startsAt, session);
     });
   } finally {
     await session.endSession();
@@ -255,12 +268,20 @@ export async function settleOrderPayment(orderId: string, method: string, provid
 
   const session = await mongoose.startSession();
   let settled = false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let lateCapture: any = null;
   try {
     await session.withTransaction(async () => {
       settled = false;
       const order = await Order.findById(orderId).session(session);
       if (!order) throw new ApiError(404, "Order not found");
       if (order.paymentStatus === "paid") { settled = true; return; }
+      // Closed order: the capture is real money, so it is recorded for refund
+      // (after this transaction, which is about to be abandoned) before refusing.
+      if (["cancelled", "refunded"].includes(order.status) || ["failed", "refunded"].includes(order.paymentStatus)) {
+        lateCapture = order;
+        throw new ApiError(409, "This order was closed before the payment settled; the capture has been recorded for refund");
+      }
       assertPayable(order, method);
       if (providerRef) await claimReceipt(orderId, method, providerRef, session);
 
@@ -299,6 +320,9 @@ export async function settleOrderPayment(orderId: string, method: string, provid
       );
       settled = true;
     });
+  } catch (error) {
+    if (lateCapture) await recordLateCapture(lateCapture, method, providerRef);
+    throw error;
   } finally {
     await session.endSession();
   }
@@ -330,17 +354,7 @@ export async function failOrderPayment(orderId: string, method: string) {
       if (!order || order.paymentStatus === "paid" || order.paymentMethod !== method) return;
       if (["cancelled", "refunded"].includes(order.status) || inventoryStatus(order) !== "reserved") return;
 
-      const lines = stockLinesFromOrder(order);
-      await releaseReservation(lines, String(order._id), session);
-
-      order.paymentStatus = "failed";
-      order.status = "cancelled";
-      order.inventoryStatus = "released";
-      for (const detail of order.details) { detail.status = "cancelled"; detail.cancelledAt = new Date(); }
-      await order.save({ session });
-      await restorePointsForOrder(String(order._id), session);
-      await CouponUsage.deleteMany({ orderId: order._id }).session(session);
-
+      await unwindReservedOrder(order, session);
       await Payment.updateOne({ orderId: order._id, method }, { status: "failed" }, { session });
       failed = true;
     });
@@ -349,6 +363,141 @@ export async function failOrderPayment(orderId: string, method: string) {
   }
 
   if (failed) await reverseAffiliateForOrder(orderId);
+}
+
+/**
+ * Releases everything a reserved-but-unpaid order is holding: the stock hold, the
+ * flash-deal campaign allowance, redeemed club points and the coupon redemption.
+ * Shared by the gateway failure callback and the abandoned-checkout sweep so the
+ * two can never unwind an order differently.
+ */
+async function unwindReservedOrder(
+  order: InstanceType<typeof Order>,
+  session: mongoose.ClientSession,
+  failureReason?: string,
+) {
+  await releaseReservation(stockLinesFromOrder(order), String(order._id), session);
+  await releaseDealStock(dealLinesFromOrder(order), session);
+
+  order.paymentStatus = "failed";
+  order.status = "cancelled";
+  order.inventoryStatus = "released";
+  for (const detail of order.details) {
+    detail.status = "cancelled";
+    detail.cancelledAt = new Date();
+  }
+  await order.save({ session });
+  await restorePointsForOrder(String(order._id), session);
+  await CouponUsage.deleteMany({ orderId: order._id }).session(session);
+  if (failureReason) {
+    await Payment.updateMany({ orderId: order._id }, { status: "failed", failureReason }, { session });
+  }
+}
+
+/** How long a gateway checkout may hold stock before the sweep reclaims it. */
+export const RESERVATION_TTL_MINUTES = 60;
+
+/**
+ * Abandoned-checkout sweep.
+ *
+ * A gateway order reserves stock at placement and only confirms it when the
+ * provider settles. A shopper who closes the payment page never settles, and
+ * nothing released that hold: the units stayed unsellable forever. The legacy app
+ * had no reservations at all - it decremented stock outright - so there is no
+ * legacy behaviour to copy here, only a hole to close.
+ *
+ * Each order is unwound in its own transaction so one bad row cannot stall the
+ * sweep, and the state is re-checked inside that transaction: an order that
+ * settled between the scan and the write is left alone.
+ */
+export async function expireAbandonedOrders(ttlMinutes = RESERVATION_TTL_MINUTES) {
+  const cutoff = new Date(Date.now() - ttlMinutes * 60_000);
+  const candidates = await Order.find(
+    {
+      status: "pending",
+      paymentStatus: { $in: ["pending", "unpaid"] },
+      inventoryStatus: "reserved",
+      // COD and wallet settle at placement, so a pending one of those is not an
+      // abandoned payment page.
+      paymentMethod: { $nin: ["cod", "wallet"] },
+      createdAt: { $lt: cutoff },
+    },
+    { _id: 1 },
+  ).lean();
+
+  const expired: string[] = [];
+  for (const candidate of candidates) {
+    const session = await mongoose.startSession();
+    try {
+      let released = false;
+      await session.withTransaction(async () => {
+        released = false;
+        const order = await Order.findById(candidate._id).session(session);
+        if (!order) return;
+        // Re-validate: the shopper may have paid while the sweep was running.
+        if (order.paymentStatus === "paid" || order.status !== "pending") return;
+        if (inventoryStatus(order) !== "reserved") return;
+        if (order.createdAt && order.createdAt.getTime() >= cutoff.getTime()) return;
+
+        await unwindReservedOrder(order, session, "Checkout abandoned");
+        released = true;
+      });
+      if (released) expired.push(String(candidate._id));
+    } catch (error) {
+      // One unprocessable order must not abort the rest of the sweep.
+      logger.error(`Failed to expire abandoned order ${String(candidate._id)}: ${String(error)}`);
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  for (const orderId of expired) await reverseAffiliateForOrder(orderId);
+  return { scanned: candidates.length, expired: expired.length, orderIds: expired };
+}
+
+/**
+ * A capture that lands after its order was closed. The money is at the provider,
+ * so discarding the notification would lose it: the capture is recorded against the
+ * order, flagged for refund, and the provider transaction is claimed so it cannot
+ * also be used to pay a different order. The caller still refuses to fulfil.
+ */
+async function recordLateCapture(
+  order: InstanceType<typeof Order>,
+  method: string,
+  providerRef?: string,
+) {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      if (providerRef) await claimReceipt(String(order._id), method, providerRef, session);
+      await Payment.updateOne(
+        { idempotencyKey: `late-capture:${order._id}:${providerRef ?? method}` },
+        {
+          $set: {
+            orderId: order._id,
+            method,
+            amount: order.grandTotal,
+            currency: order.currency,
+            status: "paid",
+            settlementRef: providerRef,
+            requiresRefund: true,
+            failureReason: `Captured after the order was closed (${order.status}/${order.paymentStatus})`,
+          },
+        },
+        { session, upsert: true },
+      );
+    });
+  } finally {
+    await session.endSession();
+  }
+}
+
+/** Captures taken on closed orders, awaiting an operator refund. */
+export async function listLateCaptures() {
+  return Payment.find({ requiresRefund: true })
+    .populate("orderId", "code grandTotal currency status")
+    .sort({ createdAt: -1 })
+    .limit(200);
 }
 
 // A recorded but unfinished delivery stays retryable. The handlers mark it

@@ -66,6 +66,15 @@ const envSchema = z.object({
   // written to MongoDB. Changing it makes every stored secret unreadable, so it
   // must be treated as permanent for a given deployment.
   SETTINGS_ENCRYPTION_KEY: z.string().min(32).optional(),
+
+  // Background maintenance: releases stock held by abandoned gateway checkouts
+  // and unpublishes the catalogue of sellers whose package has lapsed. Both
+  // sweeps are also exposed as admin endpoints, so a deployment that runs them
+  // from an external scheduler can leave this off.
+  RUN_MAINTENANCE_JOBS: z.coerce.boolean().default(true),
+  MAINTENANCE_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+  // How long a gateway checkout may hold stock before the sweep reclaims it.
+  RESERVATION_TTL_MINUTES: z.coerce.number().int().min(5).max(10080).default(60),
 });
 
 const parsed = envSchema.safeParse(process.env);

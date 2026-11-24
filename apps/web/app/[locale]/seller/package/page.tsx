@@ -38,15 +38,26 @@ export default function SellerPackagePage() {
           {current ? (
             <>
               <p className="text-lg font-semibold">{current.packageId?.name ?? "Active package"}</p>
-              <p className="text-muted-foreground">Renews or expires on {new Date(current.expiresAt).toLocaleDateString()}</p>
+              {subscription.expiresAt && (
+                <p className="text-muted-foreground">
+                  {subscription.expired ? "Expired on" : "Valid until"}{" "}
+                  {new Date(subscription.expiresAt).toLocaleDateString()}
+                </p>
+              )}
+              {/* Uploads are an allowance consumed per listing, so this is a
+                  remaining count, not a live product count minus a limit. */}
               <p>
-                Using {subscription.productCount} of{" "}
-                {subscription.productLimit === null ? "unlimited" : subscription.productLimit} product slots
-                {subscription.remaining !== null && ` · ${subscription.remaining} remaining`}
+                {subscription.remainingUploads} product upload(s) and {subscription.remainingDigitalUploads} digital
+                upload(s) remaining · {subscription.productCount} listed so far
               </p>
-              {subscription.remaining === 0 && (
+              {subscription.expired && (
                 <p className="text-destructive">
-                  You have reached your limit. Upgrade below before adding more products.
+                  Your package has expired, so your listings are unpublished. Renew below to publish them again.
+                </p>
+              )}
+              {!subscription.expired && subscription.remainingUploads === 0 && (
+                <p className="text-destructive">
+                  You have used every upload in your plan. Buy a package below to add more products.
                 </p>
               )}
             </>
@@ -58,7 +69,7 @@ export default function SellerPackagePage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         {packages?.map(
-          (pkg: { id: string; name: string; price: number; durationDays: number; productLimit: number; commissionRateOverride: number | null }) => (
+          (pkg: { id: string; name: string; price: number; durationDays: number; productLimit: number; digitalProductLimit?: number; commissionRateOverride: number | null }) => (
             <Card key={pkg.id}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-base">
@@ -70,7 +81,8 @@ export default function SellerPackagePage() {
                 <p className="text-2xl font-bold">{formatPrice(pkg.price)}</p>
                 <ul className="space-y-1 text-muted-foreground">
                   <li>{pkg.durationDays} days</li>
-                  <li>Up to {pkg.productLimit} products</li>
+                  <li>{pkg.productLimit} product upload(s)</li>
+                  {!!pkg.digitalProductLimit && <li>{pkg.digitalProductLimit} digital upload(s)</li>}
                   {pkg.commissionRateOverride !== null && <li>{pkg.commissionRateOverride}% commission rate</li>}
                 </ul>
                 <div className="flex flex-col gap-2">

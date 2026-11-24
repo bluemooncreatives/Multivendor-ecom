@@ -16,7 +16,9 @@ functions, controller actions, and target API call references in `inventory.json
 Third-party dependencies, generated builds, uploaded media, environment secrets,
 and database row contents are not exported into the report.
 
-The selected source directories contain 1,263 original files and 1,261 legacy
+`npm run migrate:legacy -- --dump <file> --dry-run` additionally reads the legacy
+MySQL dump itself and reports, table by table, what it would write. The selected
+source directories contain 1,263 original files and 1,261 legacy
 files. There are 185 byte-level differences in common files; all disappear when
 line endings and trailing whitespace are normalized. The original additionally
 contains `resources/lang/en.json` and `Backup/resources/lang/en.json`. The target
@@ -41,6 +43,11 @@ feature acceptance counts. PHP code has not been executed.
 | POS | PHP `PosController`; POS service and till | Real wallet debit with rollback; line category commission; client attempt key prevents duplicate sales. Database regressions. |
 | Sessions/access | PHP auth/middleware; auth service, providers | Atomic refresh rotation, frontend refresh registration/cleanup, logout cache/session cleanup, banned-account checks on optional authentication, seller order projections, support-ticket ownership. |
 | Digital products | PHP digital/purchase history; upload/download services | Local paid goods outside public roots; hidden catalog file references; purpose-bound tokens; entitlement recheck; private streaming; digital multi-upload role checks. HTTP download/revocation regression. Cloudinary signing path still needs provider testing. |
+| Flash deals | PHP `Helpers.php` (`home_price`, `home_discounted_base_price`), `CartController`, `PosController`; `flashdeal.service.ts` | One campaign resolver drives the campaign page, cart, coupon preview, POS and checkout. A live campaign replaces (never stacks with) the product discount, percent and fixed-amount campaign discounts both supported, tax charged on the campaign price. Campaign allowance consumed atomically with the stock hold and returned on cancellation or payment failure. Database regressions. |
+| Catalogue pricing | PHP listing/detail price helpers; `pricing.service.ts` | Search, product detail and compare responses carry a server-computed `pricing` block (campaign price, else product discount) so cards and the detail page quote what checkout charges. One campaign query per page, not per card. |
+| Seller/customer packages | PHP `SellerPackageController`, `CustomerPackageController`, `ProductController@store`, `DigitalProductController@store`; `package.service.ts` | Upload allowance restored as the legacy counter (`remaining_uploads` / `remaining_digital_uploads` / `invalid_at`) instead of a live product count. Wallet debit, payment row and grant in one transaction with a purchase key; free plan may be taken once; offline purchase grants nothing until approval; gateway purchases now grant the plan they paid for; allowance consumed before insert and returned on failure; expiry blocks uploads and publishing and unpublishes the catalogue. Database regressions. |
+| Abandoned payments | Target-only (legacy held no reservations) | Sweep releases stock, campaign allowance, points and coupon redemption from gateway checkouts left unpaid past a TTL, re-checking state inside the transaction. A capture arriving after the order closed is recorded against it and flagged for refund rather than discarded, and its provider transaction is claimed so it cannot pay another order. Database regressions. |
+| Legacy data import | `software_ecommercemvendor22.sql`; `scripts/legacy/` | A mysqldump reader and importer for 46 legacy tables into this application's collections: users (bcrypt hashes carried over, so passwords still work), wallets, taxonomy, shops/sellers, products with variants, orders rebuilt as per-seller shipments, carts, coupons, campaigns, packages, support, content and settings. Idempotent through a legacy-id map, `--dry-run`, per-table report with every skipped row and reason. Exercised against the real dump. |
 | Assets/runtime | `apps/web/public`, API `app.ts` / `server.ts` | Static assets moved into Next.js public root; public/private API storage separated under `data`; app construction separated from listening; production TS build excludes tests. |
 
 The tests use a disposable MongoDB replica set and a local HTTP listener. They
@@ -56,27 +63,32 @@ provider transactions, or execute the destructive demo seeder.
    stock, ownership, discount/refund, refresh rotation and payout concurrency
    cases. Provider boundary tests exercise rejection and reference checks.
 3. Final subset checks: see `VALIDATION.md` for the final command results.
+4. Feature pass over the previously open P0 work, one feature at a time, each
+   compared against its PHP source before and after the change: flash-deal
+   pricing and campaign stock, catalogue price consistency, seller/customer
+   packages and upload quotas, abandoned payments and late captures, and the
+   legacy data import. Each landed with database-level regression tests, and the
+   whole suite was re-run after each one.
 
 These rounds do **not** represent completion of the user's requested three full
-application migration passes. The first complete feature-by-feature parity pass
-is still open. Browser acceptance of all 90 pages has not been run.
+application migration passes. A complete feature-by-feature parity pass over the
+P1 modules listed below is still open. Browser acceptance of all 90 pages has not
+been run.
 
 ## Remaining work before migration completion
 
 | Priority | Feature / file | Outstanding work |
 | --- | --- | --- |
-| P0 | Data migration; `src/scripts/seed.ts` | Existing seed creates/replaces demo data. A verified, repeatable import of legacy users, orders, inventory, media, settings, wallet/commission balances and relations is still required. Never run demo seed on production data. |
-| P0 | Flash deals; `FlashDeal`, `flashdeal.controller.ts` | Displayed campaign discount and campaign stock still need an authoritative checkout pricing/reservation implementation. The campaign page currently calculates a displayed deal price independently. |
-| P0 | Packages; `package.controller.ts`, quota service | Wallet package debit, history and activation still need one transaction and purchase replay protection. Quota concurrency, renewal/expiry and scheduled unpublishing require complete verification. |
-| P0 | Gateway acceptance | Real sandbox acceptance remains required for every supported gateway/purpose. 2Checkout return trust, reference/currency binding, regional gateway session creation races, provider retries, and non-order payable flows are not fully verified. No live service availability is asserted. |
-| P0 | Abandoned payments | Reservation expiry/reconciliation, late capture after cancellation, payment resumption after the cart is cleared, provider refunds and durable post-payment side effects remain unfinished. |
-| P0 | Historical accounting | Existing migrated COD credits, negative reservations, old coupon usage and refund rows need reconciliation. Old orders without per-shipment discount snapshots use proportional refund allocation; original product-coupon allocation cannot be recovered exactly from those snapshots. |
+| P0 | Gateway acceptance | Real sandbox acceptance remains required for every supported gateway/purpose. 2Checkout return trust, reference/currency binding, regional gateway session creation races, provider retries, and non-order payable flows are not fully verified. This needs provider credentials and cannot be completed from the repository alone. No live service availability is asserted. |
+| P0 | Data import rehearsal on real data | The importer is exercised against the vendored dump, which contains 794 importable rows. A production cut-over still needs: a rehearsal against a copy of the live database, a copy of the `public/uploads` tree to the new storage root (the importer rewrites paths but moves no files), and sign-off on the skipped rows and warnings the report lists. Payment-gateway credentials, Laravel Passport tokens and positional staff role permissions are deliberately not imported. |
+| P1 | Historical accounting | Imported orders carry commission recomputed from current rates, because the legacy schema stored none per order; the per-seller running total (`sellers.admin_to_pay`) is imported as one opening ledger adjustment, and legacy wallet recharges carry no running balance. Reconciling those opening positions against the legacy reports is an operator task. Old orders without per-shipment discount snapshots still use proportional refund allocation. |
 | P1 | Refund return lifecycle | Per-item returns in mixed refundable/non-refundable shipments, returned-stock inspection, earned-point/affiliate clawbacks, and explicit tax/shipping refund policy need acceptance. Current merchandise refund does not automatically restock a delivered return. |
-| P1 | Storefront catalog | Flash pricing, product-card/detail discount consistency, category/variant facets, banned/unverified vendor visibility, sale counters and all legacy listing filters need full browser/API acceptance. |
+| P1 | Storefront catalogue | Category/variant facets, banned/unverified vendor visibility, sale counters and all legacy listing filters still need full browser/API acceptance. Flash pricing and card/detail price consistency are implemented and covered by tests, but not browser-accepted. Displayed prices exclude tax and show it as its own line, where the legacy blade templates folded tax into the displayed price. |
 | P1 | Settings/storage/auth | Runtime S3 implementation, database storage/social/reCAPTCHA settings integration, complete feature activation enforcement, and callback processing during maintenance require completion. S3 uploads now fail explicitly rather than silently writing locally. |
-| P1 | Localization | Backend language/translation editing is not fully integrated with the frontend's bundled `en/hi/ar` locale configuration. Currency precision and zero exchange-rate handling need acceptance. |
+| P1 | Localization | Backend language/translation editing is not fully integrated with the frontend's bundled `en/hi/ar` locale configuration. Currency precision and zero exchange-rate handling need acceptance; an imported non-ISO currency code is reported but not rewritten. |
 | P1 | POS UI | Registered customer lookup/wallet selection, authoritative tax/discount totals, receipt interaction and till recovery need browser acceptance. API wallet sales support `customerId`; the current till primarily captures walk-ins. |
 | P1 | Other modules | Reviews/moderation totals, conversations, affiliates, classified listings, newsletters, reports, CMS/SEO, pickup-point staff scoping, and uploads need their own full feature-by-feature PHP comparison and edge-case tests. Their presence in the repository is not a completed parity result. |
+| P2 | Scheduling | The abandoned-payment sweep and the subscription-expiry sweep are exposed as admin endpoints (`POST /admin/payments/expire-abandoned`, `POST /addons/admin/packages/unpublish-expired`). Neither runs on a timer yet; a scheduler or cron entry has to call them. |
 | P2 | Production operations | Deployment configuration, readiness/shutdown, queue jobs, backups, observability and complete browser/role acceptance remain open. |
 
 ## Cleanup disposition

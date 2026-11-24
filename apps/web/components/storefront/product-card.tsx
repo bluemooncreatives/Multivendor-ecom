@@ -27,9 +27,19 @@ export function ProductCard({ product }: { product: Product }) {
   const cheapestVariant = product.variants.length
     ? product.variants.reduce((a, b) => (a.price < b.price ? a : b))
     : null;
-  const price = cheapestVariant ? cheapestVariant.price : product.basePrice;
-  const comparePrice = cheapestVariant?.comparePrice;
-  const hasDiscount = !!comparePrice && comparePrice > price;
+  // `pricing` is the server's authority: it already applies the live flash-deal
+  // campaign or the product's own discount, so the card never advertises a price
+  // the cart will not honour. The variant price is only a fallback for payloads
+  // that predate it (admin/seller lists).
+  const listPrice = product.pricing?.listPrice ?? cheapestVariant?.comparePrice ?? product.basePrice;
+  const price = product.pricing?.price ?? (cheapestVariant ? cheapestVariant.price : product.basePrice);
+  const percentOff = product.pricing
+    ? product.pricing.discountPercent
+    : listPrice > price
+      ? Math.round(100 - (price / listPrice) * 100)
+      : 0;
+  const hasDiscount = percentOff > 0 && listPrice > price;
+  const onFlashDeal = product.pricing?.discountSource === "flash_deal";
 
   const wishlistItem = wishlist?.find((item) => item.productId.id === product.id);
   const isWishlisted = !!wishlistItem;
@@ -56,7 +66,12 @@ export function ProductCard({ product }: { product: Product }) {
           )}
           {hasDiscount && (
             <span className="absolute start-2 top-2 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-              {Math.round(100 - (price / (comparePrice as number)) * 100)}% OFF
+              {percentOff}% OFF
+            </span>
+          )}
+          {onFlashDeal && (
+            <span className="absolute start-2 top-7 rounded bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
+              Flash deal
             </span>
           )}
           <div className="absolute end-2 top-2 flex flex-col gap-2 opacity-0 transition-opacity group-hover:opacity-100">
@@ -86,7 +101,7 @@ export function ProductCard({ product }: { product: Product }) {
           <div className="flex items-baseline gap-2">
             {hasDiscount && (
               <span className="text-xs text-muted-foreground line-through">
-                {display(comparePrice as number, product.currency)}
+                {display(listPrice, product.currency)}
               </span>
             )}
             <span className="text-sm font-semibold">{display(price, product.currency)}</span>

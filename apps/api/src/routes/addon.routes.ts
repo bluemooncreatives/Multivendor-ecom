@@ -101,7 +101,7 @@ import {
   approvePackagePaymentSchema,
   approveSellerPackagePaymentHandler,
   approveCustomerPackagePaymentHandler,
-  enforceSellerProductLimitsHandler,
+  unpublishExpiredSellerProductsHandler,
 } from "../controllers/package.controller.js";
 
 import {
@@ -350,11 +350,20 @@ addonRouter.post(
   validateBody(approvePackagePaymentSchema),
   asyncHandler(approveCustomerPackagePaymentHandler),
 );
+// Legacy `unpublish_products`: unpublishes the catalogue of every seller whose
+// subscription has lapsed. Kept at the old path as well so existing schedulers
+// and cron entries keep working.
+addonRouter.post(
+  "/admin/packages/unpublish-expired",
+  authenticate,
+  requirePermission("addons.manage"),
+  asyncHandler(unpublishExpiredSellerProductsHandler),
+);
 addonRouter.post(
   "/admin/packages/enforce-limits",
   authenticate,
   requirePermission("addons.manage"),
-  asyncHandler(enforceSellerProductLimitsHandler),
+  asyncHandler(unpublishExpiredSellerProductsHandler),
 );
 
 // --- POS (seller point-of-sale) ---
