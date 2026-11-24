@@ -1385,6 +1385,7 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
 
       await upsert(Conversation, "conversations", row.id, {
         participantIds: [senderId, receiverId],
+        title: str(row.title),
         messages,
         lastMessageAt: at(row.updated_at) ?? at(row.created_at) ?? new Date(),
         createdAt: at(row.created_at) ?? new Date(),

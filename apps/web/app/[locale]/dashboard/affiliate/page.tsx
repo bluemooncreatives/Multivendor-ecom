@@ -92,6 +92,8 @@ function ApprovedAffiliate({
     .reduce((sum: number, w: { amount: number }) => sum + w.amount, 0);
   const withdrawable = affiliate.availableBalance - pendingTotal;
 
+  const [shareUrl, setShareUrl] = useState("");
+
   // Only the referral code travels in the link; the API resolves it at signup.
   const referralLink =
     typeof window === "undefined" ? "" : `${window.location.origin}/register?ref=${affiliate.referralCode}`;
@@ -143,17 +145,51 @@ function ApprovedAffiliate({
         <CardHeader>
           <CardTitle className="text-base">Your referral link</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Input readOnly value={referralLink} className="max-w-lg font-mono text-xs" />
-          <Button
-            variant="outline"
-            onClick={() => {
-              navigator.clipboard.writeText(referralLink);
-              toast.success("Link copied");
-            }}
-          >
-            Copy
-          </Button>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Input readOnly value={referralLink} className="max-w-lg font-mono text-xs" aria-label="Signup referral link" />
+            <Button
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(referralLink);
+                toast.success("Link copied");
+              }}
+            >
+              Copy
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Shares the store and credits you when someone signs up through it.
+          </p>
+
+          {/* Product share links: the same code on a product URL, which the store
+              records on that product's cart line so the sale is credited to you. */}
+          <div className="space-y-2 border-t pt-4">
+            <p className="text-sm font-medium">Share a product</p>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                value={shareUrl}
+                onChange={(e) => setShareUrl(e.target.value)}
+                placeholder="Paste a product link"
+                className="max-w-lg font-mono text-xs"
+                aria-label="Product link to share"
+              />
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const link = buildProductShareLink(shareUrl, affiliate.referralCode);
+                  if (!link) {
+                    toast.error("Paste a product link from this store first");
+                    return;
+                  }
+                  navigator.clipboard.writeText(link);
+                  toast.success("Product share link copied");
+                }}
+              >
+                Copy share link
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -318,4 +354,23 @@ function ApprovedAffiliate({
       </div>
     </div>
   );
+}
+
+/**
+ * Adds the affiliate's code to a product URL from this store. Returns null for
+ * anything that is not a product link, so a stray paste cannot produce a link that
+ * silently credits nobody.
+ */
+function buildProductShareLink(input: string, referralCode: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed, window.location.origin);
+    if (url.origin !== window.location.origin) return null;
+    if (!url.pathname.includes("/product/")) return null;
+    url.searchParams.set("ref", referralCode);
+    return url.toString();
+  } catch {
+    return null;
+  }
 }

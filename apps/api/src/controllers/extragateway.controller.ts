@@ -4,6 +4,9 @@ import { z } from "zod";
 import { PaymentGateway } from "../models/PaymentGateway.js";
 import { GatewayIntent } from "../models/GatewayIntent.js";
 import { SellerPackage, CustomerPackage } from "../models/Package.js";
+import { Shop } from "../models/Shop.js";
+import { GeneralSetting } from "../models/Settings.js";
+import { canPurchasePackage } from "../services/package.service.js";
 import * as sslcommerz from "../services/gateways/sslcommerz.service.js";
 import * as instamojo from "../services/gateways/instamojo.service.js";
 import * as paystack from "../services/gateways/paystack.service.js";
@@ -194,9 +197,30 @@ export async function createGatewayIntentHandler(req: Request, res: Response) {
         : await CustomerPackage.findById(packageId);
 
     if (!pkg || !pkg.active) throw new ApiError(404, "That package is not available");
+
+    // A seller plan is held on the shop row, so a seller without one would pay and
+    // receive nothing. Checked here rather than at settlement, where the money has
+    // already been taken.
+    if (purpose === "seller_package") {
+      if (req.user!.role !== "seller") throw new ApiError(403, "Only a seller can buy a seller package");
+      if (!(await Shop.exists({ sellerId: req.user!.id }))) {
+        throw new ApiError(400, "Create your shop before purchasing a package");
+      }
+    }
+    // A free plan is activated directly; a gateway session for zero is a session
+    // no provider will accept.
+    if (pkg.price === 0) {
+      throw new ApiError(400, "This package is free; activate it from the packages page instead of paying for it");
+    }
+    if (!(await canPurchasePackage(purpose === "seller_package" ? "seller" : "customer", req.user!.id, String(pkg._id), pkg.price))) {
+      throw new ApiError(409, "You cannot purchase this package anymore");
+    }
+
     total = pkg.price;
     refId = String(pkg._id);
   }
+
+  const general = await GeneralSetting.findOne({ key: "general" }, { defaultCurrency: 1 });
 
   const intent = await GatewayIntent.create({
     purpose,
@@ -204,7 +228,9 @@ export async function createGatewayIntentHandler(req: Request, res: Response) {
     refId,
     code: `PAY-${randomUUID().slice(0, 12).toUpperCase()}`,
     grandTotal: total,
-    currency: "INR",
+    // The store's own currency, not a hard-coded one: a gateway charged in the
+    // wrong currency takes the wrong amount.
+    currency: general?.defaultCurrency ?? env.DEFAULT_CURRENCY,
     paymentMethod,
     paymentStatus: "pending",
   });

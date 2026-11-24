@@ -12,6 +12,7 @@ import {
   createReviewSchema,
   replyReviewSchema,
   moderateReviewSchema,
+  deleteReviewHandler,
 } from "../controllers/review.controller.js";
 
 export const reviewRouter = Router();
@@ -28,3 +29,4 @@ reviewRouter.post(
   validateBody(moderateReviewSchema),
   asyncHandler(moderateReviewHandler),
 );
+reviewRouter.delete("/admin/:id", authenticate, requirePermission("catalog.moderate"), asyncHandler(deleteReviewHandler));

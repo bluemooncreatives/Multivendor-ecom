@@ -5,6 +5,10 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 import {
   classifiedSchema,
+  classifiedStatusSchema,
+  listAdminClassifiedsHandler,
+  getMyClassifiedHandler,
+  setMyClassifiedStatusHandler,
   moderateClassifiedSchema,
   listClassifiedsHandler,
   getClassifiedBySlugHandler,
@@ -117,6 +121,19 @@ export const addonRouter = Router();
 addonRouter.get("/classifieds", asyncHandler(listClassifiedsHandler));
 addonRouter.post("/classifieds", authenticate, validateBody(classifiedSchema), asyncHandler(createClassifiedHandler));
 addonRouter.get("/classifieds/mine", authenticate, asyncHandler(listMyClassifiedsHandler));
+addonRouter.get("/classifieds/mine/:id", authenticate, asyncHandler(getMyClassifiedHandler));
+addonRouter.patch(
+  "/classifieds/mine/:id/status",
+  authenticate,
+  validateBody(classifiedStatusSchema),
+  asyncHandler(setMyClassifiedStatusHandler),
+);
+addonRouter.get(
+  "/admin/classifieds",
+  authenticate,
+  requirePermission("catalog.moderate"),
+  asyncHandler(listAdminClassifiedsHandler),
+);
 // Before /:id, so "slug" is not captured as an id.
 addonRouter.get("/classifieds/slug/:slug", asyncHandler(getClassifiedBySlugHandler));
 addonRouter.patch("/classifieds/:id", authenticate, validateBody(classifiedSchema.partial()), asyncHandler(updateClassifiedHandler));

@@ -223,9 +223,15 @@ function assertPaymentOwner(ownerId: unknown, userId: string, payment: any) {
   return payment;
 }
 
+/**
+ * Grants a seller plan. Returns false when the seller has no shop row to hold the
+ * allowance, which the caller must treat as "paid but not delivered" rather than
+ * as success - the legacy app wrote to `sellers` unconditionally and silently did
+ * nothing for a user who had never opened a shop.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function grantSellerAllowance(sellerId: string, pkg: any, at: Date, session: ClientSession) {
-  await Shop.updateOne(
+export async function grantSellerAllowance(sellerId: string, pkg: any, at: Date, session: ClientSession): Promise<boolean> {
+  const result = await Shop.updateOne(
     { sellerId },
     {
       $set: {
@@ -241,11 +247,12 @@ export async function grantSellerAllowance(sellerId: string, pkg: any, at: Date,
     },
     { session },
   );
+  return result.matchedCount > 0;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function grantCustomerAllowance(userId: string, pkg: any, at: Date, session: ClientSession) {
-  await User.updateOne(
+export async function grantCustomerAllowance(userId: string, pkg: any, at: Date, session: ClientSession): Promise<boolean> {
+  const result = await User.updateOne(
     { _id: userId },
     {
       $set: { customerPackageId: pkg._id, packageInvalidAt: addDays(at, pkg.durationDays) },
@@ -253,6 +260,16 @@ export async function grantCustomerAllowance(userId: string, pkg: any, at: Date,
     },
     { session },
   );
+  return result.matchedCount > 0;
+}
+
+/** True when this account may still buy `packageId` (the free-plan rule). */
+export async function canPurchasePackage(kind: PackageKind, userId: string, packageId: string, price: number) {
+  if (price !== 0) return true;
+  const current = kind === "seller"
+    ? (await Shop.findOne({ sellerId: userId }, { sellerPackageId: 1 }))?.sellerPackageId
+    : (await User.findById(userId, { customerPackageId: 1 }))?.customerPackageId;
+  return !current || String(current) !== String(packageId);
 }
 
 async function addonEnabled(key: "seller_subscription" | "classified_products") {

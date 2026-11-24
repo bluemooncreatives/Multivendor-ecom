@@ -44,6 +44,9 @@ const reviewSchema = new Schema(
     images: { type: [String], default: [] },
     approved: { type: Boolean, default: true },
     sellerReply: String,
+    // Legacy `reviews.viewed`: cleared on submission and set when the seller opens
+    // their review list, which is what drove the "new reviews" badge.
+    sellerViewed: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

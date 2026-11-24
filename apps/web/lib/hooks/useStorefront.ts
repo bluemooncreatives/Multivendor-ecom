@@ -78,7 +78,13 @@ export interface Classified {
 export interface ClassifiedFilters {
   q?: string;
   categoryId?: string;
+  brandId?: string;
   location?: string;
+  condition?: "new" | "used";
+  minPrice?: number;
+  maxPrice?: number;
+  /** Matches the legacy sort_by options 1-4. */
+  sort?: "newest" | "oldest" | "price_asc" | "price_desc";
   page?: number;
 }
 

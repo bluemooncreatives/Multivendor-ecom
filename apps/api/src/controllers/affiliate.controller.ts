@@ -118,11 +118,36 @@ async function getConfig() {
   return (await AffiliateConfig.findOne()) ?? (await AffiliateConfig.create({}));
 }
 
+const sharingSchema = z.object({
+  enabled: z.boolean().default(false),
+  commissionType: z.enum(["amount", "percent"]).default("percent"),
+  commission: z.number().min(0).default(0),
+});
+
 export const affiliateConfigSchema = z.object({
   enabled: z.boolean(),
   commissionPercent: z.number().min(0).max(100),
   cookieDays: z.number().int().min(0).max(365),
   minWithdrawAmount: z.number().min(0),
+  // The three legacy affiliate options, each independently switchable.
+  firstPurchase: z
+    .object({ enabled: z.boolean().default(false), percent: z.number().min(0).max(100).default(0) })
+    .optional(),
+  productSharing: sharingSchema.optional(),
+  categorySharing: z
+    .object({
+      enabled: z.boolean().default(false),
+      rates: z
+        .array(
+          z.object({
+            categoryId: z.string(),
+            commissionType: z.enum(["amount", "percent"]).default("percent"),
+            commission: z.number().min(0),
+          }),
+        )
+        .default([]),
+    })
+    .optional(),
   actionBonuses: z.record(z.number().min(0)).optional(),
   allowedMethods: z.array(z.enum(["bank_transfer", "wallet", "manual"])).min(1),
 });

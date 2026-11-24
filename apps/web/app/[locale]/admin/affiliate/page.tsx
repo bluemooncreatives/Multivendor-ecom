@@ -125,6 +125,110 @@ function ConfigPanel() {
             />
           </div>
 
+          {/* The three legacy affiliate options. Each is independent, except that
+              product sharing takes precedence over category rates, exactly as the
+              legacy crediting code did. */}
+          <fieldset className="space-y-3 rounded-md border p-3 md:col-span-2">
+            <legend className="px-1 text-sm font-medium">First-purchase bonus</legend>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.firstPurchase?.enabled ?? false}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    firstPurchase: { percent: form.firstPurchase?.percent ?? 0, enabled: e.target.checked },
+                  })
+                }
+              />
+              Pay the referrer when their referred customer first buys
+            </label>
+            <div className="space-y-1 sm:max-w-xs">
+              <Label htmlFor="firstPurchasePercent">Percent of that first order</Label>
+              <Input
+                id="firstPurchasePercent"
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                value={form.firstPurchase?.percent ?? 0}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    firstPurchase: { enabled: form.firstPurchase?.enabled ?? false, percent: Number(e.target.value) },
+                  })
+                }
+              />
+            </div>
+          </fieldset>
+
+          <fieldset className="space-y-3 rounded-md border p-3 md:col-span-2">
+            <legend className="px-1 text-sm font-medium">Product share links</legend>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.productSharing?.enabled ?? false}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    productSharing: {
+                      commissionType: form.productSharing?.commissionType ?? "percent",
+                      commission: form.productSharing?.commission ?? 0,
+                      enabled: e.target.checked,
+                    },
+                  })
+                }
+              />
+              Pay an affiliate when a product bought through their share link is sold
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="shareType">Commission type</Label>
+                <select
+                  id="shareType"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={form.productSharing?.commissionType ?? "percent"}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      productSharing: {
+                        enabled: form.productSharing?.enabled ?? false,
+                        commission: form.productSharing?.commission ?? 0,
+                        commissionType: e.target.value as "amount" | "percent",
+                      },
+                    })
+                  }
+                >
+                  <option value="percent">Percent of the line</option>
+                  <option value="amount">Fixed amount</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="shareCommission">Commission</Label>
+                <Input
+                  id="shareCommission"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.productSharing?.commission ?? 0}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      productSharing: {
+                        enabled: form.productSharing?.enabled ?? false,
+                        commissionType: form.productSharing?.commissionType ?? "percent",
+                        commission: Number(e.target.value),
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              While this is on, per-category rates are ignored.
+            </p>
+          </fieldset>
+
           <fieldset className="space-y-2 md:col-span-2">
             <legend className="text-sm font-medium">Allowed payout methods</legend>
             <div className="flex flex-wrap gap-4">

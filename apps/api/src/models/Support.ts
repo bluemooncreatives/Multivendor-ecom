@@ -37,6 +37,9 @@ const messageSchema = new Schema(
 // Customer <-> Seller pre-sale chat, scoped to a participant pair.
 const conversationSchema = new Schema(
   {
+    // Legacy `conversations.title`: the subject the shopper typed (or the product
+    // they asked about), shown in the thread list on both sides.
+    title: { type: String, default: null },
     participantIds: {
       type: [Schema.Types.ObjectId],
       ref: "User",

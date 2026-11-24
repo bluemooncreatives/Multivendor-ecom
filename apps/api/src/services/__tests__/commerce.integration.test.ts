@@ -44,6 +44,7 @@ import { login, refreshSession } from "../auth.service.js";
 import { hashPassword } from "../../utils/password.js";
 import { RefreshToken } from "../../models/RefreshToken.js";
 import { Payment } from "../../models/Payment.js";
+import { GatewayIntent } from "../../models/GatewayIntent.js";
 import { assertVerifiedPayment } from "../gateways/shared.js";
 
 let repl: MongoMemoryReplSet;
@@ -955,5 +956,106 @@ describe("background maintenance", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(await withJobLock("slow", 15, async () => "other")).toBeNull();
     expect(await held).toBe("done");
+  });
+});
+
+describe("package purchases paid through a gateway", () => {
+  async function sellerWithShop() {
+    const seller = await User.create({ name: "Seller", email: `gw-seller-${id()}@example.com`, passwordHash: "x", role: "seller" });
+    await Shop.create({ sellerId: seller._id, name: `Shop ${id()}`, slug: `shop-${id()}` });
+    return seller;
+  }
+
+  async function intentFor(userId: unknown, packageId: unknown, purpose: "seller_package" | "customer_package", amount = 100) {
+    const intent = await GatewayIntent.create({
+      purpose, userId, refId: packageId, code: `PAY-${id()}`, grandTotal: amount,
+      currency: "INR", paymentMethod: "stripe", paymentStatus: "pending",
+    });
+    await Payment.create({
+      intentId: intent._id, method: "stripe", amount, currency: "INR",
+      status: "pending", idempotencyKey: `intent:${intent._id}:stripe`,
+    });
+    return intent;
+  }
+
+  it("grants the plan the seller paid the gateway for, exactly once", async () => {
+    await Addon.create({ key: "seller_subscription", name: "Seller subscription", enabled: true });
+    const seller = await sellerWithShop();
+    const pkg = await SellerPackage.create({ name: "Gateway plan", price: 100, durationDays: 30, productLimit: 7, digitalProductLimit: 3 });
+    const intent = await intentFor(seller._id, pkg._id, "seller_package");
+
+    await settleOrderPayment(String(intent._id), "stripe", `gw-${id()}`);
+    // A replayed callback must not grant a second allowance.
+    await settleOrderPayment(String(intent._id), "stripe", `gw-${id()}`);
+
+    const shop = await Shop.findOne({ sellerId: seller._id });
+    expect(shop!.remainingUploads).toBe(7);
+    expect(shop!.remainingDigitalUploads).toBe(3);
+    expect(String(shop!.sellerPackageId)).toBe(String(pkg._id));
+    expect(shop!.packageInvalidAt!.getTime()).toBeGreaterThan(Date.now());
+    expect(await SellerPackagePayment.countDocuments({ sellerId: seller._id })).toBe(1);
+    expect((await SellerPackagePayment.findOne({ sellerId: seller._id }))!.status).toBe("paid");
+  });
+
+  it("grants a customer listing allowance paid through a gateway", async () => {
+    const user = await User.create({ name: "Customer", email: `gw-cust-${id()}@example.com`, passwordHash: "x", role: "customer" });
+    const pkg = await CustomerPackage.create({ name: "Listings", price: 50, durationDays: 365, classifiedListingLimit: 4 });
+    const intent = await intentFor(user._id, pkg._id, "customer_package", 50);
+
+    await settleOrderPayment(String(intent._id), "stripe", `gw-${id()}`);
+
+    const after = await User.findById(user._id);
+    expect(after!.remainingUploads).toBe(4);
+    expect(String(after!.customerPackageId)).toBe(String(pkg._id));
+  });
+
+  it("flags a seller plan paid for by an account with no shop instead of swallowing the payment", async () => {
+    const seller = await User.create({ name: "Shopless", email: `gw-none-${id()}@example.com`, passwordHash: "x", role: "seller" });
+    const pkg = await SellerPackage.create({ name: "Gateway plan", price: 100, durationDays: 30, productLimit: 7 });
+    const intent = await intentFor(seller._id, pkg._id, "seller_package");
+
+    await settleOrderPayment(String(intent._id), "stripe", `gw-${id()}`);
+
+    // The money was captured, so the settlement stands - but it is flagged for an
+    // operator rather than reported as a delivered plan.
+    const flagged = await Payment.findOne({ intentId: intent._id });
+    expect(flagged!.status).toBe("paid");
+    expect(flagged!.requiresRefund).toBe(true);
+    expect(await listLateCaptures()).toHaveLength(1);
+  });
+
+  it("refuses to start a gateway payment that could not be delivered", async () => {
+    await Addon.create({ key: "seller_subscription", name: "Seller subscription", enabled: true });
+    const shopless = await User.create({ name: "Shopless", email: `gw-pre-${id()}@example.com`, passwordHash: "x", role: "seller" });
+    const paid = await SellerPackage.create({ name: "Paid", price: 100, durationDays: 30, productLimit: 5 });
+    const free = await SellerPackage.create({ name: "Free", price: 0, durationDays: 30, productLimit: 5 });
+
+    const post = (token: string, body: unknown) =>
+      fetch(`${base}/api/v1/payments/intents`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+    const shoplessToken = signAccessToken({ sub: String(shopless._id), role: "seller" });
+    const noShop = await post(shoplessToken, { purpose: "seller_package", packageId: String(paid._id), paymentMethod: "stripe" });
+    expect(noShop.status).toBe(400);
+    expect((await noShop.json() as { message: string }).message).toMatch(/shop/i);
+
+    const seller = await sellerWithShop();
+    const token = signAccessToken({ sub: String(seller._id), role: "seller" });
+    // A free plan is activated directly; no provider accepts a zero-amount session.
+    const zero = await post(token, { purpose: "seller_package", packageId: String(free._id), paymentMethod: "stripe" });
+    expect(zero.status).toBe(400);
+
+    const ok = await post(token, { purpose: "seller_package", packageId: String(paid._id), paymentMethod: "stripe" });
+    expect(ok.status).toBe(201);
+    expect((await ok.json() as { grandTotal: number }).grandTotal).toBe(100);
+
+    // A customer may not buy a seller plan.
+    const customer = await User.create({ name: "Customer", email: `gw-c-${id()}@example.com`, passwordHash: "x", role: "customer" });
+    const customerToken = signAccessToken({ sub: String(customer._id), role: "customer" });
+    const wrongRole = await post(customerToken, { purpose: "seller_package", packageId: String(paid._id), paymentMethod: "stripe" });
+    expect([401, 403]).toContain(wrongRole.status);
   });
 });

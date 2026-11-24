@@ -91,7 +91,20 @@ export async function getCartWithDetails(owner: CartOwner) {
 
 // Stock is re-checked against `stock - reserved` (available, not gross) every time
 // a quantity is set — on add, on quantity change, and again on guest-cart merge.
-export async function setCartItem(owner: CartOwner, productId: string, variantSku: string, quantity: number) {
+export async function setCartItem(
+  owner: CartOwner,
+  productId: string,
+  variantSku: string,
+  quantity: number,
+  /**
+   * Affiliate share-link code the shopper arrived through. Stored on the line so
+   * the sharer can be credited at checkout (legacy kept it on the session cart row
+   * and copied it into order_details). An absent code never clears one already
+   * recorded: the legacy cookie behaved the same way, and a later quantity change
+   * must not quietly cancel someone's commission.
+   */
+  productReferralCode?: string | null,
+) {
   if (!Number.isSafeInteger(quantity) || quantity < 0) throw new ApiError(400, "Quantity must be a non-negative integer");
   if (quantity === 0) { await removeCartItem(owner, productId, variantSku); return; }
   const { product, variant } = await findVariant(productId, variantSku);
@@ -104,13 +117,15 @@ export async function setCartItem(owner: CartOwner, productId: string, variantSk
   const filter = ownerFilter(owner);
   const cart = (await Cart.findOne(filter)) ?? new Cart({ ...owner });
 
+  const code = productReferralCode?.trim() || null;
   const existingIndex = cart.items.findIndex((i) => i.productId.toString() === productId && i.variantSku === variantSku);
   if (quantity <= 0) {
     if (existingIndex >= 0) cart.items.splice(existingIndex, 1);
   } else if (existingIndex >= 0) {
     cart.items[existingIndex]!.quantity = quantity;
+    if (code) cart.items[existingIndex]!.productReferralCode = code;
   } else {
-    cart.items.push({ productId, variantSku, quantity } as never);
+    cart.items.push({ productId, variantSku, quantity, productReferralCode: code } as never);
   }
 
   await cart.save();
@@ -148,8 +163,17 @@ export async function mergeGuestCartIntoUser(guestId: string, userId: string) {
     }
     if (existing) {
       existing.quantity = finalQty;
+      // Signing in must not drop the share link the guest arrived through.
+      if (!existing.productReferralCode && guestItem.productReferralCode) {
+        existing.productReferralCode = guestItem.productReferralCode;
+      }
     } else {
-      userCart.items.push({ productId: guestItem.productId, variantSku: guestItem.variantSku, quantity: finalQty } as never);
+      userCart.items.push({
+        productId: guestItem.productId,
+        variantSku: guestItem.variantSku,
+        quantity: finalQty,
+        productReferralCode: guestItem.productReferralCode ?? null,
+      } as never);
     }
   }
 

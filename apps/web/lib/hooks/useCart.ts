@@ -47,7 +47,7 @@ export function useSetCartItem() {
   const headers = useCartHeaders();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { productId: string; variantSku: string; quantity: number }) =>
+    mutationFn: async (input: { productId: string; variantSku: string; quantity: number; productReferralCode?: string | null }) =>
       (await api.put<CartDetails>("/cart/items", input, { headers })).data,
     onSuccess: (cart) => queryClient.setQueryData(["cart"], cart),
   });

@@ -136,6 +136,37 @@ export function sendOrderConfirmationEmail(
   );
 }
 
+/**
+ * Tells the other participant that a message is waiting, as the legacy
+ * `ConversationController::send_message_to_seller` did. The body is deliberately
+ * not included: the thread may hold anything, and the notification goes to an
+ * inbox that is not part of this application.
+ */
+export function sendConversationMessageEmail(
+  to: string,
+  from: { name: string },
+  conversation: { id: string; title?: string | null },
+) {
+  const link = `${env.NEXT_PUBLIC_APP_URL}/en/dashboard/messages/${conversation.id}`;
+  const subject = conversation.title ? `New message: ${conversation.title}` : "You have a new message";
+  return send(
+    to,
+    subject,
+    `<p>${escapeHtml(from.name)} sent you a message.</p>
+     <p><a href="${link}">Open the conversation</a></p>`,
+  );
+}
+
+/** Minimal escaping: a display name is user input and must not reach HTML raw. */
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // Sent one-by-one (not a single BCC blast) so a bad address never exposes the
 // rest of the list, and each failure is logged independently by send().
 export async function sendNewsletterCampaign(recipients: string[], subject: string, bodyHtml: string) {

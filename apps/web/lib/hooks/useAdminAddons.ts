@@ -11,6 +11,15 @@ export interface AffiliateConfig {
   commissionPercent: number;
   cookieDays: number;
   minWithdrawAmount: number;
+  /** Legacy affiliate option: a cut of the referred customer's first order. */
+  firstPurchase?: { enabled: boolean; percent: number };
+  /** Legacy affiliate option: a cut of any line bought through a share link. */
+  productSharing?: { enabled: boolean; commissionType: "amount" | "percent"; commission: number };
+  /** Legacy affiliate option: share-link rates per category, ignored while productSharing is on. */
+  categorySharing?: {
+    enabled: boolean;
+    rates: { categoryId: string; commissionType: "amount" | "percent"; commission: number }[];
+  };
   actionBonuses: Record<string, number>;
   allowedMethods: string[];
 }

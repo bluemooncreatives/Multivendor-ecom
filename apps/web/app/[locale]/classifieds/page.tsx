@@ -57,6 +57,55 @@ export default function ClassifiedsPage() {
           <Label htmlFor="location">City</Label>
           <Input id="location" placeholder="Any city" value={filters.location ?? ""} onChange={(e) => patch({ location: e.target.value })} />
         </div>
+        {/* Condition, price range and sort order, as the legacy listing offered. */}
+        <div className="space-y-1">
+          <Label htmlFor="condition">Condition</Label>
+          <select
+            id="condition"
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            value={filters.condition ?? ""}
+            onChange={(e) => patch({ condition: (e.target.value || undefined) as ClassifiedFilters["condition"] })}
+          >
+            <option value="">New and used</option>
+            <option value="new">New only</option>
+            <option value="used">Used only</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="price-range">Price range</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="price-range"
+              type="number"
+              min={0}
+              placeholder="Min"
+              value={filters.minPrice ?? ""}
+              onChange={(e) => patch({ minPrice: e.target.value ? Number(e.target.value) : undefined })}
+            />
+            <Input
+              type="number"
+              min={0}
+              placeholder="Max"
+              aria-label="Maximum price"
+              value={filters.maxPrice ?? ""}
+              onChange={(e) => patch({ maxPrice: e.target.value ? Number(e.target.value) : undefined })}
+            />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="sort">Sort by</Label>
+          <select
+            id="sort"
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            value={filters.sort ?? "newest"}
+            onChange={(e) => patch({ sort: e.target.value as ClassifiedFilters["sort"] })}
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="price_asc">Price: low to high</option>
+            <option value="price_desc">Price: high to low</option>
+          </select>
+        </div>
       </div>
 
       {isLoading ? (

@@ -228,7 +228,18 @@ async function settleGatewayIntent(intentId: string, method: string, providerRef
         );
         // Gateway purchases grant the same upload allowance and expiry as a wallet
         // purchase; without this the seller paid and received nothing.
-        await grantSellerAllowance(String(intent.userId), pkg, startsAt, session);
+        const granted = await grantSellerAllowance(String(intent.userId), pkg, startsAt, session);
+        if (!granted) {
+          // The money is captured, so the settlement must not be rolled back; the
+          // payment is flagged instead, so an operator refunds it or opens the
+          // seller's shop and re-grants the plan.
+          await Payment.updateOne(
+            { intentId: intent._id, method },
+            { $set: { requiresRefund: true, failureReason: "Seller package paid for by an account with no shop; nothing was granted" } },
+            { session },
+          );
+          logger.error(`Seller package intent ${String(intent._id)} was paid by a user with no shop; allowance not granted`);
+        }
         return;
       }
 

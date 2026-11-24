@@ -23,9 +23,40 @@ export const AffiliateUser = model("AffiliateUser", affiliateUserSchema);
 const affiliateConfigSchema = new Schema(
   {
     enabled: { type: Boolean, default: false },
-    commissionPercent: { type: Number, default: 5, min: 0, max: 100 },
+    // Paid on every qualifying order of a referred customer. The legacy program had
+    // no such recurring commission, so it defaults to 0 and an admin opts in.
+    commissionPercent: { type: Number, default: 0, min: 0, max: 100 },
     cookieDays: { type: Number, default: 30 },
     minWithdrawAmount: { type: Number, default: 500 },
+    // Legacy affiliate_options row `user_registration_first_purchase`: a percentage
+    // of the referred customer's *first* order, paid to whoever referred them.
+    firstPurchase: {
+      enabled: { type: Boolean, default: false },
+      percent: { type: Number, default: 0, min: 0, max: 100 },
+    },
+    // Legacy `product_sharing`: a commission to the affiliate whose referral code
+    // was attached to a line, as a fixed amount or a percentage of that line.
+    productSharing: {
+      enabled: { type: Boolean, default: false },
+      commissionType: { type: String, enum: ["amount", "percent"], default: "percent" },
+      commission: { type: Number, default: 0, min: 0 },
+    },
+    // Legacy `category_wise_affiliate`: the same, but the rate depends on the
+    // line's category. The legacy code treated it as an alternative to product
+    // sharing (an `elseif`), and that precedence is preserved.
+    categorySharing: {
+      enabled: { type: Boolean, default: false },
+      rates: {
+        type: [
+          {
+            categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true },
+            commissionType: { type: String, enum: ["amount", "percent"], default: "percent" },
+            commission: { type: Number, required: true, min: 0 },
+          },
+        ],
+        default: [],
+      },
+    },
     // Legacy "affiliate options" — flat bonuses paid for referral actions other
     // than a purchase. Stored as a map so new action types need no migration.
     actionBonuses: {
@@ -45,16 +76,29 @@ export const AffiliateConfig = model("AffiliateConfig", affiliateConfigSchema);
 const affiliateEarningDetailSchema = new Schema(
   {
     affiliateUserId: { type: Schema.Types.ObjectId, ref: "AffiliateUser", required: true, index: true },
-    orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true },
+    orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true, index: true },
+    // Why this commission was earned. One order can produce several: a
+    // first-purchase bonus to the referrer and a share commission per line.
+    kind: {
+      type: String,
+      enum: ["order_commission", "first_purchase", "product_share", "category_share"],
+      default: "order_commission",
+    },
+    /** The line a share commission came from ("<productId>:<sku>"), else null. */
+    lineKey: { type: String, default: null },
     amount: { type: Number, required: true, min: 0 },
     status: { type: String, enum: ["pending", "credited", "reversed"], default: "pending" },
   },
   { timestamps: true },
 );
 
-// One commission row per affiliate per order — the DB-level guarantee that a
-// redelivered payment webhook cannot pay the same referral commission twice.
-affiliateEarningDetailSchema.index({ affiliateUserId: 1, orderId: 1 }, { unique: true });
+// One commission row per affiliate, order, kind and line — the DB-level guarantee
+// that a redelivered payment webhook cannot pay the same commission twice, while
+// still allowing the several distinct commissions one order can legitimately earn.
+affiliateEarningDetailSchema.index(
+  { affiliateUserId: 1, orderId: 1, kind: 1, lineKey: 1 },
+  { unique: true },
+);
 withJsonId(affiliateEarningDetailSchema);
 export const AffiliateEarningDetail = model("AffiliateEarningDetail", affiliateEarningDetailSchema);
 

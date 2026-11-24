@@ -172,6 +172,7 @@ export async function createOrder(input: CheckoutInput) {
           unitPrice,
           listPrice: variant.price,
           flashDealId: flashDeal ? flashDeal.dealId : null,
+          productReferralCode: cartItem.productReferralCode ?? null,
           imageUrl: variant.imageUrl ?? product.images[0],
           refundable: product.refundable,
         });

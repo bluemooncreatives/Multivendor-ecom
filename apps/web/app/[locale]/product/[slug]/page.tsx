@@ -13,6 +13,7 @@ import { useShopBySellerId } from "@/lib/hooks/useSeller";
 import { useWishlist, useAddWishlistItem, useRemoveWishlistItem } from "@/lib/hooks/useWishlist";
 import { useAuthStore, useCompareStore } from "@/lib/store";
 import { useDisplayCurrency } from "@/lib/hooks/useDisplayCurrency";
+import { useReferralCode } from "@/lib/hooks/useReferralCode";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const compareIds = useCompareStore((s) => s.productIds);
   const toggleCompare = useCompareStore((s) => s.toggle);
   const { display } = useDisplayCurrency();
+  const referralCode = useReferralCode(product?.id);
 
   if (isLoading) return <div className="container py-10 text-muted-foreground">Loading…</div>;
   if (!product) return <div className="container py-10">Product not found.</div>;
@@ -73,7 +75,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   async function handleAddToCart() {
     if (!product || !variant) return;
     try {
-      await setCartItem.mutateAsync({ productId: product.id, variantSku: variant.sku, quantity });
+      await setCartItem.mutateAsync({
+        productId: product.id,
+        variantSku: variant.sku,
+        quantity,
+        // Credits the affiliate whose share link brought the shopper here.
+        productReferralCode: referralCode,
+      });
       toast.success("Added to cart");
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? "Could not add to cart");

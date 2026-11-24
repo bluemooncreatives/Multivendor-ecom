@@ -15,6 +15,9 @@ const orderItemSchema = new Schema(
     // Set when a live flash-deal campaign priced this line. Identifies whose
     // campaign allowance to return if the order is cancelled or the payment fails.
     flashDealId: { type: Schema.Types.ObjectId, ref: "FlashDeal", default: null },
+    // Legacy `order_details.product_referral_code`: the affiliate whose share link
+    // brought this line into the cart, paid a product/category share commission.
+    productReferralCode: { type: String, default: null },
     imageUrl: String,
     refundable: { type: Boolean, default: true },
   },

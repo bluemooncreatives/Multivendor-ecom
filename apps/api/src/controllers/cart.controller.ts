@@ -7,6 +7,9 @@ export const setItemSchema = z.object({
   productId: z.string(),
   variantSku: z.string(),
   quantity: z.number().int().min(0),
+  // Affiliate share-link code the shopper arrived through (legacy's
+  // product_referral_code cookie), recorded on the line for crediting at checkout.
+  productReferralCode: z.string().max(64).nullable().optional(),
 });
 
 export const mergeSchema = z.object({
@@ -28,9 +31,9 @@ export async function getCartHandler(req: Request, res: Response) {
 }
 
 export async function setCartItemHandler(req: Request, res: Response) {
-  const { productId, variantSku, quantity } = req.body;
+  const { productId, variantSku, quantity, productReferralCode } = req.body;
   const owner = ownerFromRequest(req);
-  await cartService.setCartItem(owner, productId, variantSku, quantity);
+  await cartService.setCartItem(owner, productId, variantSku, quantity, productReferralCode);
   res.json(await cartService.getCartWithDetails(owner));
 }
 

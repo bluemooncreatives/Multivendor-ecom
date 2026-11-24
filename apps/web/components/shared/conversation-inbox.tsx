@@ -43,7 +43,10 @@ export function ConversationInbox() {
                 )}
               >
                 <p className="font-medium">{other?.name ?? "User"}</p>
-                {conv.productId && <p className="truncate text-xs text-muted-foreground">{conv.productId.name}</p>}
+                {/* The thread's subject, falling back to the product asked about. */}
+                {(conv.title || conv.productId) && (
+                  <p className="truncate text-xs text-muted-foreground">{conv.title ?? conv.productId?.name}</p>
+                )}
               </button>
             );
           })

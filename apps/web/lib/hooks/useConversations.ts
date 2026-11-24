@@ -11,6 +11,8 @@ export interface ConversationMessage {
 
 export interface Conversation {
   id: string;
+  /** Subject carried over from the legacy thread, or the product asked about. */
+  title?: string | null;
   participantIds: { id: string; name: string; avatarUrl?: string; role: string }[];
   productId?: { id: string; name: string; slug: string; images: string[] };
   messages: ConversationMessage[];
@@ -36,7 +38,7 @@ export function useConversation(id: string) {
 export function useStartConversation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { otherUserId: string; productId?: string; message: string }) =>
+    mutationFn: async (input: { otherUserId: string; productId?: string; title?: string; message: string }) =>
       (await api.post<Conversation>("/conversations", input)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["conversations"] }),
   });
