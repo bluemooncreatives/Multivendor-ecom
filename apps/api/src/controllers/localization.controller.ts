@@ -25,10 +25,10 @@ export async function deleteLanguageHandler(req: Request, res: Response) {
 }
 
 export const currencySchema = z.object({
-  code: z.string().min(3).max(3),
+  code: z.string().regex(/^[a-z]{3}$/i).toUpperCase(),
   name: z.string().min(1).optional(),
   symbol: z.string().min(1),
-  rateToBase: z.number().min(0),
+  rateToBase: z.number().finite().positive(),
   decimals: z.number().int().min(0).max(4).optional(),
   symbolPosition: z.enum(["before", "after"]).optional(),
   active: z.boolean().optional(),
@@ -88,7 +88,8 @@ export async function listTranslationsHandler(req: Request, res: Response) {
   const search = req.query.q ? String(req.query.q).slice(0, 80) : null;
   const filter: Record<string, unknown> = { languageCode };
   if (search) {
-    filter.$or = [{ key: { $regex: search, $options: "i" } }, { value: { $regex: search, $options: "i" } }];
+    const literal = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.$or = [{ key: { $regex: literal, $options: "i" } }, { value: { $regex: literal, $options: "i" } }];
   }
 
   res.json({ items: await Translation.find(filter).sort({ key: 1 }).limit(500) });
@@ -97,7 +98,10 @@ export async function listTranslationsHandler(req: Request, res: Response) {
 export const translationsSchema = z.object({
   languageCode: z.string().min(2).max(5),
   // The editor saves a whole page of rows at once rather than one request per row.
-  entries: z.array(z.object({ key: z.string().min(1).max(200), value: z.string().max(2000) })).min(1).max(500),
+  entries: z.array(z.object({
+    key: z.string().min(1).max(200).refine((key) => !key.split(".").some((part) => ["__proto__", "prototype", "constructor"].includes(part)), "Invalid translation key"),
+    value: z.string().max(2000),
+  })).min(1).max(500),
 });
 
 export async function saveTranslationsHandler(req: Request, res: Response) {
@@ -132,6 +136,7 @@ export const copyTranslationsSchema = z.object({
 export async function copyTranslationsHandler(req: Request, res: Response) {
   const { fromCode, toCode } = req.body as z.infer<typeof copyTranslationsSchema>;
   if (fromCode === toCode) throw new ApiError(400, "Choose two different languages");
+  if (!(await Language.exists({ code: toCode }))) throw new ApiError(404, "Target language not found");
 
   const source = await Translation.find({ languageCode: fromCode }, { key: 1 });
   if (source.length === 0) throw new ApiError(404, "That language has no translation keys yet");

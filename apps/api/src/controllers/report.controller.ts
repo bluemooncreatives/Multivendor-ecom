@@ -7,6 +7,7 @@ import { Order } from "../models/Order.js";
 import { SellerLedger } from "../models/Ledger.js";
 import { Wishlist } from "../models/Address.js";
 import { User } from "../models/User.js";
+import { z } from "zod";
 
 /**
  * Resolves `?categoryId=` into that category and everything filed beneath it.
@@ -15,14 +16,17 @@ import { User } from "../models/User.js";
  */
 async function categoryFilter(req: Request): Promise<Record<string, unknown>> {
   const { categoryId } = req.query as { categoryId?: string };
-  if (!categoryId || !Types.ObjectId.isValid(categoryId)) return {};
+  if (!categoryId) return {};
+  z.string().regex(/^[a-f\d]{24}$/i).parse(categoryId);
   const descendants = await Category.find({ ancestors: categoryId }, { _id: 1 });
   return { categoryId: { $in: [new Types.ObjectId(categoryId), ...descendants.map((c) => c._id)] } };
 }
 
 function pageParams(req: Request, defaultSize = 200) {
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const pageSize = Math.min(1000, Math.max(1, Number(req.query.pageSize) || defaultSize));
+  const { page, pageSize } = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(1000).default(defaultSize),
+  }).parse(req.query);
   return { page, pageSize, skip: (page - 1) * pageSize };
 }
 
@@ -107,7 +111,7 @@ export async function sellerReportHandler(req: Request, res: Response) {
     .lean();
 
   const productCounts = await Product.aggregate([
-    { $match: { sellerId: { $in: shops.map((shop) => shop.sellerId) } } },
+    { $match: { sellerId: { $in: shops.map((shop) => (shop.sellerId as { _id?: unknown })?._id ?? shop.sellerId) } } },
     { $group: { _id: "$sellerId", products: { $sum: 1 }, published: { $sum: { $cond: ["$published", 1, 0] } } } },
   ]);
   const byId = new Map(productCounts.map((row) => [String(row._id), row]));
@@ -129,10 +133,15 @@ export async function sellerReportHandler(req: Request, res: Response) {
 }
 
 function parseDateRange(req: Request) {
-  const { from, to } = req.query as { from?: string; to?: string };
+  const { from, to } = z.object({
+    from: z.coerce.date().optional(), to: z.coerce.date().optional(),
+  }).refine((range) => !range.from || !range.to || range.from <= range.to, "Invalid date range").parse(req.query);
+  // Date-only filters include the entire chosen last day, in UTC.
+  const end = to && typeof req.query.to === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.to)
+    ? new Date(to.getTime() + 86_400_000 - 1) : to;
   return {
-    ...(from ? { $gte: new Date(from) } : {}),
-    ...(to ? { $lte: new Date(to) } : {}),
+    ...(from ? { $gte: from } : {}),
+    ...(end ? { $lte: end } : {}),
   };
 }
 
@@ -157,6 +166,7 @@ export async function salesReportHandler(req: Request, res: Response) {
 // cached balance), optionally scoped to one seller via ?sellerId=.
 export async function sellerSalesReportHandler(req: Request, res: Response) {
   const { sellerId } = req.query as { sellerId?: string };
+  if (sellerId) z.string().regex(/^[a-f\d]{24}$/i).parse(sellerId);
   // An ObjectId, not the raw string: `$match` does not coerce, so the previous
   // version's ?sellerId= filter matched nothing and silently reported every seller.
   const scoped = sellerId && Types.ObjectId.isValid(sellerId) ? new Types.ObjectId(sellerId) : null;
@@ -167,7 +177,7 @@ export async function sellerSalesReportHandler(req: Request, res: Response) {
       $group: {
         _id: "$sellerId",
         sales: { $sum: { $cond: [{ $eq: ["$type", "sale"] }, "$amount", 0] } },
-        commission: { $sum: { $cond: [{ $eq: ["$type", "commission"] }, { $abs: "$amount" }, 0] } },
+        commission: { $sum: { $cond: [{ $eq: ["$type", "commission"] }, { $multiply: ["$amount", -1] }, 0] } },
         refunds: { $sum: { $cond: [{ $eq: ["$type", "refund"] }, { $abs: "$amount" }, 0] } },
       },
     },

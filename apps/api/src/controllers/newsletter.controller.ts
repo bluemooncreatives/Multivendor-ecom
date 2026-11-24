@@ -6,7 +6,7 @@ import { User } from "../models/User.js";
 import { logger } from "../config/logger.js";
 import { ApiError } from "../middleware/errorHandler.js";
 
-export const subscribeSchema = z.object({ email: z.string().email() });
+export const subscribeSchema = z.object({ email: z.string().trim().email().toLowerCase() });
 
 export async function subscribeHandler(req: Request, res: Response) {
   await Subscriber.findOneAndUpdate({ email: req.body.email }, { email: req.body.email }, { upsert: true });
@@ -19,7 +19,7 @@ export async function listSubscribersHandler(_req: Request, res: Response) {
 
 // Admin-side subscriber management, so a list can be curated by hand rather than
 // only ever growing from the storefront signup box.
-export const subscriberSchema = z.object({ email: z.string().email() });
+export const subscriberSchema = subscribeSchema;
 
 export async function createSubscriberHandler(req: Request, res: Response) {
   const existing = await Subscriber.findOne({ email: req.body.email });
@@ -49,7 +49,7 @@ export const sendCampaignSchema = z.object({
    */
   audience: z.enum(["subscribers", "customers", "both"]).default("subscribers"),
   /** Explicit addresses, which must be on the chosen audience's list. */
-  emails: z.array(z.string().email()).optional(),
+  emails: z.array(z.string().trim().email().toLowerCase()).min(1).max(10000).optional(),
 });
 
 export async function sendCampaignHandler(req: Request, res: Response) {
@@ -67,12 +67,12 @@ export async function sendCampaignHandler(req: Request, res: Response) {
 
   const recipients = new Set<string>();
   if (audience === "subscribers" || audience === "both") {
-    for (const subscriber of await Subscriber.find({}, { email: 1 })) recipients.add(subscriber.email);
+    for (const subscriber of await Subscriber.find({}, { email: 1 })) recipients.add(subscriber.email.toLowerCase());
   }
   if (audience === "customers" || audience === "both") {
     // Banned accounts are excluded: they are not customers the store wants to mail.
     for (const user of await User.find({ role: "customer", banned: false }, { email: 1 })) {
-      if (user.email) recipients.add(user.email);
+      if (user.email) recipients.add(user.email.toLowerCase());
     }
   }
 
@@ -82,7 +82,7 @@ export async function sendCampaignHandler(req: Request, res: Response) {
   let targets = [...recipients];
   if (emails && emails.length > 0) {
     const allowed = new Set(targets.map((email) => email.toLowerCase()));
-    targets = emails.filter((email) => allowed.has(email.toLowerCase()));
+    targets = [...new Set(emails.map((email) => email.toLowerCase()))].filter((email) => allowed.has(email));
     if (targets.length === 0) throw new ApiError(400, "None of those addresses are on the selected list");
   }
   if (targets.length === 0) throw new ApiError(400, "There is nobody to send this to");

@@ -29,7 +29,8 @@ function Stars({ value, onChange }: { value: number; onChange?: (v: number) => v
 
 export function ProductReviews({ productId }: { productId: string }) {
   const user = useAuthStore((s) => s.user);
-  const { data: reviews, isLoading } = useProductReviews(productId);
+  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useProductReviews(productId);
+  const reviews = data?.pages.flatMap((page) => page.items) ?? [];
   const { data: myOrders } = useMyOrders();
   const createReview = useCreateReview();
   const [rating, setRating] = useState(5);
@@ -70,14 +71,14 @@ export function ProductReviews({ productId }: { productId: string }) {
         </form>
       )}
 
-      {isLoading ? (
+      {isError ? <p className="text-sm text-destructive">Could not load reviews.</p> : isLoading ? (
         <p className="text-sm text-muted-foreground">Loading reviews…</p>
       ) : !reviews || reviews.length === 0 ? (
         <p className="text-sm text-muted-foreground">No reviews yet.</p>
       ) : (
         <div className="space-y-4">
           {reviews.map((review) => {
-            const author = typeof review.userId === "object" ? review.userId.name : "Customer";
+            const author = review.userId && typeof review.userId === "object" ? review.userId.name : "Customer";
             return (
               <div key={review.id} className="border-b pb-4 last:border-0">
                 <div className="flex items-center justify-between">
@@ -96,6 +97,9 @@ export function ProductReviews({ productId }: { productId: string }) {
           })}
         </div>
       )}
+      {hasNextPage && <Button variant="outline" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
+        {isFetchingNextPage ? "Loading…" : "Load more reviews"}
+      </Button>}
     </div>
   );
 }

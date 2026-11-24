@@ -10,11 +10,13 @@ export async function convertAmount(amount: number, fromCode: string, toCode: st
     Currency.findOne({ code: fromCode, active: true }),
     Currency.findOne({ code: toCode, active: true }),
   ]);
-  if (!from || !to) return amount; // unknown currency — fail closed to the original amount
+  if (!from || !to || !Number.isFinite(from.rateToBase) || from.rateToBase <= 0 ||
+      !Number.isFinite(to.rateToBase) || to.rateToBase <= 0) return amount;
 
   // rateToBase = how many base-currency (INR) units one unit of this currency is worth.
   const amountInBase = amount * from.rateToBase;
-  return Math.round((amountInBase / to.rateToBase) * 100) / 100;
+  const precision = 10 ** to.decimals;
+  return Math.round((amountInBase / to.rateToBase) * precision) / precision;
 }
 
 export async function listActiveCurrencies() {

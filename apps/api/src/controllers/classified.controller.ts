@@ -48,8 +48,12 @@ async function assertClassifiedsEnabled() {
 export async function listClassifiedsHandler(req: Request, res: Response) {
   await assertClassifiedsEnabled();
   const { categoryId, brandId, location, condition, q, sort } = req.query as Record<string, string | undefined>;
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const pageSize = Math.min(60, Number(req.query.pageSize) || 24);
+  const { page, pageSize, minPrice, maxPrice } = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(60).default(24),
+    minPrice: z.coerce.number().finite().min(0).optional(),
+    maxPrice: z.coerce.number().finite().min(0).optional(),
+  }).refine((v) => v.minPrice === undefined || v.maxPrice === undefined || v.minPrice <= v.maxPrice, "Invalid price range").parse(req.query);
 
   const filter: Record<string, unknown> = { status: "approved" };
 
@@ -59,15 +63,13 @@ export async function listClassifiedsHandler(req: Request, res: Response) {
   }
   if (brandId) filter.brandId = brandId;
   if (condition === "new" || condition === "used") filter.condition = condition;
-  if (location) filter.location = { $regex: String(location).slice(0, 60), $options: "i" };
+  if (location) filter.location = { $regex: String(location).slice(0, 60).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
   if (q) filter.$text = { $search: String(q).slice(0, 80) };
 
-  const minPrice = Number(req.query.minPrice);
-  const maxPrice = Number(req.query.maxPrice);
-  if (Number.isFinite(minPrice) || Number.isFinite(maxPrice)) {
+  if (minPrice !== undefined || maxPrice !== undefined) {
     filter.price = {
-      ...(Number.isFinite(minPrice) ? { $gte: minPrice } : {}),
-      ...(Number.isFinite(maxPrice) ? { $lte: maxPrice } : {}),
+      ...(minPrice !== undefined ? { $gte: minPrice } : {}),
+      ...(maxPrice !== undefined ? { $lte: maxPrice } : {}),
     };
   }
 

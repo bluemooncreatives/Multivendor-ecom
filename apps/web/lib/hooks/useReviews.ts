@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 export interface Review {
@@ -17,9 +17,13 @@ export interface Review {
 }
 
 export function useProductReviews(productId: string) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ["reviews", "product", productId],
-    queryFn: async () => (await api.get<{ items: Review[] }>(`/reviews/product/${productId}`)).data.items,
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => (await api.get<{
+      items: Review[]; total: number; page: number; pageSize: number; ratingCounts: Record<string, number>;
+    }>(`/reviews/product/${productId}`, { params: { page: pageParam, pageSize: 20 } })).data,
+    getNextPageParam: (last) => last.page * last.pageSize < last.total ? last.page + 1 : undefined,
     enabled: !!productId,
   });
 }
@@ -29,8 +33,11 @@ export function useCreateReview() {
   return useMutation({
     mutationFn: async (input: { productId: string; orderId: string; rating: number; comment?: string }) =>
       (await api.post<Review>("/reviews", input)).data,
-    onSuccess: (_data, variables) =>
-      queryClient.invalidateQueries({ queryKey: ["reviews", "product", variables.productId] }),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ["reviews", "product", variables.productId] });
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["product"] });
+    },
   });
 }
 
