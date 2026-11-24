@@ -88,6 +88,7 @@ const affiliateEarningDetailSchema = new Schema(
     /** The line a share commission came from ("<productId>:<sku>"), else null. */
     lineKey: { type: String, default: null },
     amount: { type: Number, required: true, min: 0 },
+    reversedAmount: { type: Number, default: 0, min: 0 },
     status: { type: String, enum: ["pending", "credited", "reversed"], default: "pending" },
   },
   { timestamps: true },

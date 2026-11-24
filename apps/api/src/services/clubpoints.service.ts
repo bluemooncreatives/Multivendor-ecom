@@ -6,6 +6,7 @@ import { Order } from "../models/Order.js";
 import { Product } from "../models/Product.js";
 import { Addon } from "../models/Settings.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { allocateUnits } from "../utils/allocation.js";
 
 export async function getClubPointConfig() {
   return (await ClubPointConfig.findOne({ key: "club_points" })) ?? (await ClubPointConfig.create({}));
@@ -21,9 +22,18 @@ async function isEnabled(): Promise<boolean> {
 // (the legacy app awarded points on every status write, so points inflated silently).
 export async function awardClubPointsForOrder(orderId: string, session?: mongoose.ClientSession) {
   if (!(await isEnabled())) return;
+  if (!session) {
+    const owned = await mongoose.startSession();
+    try {
+      await owned.withTransaction(() => awardClubPointsForOrder(orderId, owned));
+      return;
+    } finally { await owned.endSession(); }
+  }
 
   const order = await Order.findById(orderId).session(session ?? null);
-  if (!order?.userId) return;
+  if (!order?.userId || order.paymentStatus !== "paid") return;
+  // Preserve the idempotency of awards made by the old whole-order algorithm.
+  if (await ClubPointTransaction.exists({ idempotencyKey: `order-award:${orderId}` }).session(session)) return;
 
   const productIds = order.details.flatMap((d) => d.items.map((i) => i.productId));
   const products = await Product.find({ _id: { $in: productIds } })
@@ -31,15 +41,27 @@ export async function awardClubPointsForOrder(orderId: string, session?: mongoos
     .session(session ?? null);
   const pointsByProduct = new Map(products.map((p) => [String(p._id), p.clubPoints ?? 0]));
 
-  let points = 0;
   for (const detail of order.details) {
+    if (detail.status !== "delivered") continue;
+    let points = 0;
     for (const item of detail.items) {
-      points += (pointsByProduct.get(String(item.productId)) ?? 0) * item.quantity;
+      points += (item.clubPoints ?? pointsByProduct.get(String(item.productId)) ?? 0) * item.quantity;
     }
+    if (points <= 0) continue;
+    await creditPoints(String(order.userId), points, "Order delivered",
+      `order-award:${orderId}:${detail.sellerId ?? "__admin__"}`, orderId, session);
   }
-  if (points <= 0) return;
+}
 
-  await creditPoints(String(order.userId), points, "Order delivered", `order-award:${orderId}`, orderId, session);
+/** Claw back only points earned by the returned shipment, in the refund transaction. */
+export async function reverseEarnedPointsForShipment(order: InstanceType<typeof Order>, index: number, session: mongoose.ClientSession) {
+  const detail = order.details[index]!;
+  const key = `order-award:${order._id}:${detail.sellerId ?? "__admin__"}`;
+  const award = await ClubPointTransaction.findOne({ idempotencyKey: key }).session(session);
+  const legacy = award ? null : await ClubPointTransaction.findOne({ idempotencyKey: `order-award:${order._id}` }).session(session);
+  const points = award?.points ?? (legacy ? allocateUnits(legacy.points, order.details.map((d) => d.subtotal))[index]! : 0);
+  if (points <= 0 || !order.userId) return;
+  await creditPoints(String(order.userId), -points, "Returned order rewards reversed", `${key}:reversal`, String(order._id), session);
 }
 
 /**
@@ -112,14 +134,10 @@ async function creditPoints(
   orderId: string | null,
   session?: mongoose.ClientSession,
 ) {
-  try {
-    await ClubPointTransaction.create([{ userId, points, reason, orderId, idempotencyKey }], { session });
-  } catch (err) {
-    // Duplicate idempotencyKey means these points were already awarded — treat as a no-op
-    // rather than an error so callers stay safely retryable.
-    if ((err as { code?: number }).code === 11000) return;
-    throw err;
-  }
+  const result = await ClubPointTransaction.updateOne({ idempotencyKey }, {
+    $setOnInsert: { userId, points, reason, orderId },
+  }, { upsert: true, session });
+  if (result.upsertedCount !== 1) return;
   await User.updateOne({ _id: userId }, { $inc: { clubPoints: points } }, { session });
 }
 

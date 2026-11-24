@@ -17,6 +17,9 @@ const refundRequestSchema = new Schema(
 );
 
 refundRequestSchema.index({ status: 1, createdAt: -1 });
+refundRequestSchema.index({ orderId: 1, sellerId: 1 }, {
+  unique: true, partialFilterExpression: { status: { $in: ["pending", "approved", "refunded"] } },
+});
 withJsonId(refundRequestSchema);
 export const RefundRequest = model("RefundRequest", refundRequestSchema);
 

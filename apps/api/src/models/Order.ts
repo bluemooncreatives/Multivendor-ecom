@@ -20,6 +20,8 @@ const orderItemSchema = new Schema(
     productReferralCode: { type: String, default: null },
     imageUrl: String,
     refundable: { type: Boolean, default: true },
+    // Reward rate at purchase time; null supports historical orders without a snapshot.
+    clubPoints: { type: Number, default: null, min: 0 },
   },
   { _id: false },
 );

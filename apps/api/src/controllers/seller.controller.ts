@@ -147,7 +147,7 @@ export async function fulfillOrderItemHandler(req: Request, res: Response) {
 
   // Loyalty points are awarded from the order-level "delivered" transition and are
   // idempotent on the order id, so a repeated delivered-write cannot award twice.
-  if (order.status === "delivered") {
+  if (status === "delivered") {
     await awardClubPointsForOrder(String(order._id));
   }
 

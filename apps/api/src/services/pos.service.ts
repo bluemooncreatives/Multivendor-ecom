@@ -146,6 +146,7 @@ export async function createPosSale(input: PosSaleInput) {
           flashDealId: flashDeal ? flashDeal.dealId : null,
           imageUrl: variant.imageUrl ?? product.images[0],
           refundable: product.refundable,
+          clubPoints: product.clubPoints ?? 0,
         });
         bucket.subtotal += priced.lineSubtotal;
         bucket.commission += (await calculateCommission(lineSellerId, priced.lineSubtotal, String(product.categoryId), session)).amount;

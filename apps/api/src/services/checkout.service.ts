@@ -176,6 +176,7 @@ export async function createOrder(input: CheckoutInput) {
           productReferralCode: cartItem.productReferralCode ?? null,
           imageUrl: variant.imageUrl ?? product.images[0],
           refundable: product.refundable,
+          clubPoints: product.clubPoints ?? 0,
         });
         bucket.subtotal += lineSubtotal;
         bucket.tax += lineTax;
