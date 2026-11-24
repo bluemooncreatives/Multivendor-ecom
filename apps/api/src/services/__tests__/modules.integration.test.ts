@@ -201,7 +201,7 @@ describe("localization parity", () => {
   it("rejects zero currency rates and converts with the target precision", async () => {
     const { token } = await account("admin");
     expect((await request("/localization/admin/currencies", token, "POST", { code: "USD", symbol: "$", rateToBase: 0 })).status).toBe(422);
-    await Currency.create([{ code: "INR", symbol: "₹", rateToBase: 1 }, { code: "JPY", symbol: "¥", rateToBase: 0.5, decimals: 0 }]);
+    await Currency.create([{ code: "INR", name: "Rupee", symbol: "₹", rateToBase: 1 }, { code: "JPY", name: "Yen", symbol: "¥", rateToBase: 0.5, decimals: 0 }]);
     expect(await convertAmount(1.24, "INR", "JPY")).toBe(2);
     await Currency.updateOne({ code: "JPY" }, { rateToBase: 0 });
     expect(await convertAmount(1.24, "INR", "JPY")).toBe(1.24);

@@ -10,7 +10,6 @@ import { GeneralSetting, SeoSetting, BusinessSetting, Addon } from "../models/Se
 import { signAccessToken } from "../utils/jwt.js";
 import { invalidateDemoModeCache } from "../middleware/demoMode.js";
 import { invalidateMaintenanceCache } from "../middleware/maintenance.js";
-import { markUserBanned, markUserUnbanned } from "../middleware/auth.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import mongoose from "mongoose";
 import { lockSellerFunds, sellerFunds, creditSellerWallet } from "../services/seller-funds.service.js";
@@ -56,14 +55,10 @@ export async function banUserHandler(req: Request, res: Response) {
   const user = await User.findByIdAndUpdate(req.params.id, { banned: req.body.banned }, { new: true });
   if (!user) throw new ApiError(404, "User not found");
 
-  // Update the auth middleware's cache directly so the ban applies to the next
-  // request rather than waiting for the refresh interval, and revoke the refresh
-  // tokens so they cannot mint a fresh access token either.
+  // Authentication reads current account state on every request. Also revoke
+  // refresh tokens so a banned session cannot resume after a later unban.
   if (req.body.banned) {
-    markUserBanned(String(user._id));
     await RefreshToken.deleteMany({ userId: user._id });
-  } else {
-    markUserUnbanned(String(user._id));
   }
 
   res.json(user);

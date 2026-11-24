@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
 import { logger } from "../config/logger.js";
 import { expireAbandonedOrders, RESERVATION_TTL_MINUTES } from "./payment.service.js";
 import { unpublishExpiredSellerProducts } from "./package.service.js";
@@ -24,6 +25,7 @@ import { unpublishExpiredSellerProducts } from "./package.service.js";
 const jobLockSchema = new mongoose.Schema(
   {
     _id: { type: String, required: true },
+    owner: { type: String, default: null },
     lockedUntil: { type: Date, required: true },
     lastRunAt: { type: Date, default: null },
     lastResult: { type: mongoose.Schema.Types.Mixed, default: null },
@@ -45,6 +47,7 @@ export async function withJobLock<T>(
 ): Promise<T | null> {
   const now = new Date();
   const lockedUntil = new Date(now.getTime() + leaseMinutes * 60_000);
+  const owner = randomUUID();
 
   // Claims the lock when it is free or its lease has expired. `upsert` creates it
   // on the first run; the unique `_id` makes two simultaneous claims impossible.
@@ -52,7 +55,7 @@ export async function withJobLock<T>(
   try {
     const result = await JobLock.findOneAndUpdate(
       { _id: name, lockedUntil: { $lte: now } },
-      { $set: { lockedUntil } },
+      { $set: { lockedUntil, owner } },
       { new: true, upsert: true },
     );
     claimed = Boolean(result);
@@ -65,12 +68,12 @@ export async function withJobLock<T>(
 
   try {
     const outcome = await work();
-    await JobLock.updateOne({ _id: name }, { $set: { lastRunAt: new Date(), lastResult: outcome, lockedUntil: new Date(0) } });
+    await JobLock.updateOne({ _id: name, owner }, { $set: { lastRunAt: new Date(), lastResult: outcome, lockedUntil: new Date(0), owner: null } });
     return outcome;
   } catch (error) {
     // Release the lock on failure so the next tick retries rather than waiting
     // out the whole lease.
-    await JobLock.updateOne({ _id: name }, { $set: { lockedUntil: new Date(0) } });
+    await JobLock.updateOne({ _id: name, owner }, { $set: { lockedUntil: new Date(0), owner: null } });
     throw error;
   }
 }

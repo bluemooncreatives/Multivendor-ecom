@@ -52,6 +52,15 @@ let repl: MongoMemoryReplSet;
 let server: Server;
 let base: string;
 const id = () => new mongoose.Types.ObjectId();
+
+async function testAccessToken(payload: Parameters<typeof signAccessToken>[0]) {
+  await User.updateOne({ _id: payload.sub }, { $setOnInsert: {
+    name: "Test actor", email: `${payload.sub}@example.test`, passwordHash: "unused",
+    role: payload.role, permissions: payload.permissions,
+  } }, { upsert: true });
+  return signAccessToken(payload);
+}
+
 const address = { line1: "Test street", city: "Pune", state: "MH", country: "IN", postalCode: "411001", phone: "9000000000" };
 
 beforeAll(async () => {
@@ -270,7 +279,7 @@ describe("checkout and settlement with real transactions", () => {
     const victim = id();
     const ticket = await Ticket.create({ userId: victim, subject: "Private", replies: [] });
     for (const role of ["seller", "staff"] as const) {
-      const token = signAccessToken({ sub: String(id()), role, permissions: [] });
+      const token = await testAccessToken({ sub: String(id()), role, permissions: [] });
       const response = await fetch(`${base}/api/v1/me/tickets/${ticket._id}`, { headers: { Authorization: `Bearer ${token}` } });
       expect(response.status).toBe(404);
     }
@@ -294,7 +303,7 @@ describe("checkout and settlement with real transactions", () => {
   it("preserves active reservations through admin product edits", async () => {
     const { product, input } = await fixture();
     const order = await createOrder({ ...input, paymentMethod: "stripe" });
-    const token = signAccessToken({ sub: String(id()), role: "admin" });
+    const token = await testAccessToken({ sub: String(id()), role: "admin" });
     const update = (variants: unknown[]) => fetch(`${base}/api/v1/catalog/admin/products/${product._id}`, {
       method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ variants }),
     });
@@ -312,14 +321,14 @@ describe("checkout and settlement with real transactions", () => {
     const other = await Product.create({ ...product.toObject(), _id: id(), slug: "private-vendor", sellerId: id(), name: "Other vendor secret" });
     await Cart.updateOne({ userId }, { $push: { items: { productId: other._id, variantSku: "sku", quantity: 1 } } });
     const order = await createOrder(input);
-    const sellerToken = signAccessToken({ sub: String(seller), role: "seller" });
+    const sellerToken = await testAccessToken({ sub: String(seller), role: "seller" });
     const response = await fetch(`${base}/api/v1/orders/${order._id}`, { headers: { Authorization: `Bearer ${sellerToken}` } });
     const body = await response.json() as { details: unknown[]; idempotencyKey?: string; grandTotal: number };
     expect(response.status).toBe(200);
     expect(body.details).toHaveLength(1);
     expect(body.idempotencyKey).toBeUndefined();
     expect(body.grandTotal).toBe(200);
-    const staffToken = signAccessToken({ sub: String(id()), role: "staff", permissions: [] });
+    const staffToken = await testAccessToken({ sub: String(id()), role: "staff", permissions: [] });
     expect((await fetch(`${base}/api/v1/orders/${order._id}`, { headers: { Authorization: `Bearer ${staffToken}` } })).status).toBe(404);
   });
 
@@ -337,7 +346,7 @@ describe("checkout and settlement with real transactions", () => {
   it("quotes product coupons using the cart and ignores a forged client subtotal", async () => {
     const { input, product, userId } = await fixture();
     await Coupon.create({ code: "SPECIFIC", type: "percent", value: 10, scope: "product", productIds: [product._id] });
-    const token = signAccessToken({ sub: String(userId), role: "customer" });
+    const token = await testAccessToken({ sub: String(userId), role: "customer" });
     const response = await fetch(`${base}/api/v1/coupons/validate`, {
       method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ code: "SPECIFIC", orderSubtotal: 999999 }),
@@ -354,7 +363,7 @@ describe("checkout and settlement with real transactions", () => {
     await Coupon.create({ code: "HALF", type: "percent", value: 50 });
     const order = await createOrder({ ...input, paymentMethod: "wallet", couponCode: "HALF" });
     await Order.updateOne({ _id: order._id }, { status: "delivered", "details.0.status": "delivered", "details.0.deliveredAt": new Date() });
-    const token = signAccessToken({ sub: String(userId), role: "customer" });
+    const token = await testAccessToken({ sub: String(userId), role: "customer" });
     const response = await fetch(`${base}/api/v1/addons/refunds`, {
       method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ orderId: String(order._id), sellerId: "null", reason: "Return" }),
@@ -362,7 +371,7 @@ describe("checkout and settlement with real transactions", () => {
     expect(response.status).toBe(201);
     const refund = await response.json() as { id: string; amount: number };
     expect(refund.amount).toBe(100);
-    const admin = signAccessToken({ sub: String(id()), role: "admin" });
+    const admin = await testAccessToken({ sub: String(id()), role: "admin" });
     const approve = () => fetch(`${base}/api/v1/addons/refunds/${refund.id}/resolve`, {
       method: "POST", headers: { Authorization: `Bearer ${admin}`, "Content-Type": "application/json" }, body: JSON.stringify({ approve: true }),
     });
@@ -384,7 +393,7 @@ describe("checkout and settlement with real transactions", () => {
   it("serializes payouts against the available balance and credits wallet payouts once", async () => {
     const seller = await User.create({ name: "Seller", email: "payout@example.test", passwordHash: "unused", role: "seller" });
     await SellerLedger.create({ sellerId: seller._id, type: "sale", amount: 100 });
-    const admin = signAccessToken({ sub: String(id()), role: "admin" });
+    const admin = await testAccessToken({ sub: String(id()), role: "admin" });
     const pay = (key: string) => fetch(`${base}/api/v1/admin/sellers/${seller._id}/payouts`, {
       method: "POST", headers: { Authorization: `Bearer ${admin}`, "Content-Type": "application/json" },
       body: JSON.stringify({ amount: 80, method: "wallet", idempotencyKey: key }),
@@ -392,7 +401,7 @@ describe("checkout and settlement with real transactions", () => {
     const responses = await Promise.all([pay("payout-attempt-one"), pay("payout-attempt-two")]);
     expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
     expect((await Wallet.findOne({ userId: seller._id }))!.balance).toBe(80);
-    const token = signAccessToken({ sub: String(seller._id), role: "seller" });
+    const token = await testAccessToken({ sub: String(seller._id), role: "seller" });
     const summary = await (await fetch(`${base}/api/v1/seller/ledger/summary`, { headers: { Authorization: `Bearer ${token}` } })).json() as { available: number };
     expect(summary.available).toBe(20);
   });
@@ -400,7 +409,7 @@ describe("checkout and settlement with real transactions", () => {
   it("reserves withdrawal requests and does not subtract a paid withdrawal twice", async () => {
     const seller = await User.create({ name: "Seller", email: "withdraw@example.test", passwordHash: "unused", role: "seller" });
     await SellerLedger.create({ sellerId: seller._id, type: "sale", amount: 100 });
-    const token = signAccessToken({ sub: String(seller._id), role: "seller" });
+    const token = await testAccessToken({ sub: String(seller._id), role: "seller" });
     const request = () => fetch(`${base}/api/v1/seller/withdrawals`, {
       method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ amount: 80, method: "wallet" }),
     });
@@ -408,7 +417,7 @@ describe("checkout and settlement with real transactions", () => {
     expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
     const approved = responses.find((response) => response.status === 201)!;
     const withdrawal = await approved.json() as { id: string };
-    const admin = signAccessToken({ sub: String(id()), role: "admin" });
+    const admin = await testAccessToken({ sub: String(id()), role: "admin" });
     const approve = () => fetch(`${base}/api/v1/admin/withdrawals/${withdrawal.id}`, {
       method: "PATCH", headers: { Authorization: `Bearer ${admin}`, "Content-Type": "application/json" }, body: JSON.stringify({ approve: true }),
     });
@@ -701,7 +710,7 @@ describe("seller and customer package purchases", () => {
     expect((await Wallet.findOne({ userId: seller._id }))!.balance).toBe(1000); // nothing taken
 
     const admin = await User.create({ name: "Admin", email: `admin-${id()}@example.com`, passwordHash: "x", role: "admin" });
-    const token = signAccessToken({ sub: String(admin._id), role: "admin" });
+    const token = await testAccessToken({ sub: String(admin._id), role: "admin" });
     const approve = () => fetch(`${base}/api/v1/addons/admin/packages/seller/payments/${payment._id}/approve`, {
       method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ approve: true }),
     });
@@ -1038,13 +1047,13 @@ describe("package purchases paid through a gateway", () => {
         body: JSON.stringify(body),
       });
 
-    const shoplessToken = signAccessToken({ sub: String(shopless._id), role: "seller" });
+    const shoplessToken = await testAccessToken({ sub: String(shopless._id), role: "seller" });
     const noShop = await post(shoplessToken, { purpose: "seller_package", packageId: String(paid._id), paymentMethod: "stripe" });
     expect(noShop.status).toBe(400);
     expect((await noShop.json() as { message: string }).message).toMatch(/shop/i);
 
     const seller = await sellerWithShop();
-    const token = signAccessToken({ sub: String(seller._id), role: "seller" });
+    const token = await testAccessToken({ sub: String(seller._id), role: "seller" });
     // A free plan is activated directly; no provider accepts a zero-amount session.
     const zero = await post(token, { purpose: "seller_package", packageId: String(free._id), paymentMethod: "stripe" });
     expect(zero.status).toBe(400);
@@ -1055,7 +1064,7 @@ describe("package purchases paid through a gateway", () => {
 
     // A customer may not buy a seller plan.
     const customer = await User.create({ name: "Customer", email: `gw-c-${id()}@example.com`, passwordHash: "x", role: "customer" });
-    const customerToken = signAccessToken({ sub: String(customer._id), role: "customer" });
+    const customerToken = await testAccessToken({ sub: String(customer._id), role: "customer" });
     const wrongRole = await post(customerToken, { purpose: "seller_package", packageId: String(paid._id), paymentMethod: "stripe" });
     expect([401, 403]).toContain(wrongRole.status);
   });

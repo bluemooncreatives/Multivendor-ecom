@@ -9,6 +9,8 @@ import { ApiError } from "../middleware/errorHandler.js";
 import { allocateUnits } from "../utils/allocation.js";
 import { ClubPointTransaction } from "../models/ClubPoints.js";
 import { User } from "../models/User.js";
+import { reverseEarnedPointsForShipment } from "../services/clubpoints.service.js";
+import { reverseAffiliateForShipment } from "../services/affiliate.service.js";
 
 export async function getRefundConfig() {
   return (await RefundConfig.findOne({ key: "refund" })) ?? (await RefundConfig.create({}));
@@ -162,6 +164,8 @@ export async function resolveRefundRequestHandler(req: Request, res: Response) {
             reason: "Refunded order items", idempotencyKey: `refund-points:${request._id}` }], { session });
           await User.updateOne({ _id: request.userId }, { $inc: { clubPoints: points } }, { session });
         }
+        await reverseEarnedPointsForShipment(order, index, session);
+        await reverseAffiliateForShipment(order, index, session);
         detail.status = "refunded";
         if (order.details.every((line) => ["refunded", "cancelled"].includes(line.status))) order.status = "refunded";
         await order.save({ session });

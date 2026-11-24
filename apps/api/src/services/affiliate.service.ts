@@ -5,6 +5,7 @@ import { Order } from "../models/Order.js";
 import { Addon } from "../models/Settings.js";
 import { Product } from "../models/Product.js";
 import { logger } from "../config/logger.js";
+import { allocateUnits } from "../utils/allocation.js";
 
 async function activeConfig() {
   const [addon, config] = await Promise.all([
@@ -258,12 +259,36 @@ export async function reverseAffiliateForOrder(orderId: string) {
 
         await AffiliateUser.updateOne(
           { _id: earning.affiliateUserId },
-          { $inc: { totalEarnings: -earning.amount, availableBalance: -earning.amount } },
+          { $inc: { totalEarnings: -(updated.amount - updated.reversedAmount), availableBalance: -(updated.amount - updated.reversedAmount) } },
           { session },
         );
+        updated.reversedAmount = updated.amount;
+        await updated.save({ session });
       });
     } finally {
       await session.endSession();
     }
+  }
+}
+
+/** Reverse the refunded shipment's share without clawing back other vendors' sales. */
+export async function reverseAffiliateForShipment(order: InstanceType<typeof Order>, index: number, session: mongoose.ClientSession) {
+  const detail = order.details[index]!;
+  const lineKeys = new Set(detail.items.map((item) => `${item.productId}:${item.variantSku}`));
+  const weights = order.details.map((shipment) => Math.max(0, shipment.subtotal - (shipment.discount ?? 0)));
+  const earnings = await AffiliateEarningDetail.find({ orderId: order._id, status: "credited" }).session(session);
+  for (const earning of earnings) {
+    const share = ["product_share", "category_share"].includes(earning.kind);
+    const amount = share
+      ? (earning.lineKey && lineKeys.has(earning.lineKey) ? earning.amount : 0)
+      : allocateUnits(Math.round(earning.amount * 100), weights)[index]! / 100;
+    const reversal = Math.min(amount, Math.max(0, earning.amount - earning.reversedAmount));
+    if (reversal <= 0) continue;
+    earning.reversedAmount = round2(earning.reversedAmount + reversal);
+    if (earning.reversedAmount >= earning.amount) earning.status = "reversed";
+    await earning.save({ session });
+    await AffiliateUser.updateOne({ _id: earning.affiliateUserId }, {
+      $inc: { totalEarnings: -reversal, availableBalance: -reversal },
+    }, { session });
   }
 }
