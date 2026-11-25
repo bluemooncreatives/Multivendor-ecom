@@ -256,7 +256,7 @@ export default function ProductDetailPage({
           </div>
 
           {/* Title */}
-          <h1 className="text-2xl font-black leading-tight tracking-tight sm:text-3xl">
+          <h1 className="text-display text-[clamp(1.9rem,4vw,3rem)] font-bold leading-[0.97] text-foreground">
             {product.name}
           </h1>
 
@@ -266,7 +266,7 @@ export default function ProductDetailPage({
           )}
 
           {/* Price */}
-          <div className="rounded-2xl bg-muted/50 px-4 py-4">
+          <div className="flex items-end justify-between gap-4 rounded-2xl border bg-card px-5 py-4">
             <PriceDisplay
               price={price}
               listPrice={hasDiscount ? listPrice : undefined}
@@ -291,7 +291,6 @@ export default function ProductDetailPage({
                     }
                     size="sm"
                     onClick={() => setVariantSku(v.sku)}
-                    className="rounded-xl"
                     disabled={v.stock <= 0}
                   >
                     {Object.values(v.attributes).join(" / ") || v.sku}
@@ -447,21 +446,23 @@ export default function ProductDetailPage({
 
       {/* Related products */}
       {relatedProducts.length > 0 && (
-        <StorefrontSection title="Related Products">
+        <StorefrontSection eyebrow="You may also like" title="Related products" className="pt-4">
           <ProductGrid
             products={relatedProducts}
-            columnsClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+            columnsClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
           />
         </StorefrontSection>
       )}
 
       {sellerTopProducts.length > 0 && (
         <StorefrontSection
+          eyebrow="From the seller"
           title={shop?.name ? `More from ${shop.name}` : "More from this shop"}
+          className="pt-4"
         >
           <ProductGrid
             products={sellerTopProducts}
-            columnsClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+            columnsClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
           />
         </StorefrontSection>
       )}

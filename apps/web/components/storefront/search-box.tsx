@@ -71,7 +71,7 @@ export function SearchBox({ placeholder, className }: { placeholder: string; cla
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
           placeholder={placeholder}
-          className="h-10 rounded-xl border-border/70 bg-muted/40 pe-16 ps-10 text-sm transition-all focus-visible:bg-background"
+          className="h-10 rounded-full border-border/70 bg-muted/50 pe-16 ps-10 text-sm transition-all focus-visible:bg-card"
           autoComplete="off"
         />
         <div className="absolute end-2.5 top-1/2 flex -translate-y-1/2 items-center gap-1.5">

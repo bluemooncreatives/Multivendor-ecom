@@ -40,11 +40,13 @@ export function PageHeader({
             {backLabel}
           </Link>
         )}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{title}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-display text-[clamp(1.6rem,3.5vw,2.4rem)] font-bold leading-[0.95] text-foreground">
+            {title}
+          </h1>
           {badge}
         </div>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        {description && <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>

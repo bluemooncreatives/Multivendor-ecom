@@ -373,10 +373,10 @@ export function SiteHeader() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 rounded-xl border-border/60 font-medium"
+              className="gap-1.5 border-border/70 font-medium"
               onClick={() => setCategoryMenuOpen(!categoryMenuOpen)}
             >
-              <Grid2X2 className="h-4 w-4 text-primary" />
+              <Grid2X2 className="h-4 w-4" />
               Categories
               <ChevronDown
                 className={cn(

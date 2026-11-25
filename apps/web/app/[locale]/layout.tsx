@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Bricolage_Grotesque } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -17,6 +17,14 @@ const inter = Inter({
   variable: "--font-sans",
   display: "swap",
   weight: ["300", "400", "500", "600", "700", "800", "900"],
+});
+
+// Editorial display grotesk for headlines (Wink / Summertime energy)
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -58,7 +66,7 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
-      <body className={`${inter.variable} flex min-h-screen flex-col font-sans antialiased`}>
+      <body className={`${inter.variable} ${bricolage.variable} flex min-h-screen flex-col font-sans antialiased`}>
         <NextIntlClientProvider messages={messages}>
           <SiteSettingsProvider value={settings}>
           <AppProviders>

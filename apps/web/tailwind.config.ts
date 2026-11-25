@@ -17,6 +17,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["var(--font-sans)", ...defaultTheme.fontFamily.sans],
+        display: ["var(--font-display)", "var(--font-sans)", ...defaultTheme.fontFamily.sans],
         mono: ["var(--font-mono)", ...defaultTheme.fontFamily.mono],
       },
       colors: {
@@ -65,6 +66,9 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+      },
+      maxWidth: {
+        "8xl": "90rem",
       },
       borderRadius: {
         "4xl": "2rem",
@@ -128,6 +132,10 @@ const config: Config = {
           "50%": { backgroundPosition: "100% 50%" },
           "100%": { backgroundPosition: "0% 50%" },
         },
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(-50%)" },
+        },
         "bounce-in": {
           "0%": { transform: "scale(0)", opacity: "0" },
           "60%": { transform: "scale(1.1)", opacity: "1" },
@@ -155,6 +163,7 @@ const config: Config = {
         "zoom-in": "zoom-in 0.2s ease-out both",
         shimmer: "shimmer 2s linear infinite",
         "gradient-shift": "gradient-shift 4s ease infinite",
+        marquee: "marquee 28s linear infinite",
         "bounce-in": "bounce-in 0.4s ease-out both",
         pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         spin: "spin 1s linear infinite",

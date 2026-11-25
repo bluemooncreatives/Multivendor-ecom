@@ -105,7 +105,7 @@ export function CatalogListingView({
 
         <div className="min-w-0 space-y-5">
           {/* Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card px-4 py-3 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-full border bg-card px-4 py-2.5 shadow-xs">
             <div className="flex items-center gap-3">
               <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
                 <SheetTrigger asChild>
@@ -141,7 +141,7 @@ export function CatalogListingView({
                 onChange={(e) =>
                   onSortChange(e.target.value as NonNullable<ProductSearchParams["sort"]>)
                 }
-                className="h-9 rounded-xl"
+                className="h-9 rounded-full"
               >
                 <option value="newest">Newest</option>
                 <option value="popular">Best Selling</option>

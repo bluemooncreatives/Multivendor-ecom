@@ -19,8 +19,10 @@ export function AuthShell({ title, description, icon: Icon, children, className,
       <div className="container flex min-h-[calc(100vh-10rem)] items-center justify-center py-12">
         <div className="grid w-full max-w-5xl gap-0 overflow-hidden rounded-3xl border shadow-xl md:grid-cols-2">
           {/* Left: illustration */}
-          <div className="hidden flex-col justify-between bg-gradient-to-br from-primary to-orange-600 p-10 text-primary-foreground md:flex">
-            {aside}
+          <div className="relative hidden flex-col justify-between overflow-hidden bg-foreground p-10 text-background md:flex">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-background/5 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-background/5 blur-3xl" />
+            <div className="relative flex h-full flex-col">{aside}</div>
           </div>
 
           {/* Right: form */}

@@ -6,13 +6,18 @@ export function ProductGridSkeleton({ count = 8, columnsClassName = "grid-cols-2
   return (
     <div className={cn("grid gap-4", columnsClassName)}>
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="overflow-hidden rounded-2xl border bg-card">
-          <Skeleton className="aspect-[4/3] w-full rounded-none" />
-          <div className="space-y-2.5 p-3.5">
-            <Skeleton className="h-4 w-20 rounded-lg" />
-            <Skeleton className="h-4 w-full rounded-lg" />
-            <Skeleton className="h-3.5 w-2/3 rounded-lg" />
-            <Skeleton className="h-3 w-24 rounded-lg" />
+        <div key={i} className="flex flex-col">
+          <Skeleton className="aspect-[4/5] w-full rounded-2xl" />
+          <div className="space-y-2.5 pt-3.5">
+            <Skeleton className="h-4 w-3/4 rounded-lg" />
+            <Skeleton className="h-3.5 w-1/2 rounded-lg" />
+            <div className="mt-3 flex items-center justify-between">
+              <Skeleton className="h-8 w-20 rounded-full" />
+              <div className="flex gap-1.5">
+                <Skeleton className="h-9 w-9 rounded-full" />
+                <Skeleton className="h-9 w-9 rounded-full" />
+              </div>
+            </div>
           </div>
         </div>
       ))}

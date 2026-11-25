@@ -1,40 +1,40 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CategoryCardProps {
   href: string;
   name: string;
   imageUrl?: string | null;
+  count?: number;
   compact?: boolean;
   className?: string;
 }
 
-/** Reusable avatar-tile card for categories and brands. */
-export function CategoryCard({ href, name, imageUrl, compact = false, className }: CategoryCardProps) {
+/** Reusable editorial tile for categories and brands. */
+export function CategoryCard({ href, name, imageUrl, count, compact = false, className }: CategoryCardProps) {
   if (compact) {
     return (
-      <Link href={href} className={cn("group flex flex-col items-center gap-2 text-center", className)}>
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-secondary to-muted p-0.5 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-md">
-          <div className={cn(
-            "relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-secondary",
-          )}>
-            {imageUrl ? (
-              <Image
-                src={imageUrl}
-                alt={name}
-                fill
-                className="object-cover transition-transform duration-300 group-hover:scale-110"
-                sizes="56px"
-              />
-            ) : (
-              <span className="text-xl font-black text-primary/70">
+      <Link href={href} className={cn("group flex flex-col gap-2.5", className)}>
+        <div className="relative aspect-square overflow-hidden rounded-[1.4rem] bg-secondary">
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={name}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(max-width: 640px) 33vw, 12vw"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <span className="text-display text-3xl font-bold text-foreground/25">
                 {name.charAt(0).toUpperCase()}
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-        <span className="line-clamp-2 w-full text-[11px] font-semibold leading-tight text-foreground/80 transition-colors group-hover:text-primary">
+        <span className="line-clamp-1 text-center text-[13px] font-semibold text-foreground transition-colors group-hover:text-muted-foreground">
           {name}
         </span>
       </Link>
@@ -43,27 +43,32 @@ export function CategoryCard({ href, name, imageUrl, compact = false, className 
 
   return (
     <Link href={href} className={cn("group block", className)}>
-      <div className="flex flex-col items-center gap-3 rounded-2xl border bg-card p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
-        <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 to-secondary transition-transform duration-300 group-hover:scale-105">
-          {imageUrl ? (
-            <Image
-              src={imageUrl}
-              alt={name}
-              fill
-              className="object-cover"
-              sizes="80px"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <span className="text-3xl font-black text-primary/60">
-                {name.charAt(0).toUpperCase()}
-              </span>
-            </div>
-          )}
+      <div className="relative aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-secondary">
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={name}
+            fill
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
+            sizes="(max-width: 768px) 50vw, 25vw"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <span className="text-display text-5xl font-bold text-foreground/20">
+              {name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-foreground/55 via-transparent to-transparent opacity-80" />
+        <div className="absolute inset-x-5 bottom-5 flex items-center justify-between text-background">
+          <div>
+            <p className="text-lg font-semibold leading-tight">{name}</p>
+            {count !== undefined && <p className="text-xs text-background/75">{count} items</p>}
+          </div>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground transition-transform group-hover:rotate-45">
+            <ArrowUpRight className="h-4 w-4" />
+          </span>
         </div>
-        <span className="line-clamp-2 text-sm font-semibold transition-colors group-hover:text-primary">
-          {name}
-        </span>
       </div>
     </Link>
   );

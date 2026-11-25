@@ -43,32 +43,28 @@ export function PortalShell({ title, basePath, links, children }: PortalShellPro
     .slice(0, 2)
     .toUpperCase();
 
-  const toneClass =
-    basePath === "/admin"
-      ? "from-purple-600 to-purple-800"
-      : basePath === "/seller"
-        ? "from-primary to-orange-600"
-        : "from-info to-blue-700";
+  // Monochrome editorial: all portals share the ink user-card for consistency.
+  const toneClass = "from-foreground to-foreground";
 
   const SidebarInner = ({ onNavigate }: { onNavigate?: () => void }) => (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       {/* User card */}
       <div className="relative shrink-0 overflow-hidden rounded-2xl">
-        <div className={`bg-gradient-to-br ${toneClass} p-4 text-white`}>
+        <div className={`bg-gradient-to-br ${toneClass} p-4 text-background`}>
           <div className="flex items-center gap-3">
-            <Avatar className="h-11 w-11 ring-2 ring-white/30">
-              <AvatarFallback className="bg-white/20 text-sm font-black text-white">
+            <Avatar className="h-11 w-11 ring-2 ring-background/25">
+              <AvatarFallback className="bg-background/15 text-sm font-black text-background">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold">{user?.name ?? "Account"}</p>
-              <p className="truncate text-xs opacity-80">{user?.email ?? user?.phone}</p>
+              <p className="truncate text-xs opacity-70">{user?.email ?? user?.phone}</p>
             </div>
           </div>
           <div className="mt-3 flex items-center gap-2">
-            <RoleIcon className="h-3.5 w-3.5 opacity-80" />
-            <Badge className="rounded-full bg-white/20 px-2 py-0 text-[10px] font-bold capitalize text-white hover:bg-white/30">
+            <RoleIcon className="h-3.5 w-3.5 opacity-70" />
+            <Badge className="rounded-full bg-background/15 px-2 py-0 text-[10px] font-bold capitalize text-background hover:bg-background/25">
               {user?.role ?? title}
             </Badge>
           </div>
