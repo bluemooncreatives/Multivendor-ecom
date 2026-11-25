@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useLocale } from "next-intl";
-import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Wallet, Package, ShoppingBag, ArrowDownToLine } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -18,6 +18,8 @@ import { useMySellerSubscription } from "@/lib/hooks/useAddons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
 import { formatPrice } from "@/lib/format";
 
 export default function SellerOverviewPage() {
@@ -29,8 +31,6 @@ export default function SellerOverviewPage() {
   const { data: subscription } = useMySellerSubscription();
   const activePackage = subscription?.subscription?.packageId as { name?: string } | null | undefined;
 
-  // Last 30 days of takings, bucketed by day. Computed from the orders already
-  // loaded for the counters rather than a second request.
   const salesSeries = useMemo(() => {
     const days = new Map<string, number>();
     for (let i = 29; i >= 0; i -= 1) {
@@ -41,7 +41,7 @@ export default function SellerOverviewPage() {
 
     for (const order of orders ?? []) {
       const day = String(order.createdAt).slice(0, 10);
-      if (!days.has(day)) continue; // older than the window
+      if (!days.has(day)) continue;
       const mine = order.details.reduce(
         (sum: number, detail: { subtotal?: number }) => sum + (detail.subtotal ?? 0),
         0,
@@ -50,7 +50,7 @@ export default function SellerOverviewPage() {
     }
 
     return [...days.entries()].map(([date, total]) => ({
-      date: date.slice(5), // MM-DD is enough on a 30-day axis
+      date: date.slice(5),
       total: Math.round(total * 100) / 100,
     }));
   }, [orders]);
@@ -62,20 +62,26 @@ export default function SellerOverviewPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Seller dashboard</h1>
+      <PageHeader
+        title="Seller dashboard"
+        description="Monitor shop verification, subscription limits, orders, and 30-day revenue."
+        actions={
+          <Button asChild size="sm">
+            <Link href={`/${locale}/seller/products`}>Manage products</Link>
+          </Button>
+        }
+      />
 
-      {/* Verification and subscription state first: both gate what a seller can
-          do, so they belong above the numbers rather than buried in a sub-page. */}
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm text-muted-foreground">Shop verification</CardTitle>
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Shop verification</CardTitle>
             {shop?.verified ? (
-              <Badge variant="secondary" className="gap-1">
+              <Badge variant="success" className="gap-1">
                 <CheckCircle2 className="h-3 w-3" /> Verified
               </Badge>
             ) : (
-              <Badge variant="outline" className="gap-1">
+              <Badge variant="warning" className="gap-1 capitalize">
                 <Clock className="h-3 w-3" /> {shop?.verificationStatus ?? "Not started"}
               </Badge>
             )}
@@ -84,7 +90,7 @@ export default function SellerOverviewPage() {
             {shop?.verified ? (
               <p className="text-sm text-muted-foreground">Your storefront is verified and visible in search.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
                   Unverified shops are hidden from search results. Complete verification to be listed.
                 </p>
@@ -97,15 +103,11 @@ export default function SellerOverviewPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm text-muted-foreground">Subscription</CardTitle>
-            {activePackage?.name ? (
-              <Badge variant="secondary">{activePackage.name}</Badge>
-            ) : (
-              <Badge variant="outline">None</Badge>
-            )}
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Subscription</CardTitle>
+            {activePackage?.name ? <Badge variant="info">{activePackage.name}</Badge> : <Badge variant="outline">None</Badge>}
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             {subscription?.subscription?.expiresAt ? (
               <p className="text-sm text-muted-foreground">
                 Expires {new Date(subscription.subscription.expiresAt).toLocaleDateString()} ·{" "}
@@ -122,17 +124,29 @@ export default function SellerOverviewPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Available balance" value={formatPrice(summary?.available ?? 0)} />
-        <StatCard label="Products" value={String(products?.length ?? 0)} hint={pendingProducts > 0 ? `${pendingProducts} awaiting approval` : undefined} />
-        <StatCard label="Orders" value={String(orders?.length ?? 0)} hint={openOrders > 0 ? `${openOrders} still open` : undefined} />
-        <StatCard label="Withdrawn" value={formatPrice(summary?.withdrawn ?? 0)} />
+        <StatCard label="Available balance" value={formatPrice(summary?.available ?? 0)} icon={Wallet} tone="success" />
+        <StatCard
+          label="Products"
+          value={products?.length ?? 0}
+          hint={pendingProducts > 0 ? `${pendingProducts} awaiting approval` : undefined}
+          icon={Package}
+          tone="primary"
+        />
+        <StatCard
+          label="Orders"
+          value={orders?.length ?? 0}
+          hint={openOrders > 0 ? `${openOrders} still open` : undefined}
+          icon={ShoppingBag}
+          tone="primary"
+        />
+        <StatCard label="Withdrawn" value={formatPrice(summary?.withdrawn ?? 0)} icon={ArrowDownToLine} tone="default" />
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3">
           <CardTitle className="text-base">Sales, last 30 days</CardTitle>
         </CardHeader>
-        <CardContent className="h-64">
+        <CardContent className="h-72 pt-5">
           {salesSeries.every((point) => point.total === 0) ? (
             <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
               <AlertTriangle className="h-4 w-4" />
@@ -152,19 +166,5 @@ export default function SellerOverviewPage() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm text-muted-foreground">{label}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold">{value}</p>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
   );
 }

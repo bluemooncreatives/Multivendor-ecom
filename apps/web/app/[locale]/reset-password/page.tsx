@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale } from "next-intl";
 import toast from "react-hot-toast";
+import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthShell } from "@/components/shared/auth-shell";
+import { FormField } from "@/components/shared/form-field";
 import { useResetPassword } from "@/lib/hooks/useAuth";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
@@ -24,36 +26,28 @@ export default function ResetPasswordPage() {
       await resetPassword.mutateAsync({ token, password });
       toast.success("Password updated. Please sign in.");
       router.push(`/${locale}/login`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "This reset link is invalid or has expired");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "This reset link is invalid or has expired"));
     }
   }
 
   return (
-    <div className="container flex max-w-md flex-col justify-center py-16">
-      <Card>
-        <CardHeader>
-          <CardTitle>Choose a new password</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="password">New password</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={resetPassword.isPending || !token}>
-              Reset password
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell title="Choose a new password" description="Enter a strong password of at least 8 characters." icon={ShieldCheck}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <FormField label="New password" htmlFor="password" required>
+          <Input
+            id="password"
+            type="password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </FormField>
+        <Button type="submit" className="w-full" disabled={resetPassword.isPending || !token}>
+          Reset password
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

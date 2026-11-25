@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import toast from "react-hot-toast";
+import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthShell } from "@/components/shared/auth-shell";
+import { FormField } from "@/components/shared/form-field";
 import { SocialLoginButtons } from "@/components/shared/social-login-buttons";
 import { useLogin } from "@/lib/hooks/useAuth";
 import { useAuthOptions } from "@/lib/hooks/useAuthOptions";
 import { PhoneAuthForm } from "@/components/shared/phone-auth-form";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function LoginPage() {
   const t = useTranslations("auth");
@@ -28,48 +30,52 @@ export default function LoginPage() {
     try {
       await login.mutateAsync({ email, password });
       router.push(`/${locale}/dashboard`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Invalid email or password");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Invalid email or password"));
     }
   }
 
   return (
-    <div className="container flex max-w-md flex-col justify-center py-16">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("loginTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="email">{t("loginIdentifier")}</Label>
-              <Input id="email" type="text" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">{t("password")}</Label>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
-            <Button type="submit" className="w-full" disabled={login.isPending}>
-              {t("signIn")}
-            </Button>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <Link href={`/${locale}/forgot-password`} className="hover:underline">
-                {t("forgotPassword")}
-              </Link>
-              <span>
-                {t("noAccount")}{" "}
-                <Link href={`/${locale}/register`} className="text-primary hover:underline">
-                  {t("signUp")}
-                </Link>
-              </span>
-            </div>
-          </form>
-          {options?.phone?.login && <PhoneAuthForm />}
-          <div className="mt-4">
-            <SocialLoginButtons />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell title={t("loginTitle")} description="Enter your credentials to access your account." icon={LogIn}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <FormField label={t("loginIdentifier")} htmlFor="email" required>
+          <Input
+            id="email"
+            type="text"
+            autoComplete="username"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </FormField>
+        <FormField label={t("password")} htmlFor="password" required>
+          <Input
+            id="password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </FormField>
+        <Button type="submit" className="w-full" disabled={login.isPending}>
+          {t("signIn")}
+        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+          <Link href={`/${locale}/forgot-password`} className="hover:text-foreground hover:underline">
+            {t("forgotPassword")}
+          </Link>
+          <span>
+            {t("noAccount")}{" "}
+            <Link href={`/${locale}/register`} className="font-medium text-primary hover:underline">
+              {t("signUp")}
+            </Link>
+          </span>
+        </div>
+      </form>
+      {options?.phone?.login && <PhoneAuthForm />}
+      <div className="mt-4">
+        <SocialLoginButtons />
+      </div>
+    </AuthShell>
   );
 }

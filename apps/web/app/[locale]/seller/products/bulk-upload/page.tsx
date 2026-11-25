@@ -1,13 +1,19 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useLocale } from "next-intl";
 import toast from "react-hot-toast";
+import { Download, Upload } from "lucide-react";
 import { useBulkImportProducts, type BulkImportResult } from "@/lib/hooks/useSeller";
 import { downloadCsv } from "@/lib/hooks/useAdminCommerce";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function BulkUploadPage() {
+  const locale = useLocale();
   const bulkImport = useBulkImportProducts();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<BulkImportResult | null>(null);
@@ -20,22 +26,27 @@ export default function BulkUploadPage() {
       const res = await bulkImport.mutateAsync(file);
       setResult(res);
       toast.success(`Imported ${res.created} product(s)`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Bulk import failed");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Bulk import failed"));
     }
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Bulk product upload</h1>
+      <PageHeader
+        title="Bulk product upload"
+        description="Import or update products in bulk using a CSV spreadsheet."
+        backHref={`/${locale}/seller/products`}
+        backLabel="Back to products"
+      />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3">
           <CardTitle className="text-base">CSV format</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
+        <CardContent className="space-y-3 pt-4 text-sm text-muted-foreground">
           <p>Upload a CSV with these columns:</p>
-          <code className="block overflow-x-auto rounded-md bg-muted p-2 text-xs">
+          <code className="block overflow-x-auto rounded-lg border bg-muted/50 p-3 text-xs text-foreground">
             name,slug,categorySlug,subCategorySlug,subSubCategorySlug,brandSlug,description,basePrice,purchasePrice,stock,sku,unit,barcode,discount,discountType,tax,taxType,shippingType,shippingCost,minOrderQty,videoProvider,videoLink,metaTitle,metaDescription,tags
           </code>
           <p>
@@ -52,41 +63,51 @@ export default function BulkUploadPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3">
           <CardTitle className="text-base">Reference sheets</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {/* Look up the exact slugs the importer expects rather than guessing them. */}
+        <CardContent className="flex flex-wrap gap-2 pt-4">
           <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/admin/categories/export", "categories.csv")}>
+            <Download className="h-3.5 w-3.5" />
             Categories
           </Button>
           <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/admin/brands/export", "brands.csv")}>
+            <Download className="h-3.5 w-3.5" />
             Brands
           </Button>
           <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/seller/products/export", "my-products.csv")}>
+            <Download className="h-3.5 w-3.5" />
             My current catalog
           </Button>
         </CardContent>
       </Card>
 
-      <form className="flex items-center gap-3" onSubmit={handleSubmit}>
-        <input ref={fileInputRef} type="file" accept=".csv" required className="text-sm" />
-        <Button type="submit" disabled={bulkImport.isPending}>
-          Upload
-        </Button>
-      </form>
+      <Card>
+        <CardHeader className="border-b bg-muted/20 pb-3">
+          <CardTitle className="text-base">Upload CSV file</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <form className="flex flex-wrap items-center gap-3" onSubmit={handleSubmit}>
+            <Input ref={fileInputRef} type="file" accept=".csv" required className="max-w-sm" />
+            <Button type="submit" disabled={bulkImport.isPending}>
+              <Upload className="h-4 w-4" />
+              Upload
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {result && (
         <Card>
-          <CardHeader>
+          <CardHeader className="border-b bg-muted/20 pb-3">
             <CardTitle className="text-base">Import result</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>{result.created} product(s) created.</p>
+          <CardContent className="space-y-2 pt-4 text-sm">
+            <p className="font-medium">{result.created} product(s) created.</p>
             {result.skipped.length > 0 && (
               <div>
                 <p className="font-medium text-destructive">{result.skipped.length} row(s) skipped:</p>
-                <ul className="list-disc ps-5 text-muted-foreground">
+                <ul className="mt-1 list-disc ps-5 text-muted-foreground">
                   {result.skipped.map((s, i) => (
                     <li key={i}>
                       Row {s.row}: {s.reason}

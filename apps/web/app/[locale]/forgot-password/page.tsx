@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import toast from "react-hot-toast";
+import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AuthShell } from "@/components/shared/auth-shell";
+import { FormField } from "@/components/shared/form-field";
 import { useForgotPassword } from "@/lib/hooks/useAuth";
 import { useAuthOptions } from "@/lib/hooks/useAuthOptions";
 import { PhoneAuthForm } from "@/components/shared/phone-auth-form";
-import toast from "react-hot-toast";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function ForgotPasswordPage() {
   const forgotPassword = useForgotPassword();
@@ -18,35 +21,37 @@ export default function ForgotPasswordPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    try { await forgotPassword.mutateAsync(email); setSent(true); }
-    catch (error: any) { toast.error(error?.response?.data?.message ?? "Could not send a password reset link"); }
+    try {
+      await forgotPassword.mutateAsync(email);
+      setSent(true);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not send a password reset link"));
+    }
   }
 
   return (
-    <div className="container flex max-w-md flex-col justify-center py-16">
-      <Card>
-        <CardHeader>
-          <CardTitle>Reset your password</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {sent ? (
-            <p className="text-sm text-muted-foreground">
-              If an account exists for {email}, a password reset link has been sent.
-            </p>
-          ) : (
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
-                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-              </div>
-              <Button type="submit" className="w-full" disabled={forgotPassword.isPending}>
-                Send reset link
-              </Button>
-            </form>
-          )}
-          {options?.phone?.passwordReset && <PhoneAuthForm resetPassword />}
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell
+      title="Reset your password"
+      description="We'll send a recovery link to your verified email or phone."
+      icon={KeyRound}
+    >
+      {sent ? (
+        <Alert variant="success">
+          <AlertDescription>
+            If an account exists for {email}, a password reset link has been sent.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <FormField label="Email address" htmlFor="email" required>
+            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </FormField>
+          <Button type="submit" className="w-full" disabled={forgotPassword.isPending}>
+            Send reset link
+          </Button>
+        </form>
+      )}
+      {options?.phone?.passwordReset && <PhoneAuthForm resetPassword />}
+    </AuthShell>
   );
 }

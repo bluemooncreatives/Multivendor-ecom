@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useLocale } from "next-intl";
 import toast from "react-hot-toast";
+import { Copy, Edit, Package, Plus, Upload } from "lucide-react";
 import {
   useSellerProducts,
   useCreateSellerProduct,
@@ -14,8 +15,13 @@ import { ProductForm, emptyProduct } from "@/components/catalog/product-form";
 import type { ProductFormInput } from "@/lib/hooks/useCatalogForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { CardGridSkeleton } from "@/components/shared/loading-state";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { formatPrice } from "@/lib/format";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function SellerProductsPage() {
   const locale = useLocale();
@@ -34,24 +40,30 @@ export default function SellerProductsPage() {
       setShowForm(false);
       toast.success("Product created — pending admin approval");
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(response?.data?.message ?? "Could not create product");
+      toast.error(getApiErrorMessage(err, "Could not create product"));
     }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Products</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/${locale}/seller/products/bulk-upload`}>Bulk upload</Link>
-          </Button>
-          <Button variant="outline" onClick={() => setShowForm((v) => !v)}>
-            {showForm ? "Cancel" : "Add product"}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Products"
+        description="Add, clone, edit, or bulk-import products for your shop."
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link href={`/${locale}/seller/products/bulk-upload`}>
+                <Upload className="h-4 w-4" />
+                Bulk upload
+              </Link>
+            </Button>
+            <Button variant={showForm ? "outline" : "default"} onClick={() => setShowForm((v) => !v)}>
+              <Plus className="h-4 w-4" />
+              {showForm ? "Cancel" : "Add product"}
+            </Button>
+          </>
+        }
+      />
 
       {showForm && (
         <ProductForm
@@ -65,31 +77,48 @@ export default function SellerProductsPage() {
       )}
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <CardGridSkeleton count={4} columns="sm:grid-cols-2" />
       ) : !products || products.length === 0 ? (
-        <p className="text-muted-foreground">No products yet.</p>
+        <EmptyState
+          icon={Package}
+          title="No products yet"
+          description="Create your first product or import a catalog CSV to start selling."
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {products.map((product) => (
             <Card key={product.id}>
-              <CardHeader className="flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base">{product.name}</CardTitle>
-                <Badge variant={product.published ? "secondary" : "outline"}>
-                  {product.published ? "Live" : "Pending approval"}
-                </Badge>
+              <CardHeader className="flex-row items-center justify-between space-y-0 border-b bg-muted/20 py-3.5">
+                <CardTitle className="truncate text-base">{product.name}</CardTitle>
+                <StatusBadge
+                  status={product.published ? "live" : "pending"}
+                  label={product.published ? "Live" : "Pending approval"}
+                />
               </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="font-semibold">{formatPrice(product.basePrice, product.currency)}</p>
+              <CardContent className="space-y-3 pt-4">
+                <p className="text-lg font-bold text-primary">{formatPrice(product.basePrice, product.currency)}</p>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" asChild>
-                    <Link href={`/${locale}/seller/products/${product.id}/edit`}>Edit</Link>
+                    <Link href={`/${locale}/seller/products/${product.id}/edit`}>
+                      <Edit className="h-3.5 w-3.5" />
+                      Edit
+                    </Link>
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => cloneProduct.mutate(product.id)}>
+                    <Copy className="h-3.5 w-3.5" />
                     Clone
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => deleteProduct.mutate(product.id)}>
-                    Unpublish
-                  </Button>
+                  <ConfirmDialog
+                    title="Unpublish this product?"
+                    description={`"${product.name}" will be removed from the public storefront.`}
+                    confirmLabel="Unpublish"
+                    onConfirm={() => deleteProduct.mutate(product.id)}
+                    trigger={
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                        Unpublish
+                      </Button>
+                    }
+                  />
                 </div>
               </CardContent>
             </Card>
