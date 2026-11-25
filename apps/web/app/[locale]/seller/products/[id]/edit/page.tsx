@@ -4,10 +4,16 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import toast from "react-hot-toast";
+import { Info } from "lucide-react";
 import { useSellerProduct, useUpdateSellerProduct } from "@/lib/hooks/useSeller";
 import { ProductForm, toFormInput, emptyProduct } from "@/components/catalog/product-form";
 import type { ProductFormInput } from "@/lib/hooks/useCatalogForm";
-import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { PageSkeleton } from "@/components/shared/loading-state";
+import { EmptyState } from "@/components/shared/empty-state";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function SellerProductEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,8 +24,6 @@ export default function SellerProductEditPage() {
   const updateProduct = useUpdateSellerProduct();
   const [form, setForm] = useState<ProductFormInput>(emptyProduct);
 
-  // The list query may resolve after first paint, so seed the form once the
-  // product arrives rather than in a useState initialiser.
   useEffect(() => {
     if (product) setForm(toFormInput(product));
   }, [product]);
@@ -30,27 +34,36 @@ export default function SellerProductEditPage() {
       toast.success("Product saved");
       router.push(`/${locale}/seller/products`);
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(response?.data?.message ?? "Could not save product");
+      toast.error(getApiErrorMessage(err, "Could not save product"));
     }
   }
 
-  if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
-  if (!product) return <p className="text-muted-foreground">That product could not be found.</p>;
+  if (isLoading) return <PageSkeleton />;
+  if (!product) {
+    return <EmptyState title="Product not found" description="That product could not be found." />;
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">Edit {product.name}</h1>
-        <Badge variant={product.published ? "secondary" : "outline"}>
-          {product.published ? "Live" : "Pending approval"}
-        </Badge>
-      </div>
+      <PageHeader
+        title={`Edit ${product.name}`}
+        backHref={`/${locale}/seller/products`}
+        backLabel="Back to products"
+        badge={
+          <StatusBadge
+            status={product.published ? "live" : "pending"}
+            label={product.published ? "Live" : "Pending approval"}
+          />
+        }
+      />
 
-      <p className="text-sm text-muted-foreground">
-        Changing the name, images, category, pricing or shipping sends this listing back to moderation. Stock and SKU
-        edits go live immediately.
-      </p>
+      <Alert variant="info">
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          Changing the name, images, category, pricing or shipping sends this listing back to moderation. Stock and SKU
+          edits go live immediately.
+        </AlertDescription>
+      </Alert>
 
       <ProductForm
         scope="seller"

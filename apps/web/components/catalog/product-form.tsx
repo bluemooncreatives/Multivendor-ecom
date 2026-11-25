@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { X } from "lucide-react";
 import {
   useChildCategories,
   useBrandsForCategory,
@@ -17,18 +18,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FormField, ToggleCard } from "@/components/shared/form-field";
+import { getApiErrorMessage, slugify } from "@/lib/utils";
 
-export function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+export { slugify };
 
 export const emptyProduct: ProductFormInput = {
   name: "",
@@ -67,9 +65,6 @@ export const emptyProduct: ProductFormInput = {
   tags: [],
 };
 
-// Maps a product loaded from the API onto form state. Every field falls back to
-// the `emptyProduct` default, so a product created before a field existed still
-// opens cleanly in the editor instead of rendering uncontrolled inputs.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toFormInput(product: any): ProductFormInput {
   const idOf = (v: unknown) => (v == null ? null : typeof v === "string" ? v : String((v as { id?: string }).id ?? v));
@@ -89,7 +84,6 @@ export function toFormInput(product: any): ProductFormInput {
     variants: (product.variants ?? []).map(
       (v: { sku: string; attributes?: Record<string, string>; price: number; comparePrice?: number; stock: number; imageUrl?: string }) => ({
         sku: v.sku,
-        // Mongoose serialises the Map as a plain object; guard against null.
         attributes: v.attributes ?? {},
         price: v.price,
         comparePrice: v.comparePrice,
@@ -106,7 +100,6 @@ interface ProductFormProps {
   value: ProductFormInput;
   onChange: (value: ProductFormInput) => void;
   onSubmit: (value: ProductFormInput) => void;
-  /** Which SKU-combination endpoint to call — the two are permission-scoped differently. */
   scope: "seller" | "admin";
   submitting?: boolean;
   submitLabel?: string;
@@ -116,9 +109,6 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
   const set = <K extends keyof ProductFormInput>(key: K, next: ProductFormInput[K]) =>
     onChange({ ...value, [key]: next });
 
-  // --- Taxonomy cascade -------------------------------------------------------
-  // Three dependent selects. Choosing a coarser level clears the finer ones so the
-  // form can never submit a sub-category that belongs to a different root.
   const { data: roots } = useChildCategories(null);
   const { data: subs } = useChildCategories(value.categoryId, Boolean(value.categoryId));
   const { data: subSubs } = useChildCategories(value.subCategoryId, Boolean(value.subCategoryId));
@@ -133,12 +123,8 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
   const uploadMany = useUploadFiles();
 
   const [tagInput, setTagInput] = useState("");
-
-  // Attribute name -> chosen values, the input to the combination generator.
   const [selectedValues, setSelectedValues] = useState<Record<string, string[]>>({});
 
-  // Re-seed the picker from a loaded product so the edit page shows the option
-  // sets that produced the existing variants.
   useEffect(() => {
     if (value.choiceOptions.length > 0) {
       setSelectedValues(Object.fromEntries(value.choiceOptions.map((o) => [o.name, o.values])));
@@ -173,7 +159,7 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
       });
       toast.success(`Generated ${variants.length} variant${variants.length === 1 ? "" : "s"}`);
     } catch (err) {
-      toast.error(errorMessage(err, "Could not generate variants"));
+      toast.error(getApiErrorMessage(err, "Could not generate variants"));
     }
   }
 
@@ -192,11 +178,10 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
       onChange({
         ...value,
         images: [...value.images, ...urls],
-        // First image uploaded doubles as the thumbnail until one is set explicitly.
         thumbnailUrl: value.thumbnailUrl ?? urls[0] ?? null,
       });
     } catch (err) {
-      toast.error(errorMessage(err, "Upload failed"));
+      toast.error(getApiErrorMessage(err, "Upload failed"));
     }
   }
 
@@ -207,15 +192,12 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
       set(field, stored.url as never);
       toast.success("Uploaded");
     } catch (err) {
-      toast.error(errorMessage(err, "Upload failed"));
+      toast.error(getApiErrorMessage(err, "Upload failed"));
     }
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    // A product must ship with at least one variant; if the seller never used the
-    // generator, fall back to a single default built from the base price.
     const variants =
       value.variants.length > 0
         ? value.variants
@@ -224,17 +206,14 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
               sku: value.slug || slugify(value.name),
               attributes: {},
               price: value.basePrice,
-              // Digital goods aren't stock-limited; a large fixed count stands in
-              // for "always available".
               stock: value.isDigital ? 999_999 : 0,
             },
           ];
-
     onSubmit({ ...value, variants });
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <Tabs defaultValue="basic">
         <TabsList>
           <TabsTrigger value="basic">Basics</TabsTrigger>
@@ -245,114 +224,114 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
           <TabsTrigger value="seo">SEO</TabsTrigger>
         </TabsList>
 
-        {/* --- Basics ---------------------------------------------------------- */}
         <TabsContent value="basic">
           <Card>
             <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-              <Field label="Name" required>
+              <FormField label="Name" required>
                 <Input
                   value={value.name}
                   onChange={(e) =>
                     onChange({
                       ...value,
                       name: e.target.value,
-                      // Track the name until the slug is edited by hand.
                       slug: value.slug === slugify(value.name) || !value.slug ? slugify(e.target.value) : value.slug,
                     })
                   }
                   required
                 />
-              </Field>
-              <Field label="Slug" required>
+              </FormField>
+              <FormField label="Slug" required>
                 <Input value={value.slug} onChange={(e) => set("slug", e.target.value)} required />
-              </Field>
+              </FormField>
 
-              <Field label="Category" required>
-                <NativeSelect
+              <FormField label="Category" required>
+                <SelectField
                   value={value.categoryId}
                   onChange={(v) => onChange({ ...value, categoryId: v, subCategoryId: null, subSubCategoryId: null, brandId: null })}
                   placeholder="Select category"
                   options={(roots ?? []).map((c) => ({ value: c.id, label: c.name }))}
                   required
                 />
-              </Field>
-              <Field label="Sub-category">
-                <NativeSelect
+              </FormField>
+              <FormField label="Sub-category">
+                <SelectField
                   value={value.subCategoryId ?? ""}
                   onChange={(v) => onChange({ ...value, subCategoryId: v || null, subSubCategoryId: null })}
                   placeholder={value.categoryId ? "Optional" : "Choose a category first"}
                   options={(subs ?? []).map((c) => ({ value: c.id, label: c.name }))}
                   disabled={!value.categoryId}
                 />
-              </Field>
-              <Field label="Sub-sub-category">
-                <NativeSelect
+              </FormField>
+              <FormField label="Sub-sub-category">
+                <SelectField
                   value={value.subSubCategoryId ?? ""}
                   onChange={(v) => set("subSubCategoryId", v || null)}
                   placeholder={value.subCategoryId ? "Optional" : "Choose a sub-category first"}
                   options={(subSubs ?? []).map((c) => ({ value: c.id, label: c.name }))}
                   disabled={!value.subCategoryId}
                 />
-              </Field>
-              <Field label="Brand">
-                <NativeSelect
+              </FormField>
+              <FormField label="Brand">
+                <SelectField
                   value={value.brandId ?? ""}
                   onChange={(v) => set("brandId", v || null)}
                   placeholder="No brand"
                   options={(brands ?? []).map((b) => ({ value: b.id, label: b.name }))}
                 />
-              </Field>
+              </FormField>
 
-              <Field label="Unit">
+              <FormField label="Unit">
                 <Input value={value.unit} onChange={(e) => set("unit", e.target.value)} placeholder="pc, kg, litre…" />
-              </Field>
-              <Field label="Barcode">
+              </FormField>
+              <FormField label="Barcode">
                 <Input
                   value={value.barcode ?? ""}
                   onChange={(e) => set("barcode", e.target.value || null)}
                   placeholder="Scanned at the POS"
                 />
-              </Field>
-              <Field label="Minimum order quantity">
+              </FormField>
+              <FormField label="Minimum order quantity">
                 <Input
                   type="number"
                   min={1}
                   value={value.minOrderQty}
                   onChange={(e) => set("minOrderQty", Number(e.target.value))}
                 />
-              </Field>
-              <Field label="Club points earned">
+              </FormField>
+              <FormField label="Club points earned">
                 <Input
                   type="number"
                   min={0}
                   value={value.clubPoints}
                   onChange={(e) => set("clubPoints", Number(e.target.value))}
                 />
-              </Field>
+              </FormField>
 
               <div className="space-y-2 sm:col-span-2">
                 <Label>Tags</Label>
-                <div className="flex flex-wrap gap-2">
-                  {value.tags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="gap-1">
-                      {tag}
-                      <button
-                        type="button"
-                        aria-label={`Remove ${tag}`}
-                        onClick={() => set("tags", value.tags.filter((t) => t !== tag))}
-                      >
-                        &#10005;
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
+                {value.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {value.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="gap-1">
+                        {tag}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${tag}`}
+                          onClick={() => set("tags", value.tags.filter((t) => t !== tag))}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
                 <Input
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   placeholder="Type a tag and press Enter"
                   onKeyDown={(e) => {
                     if (e.key !== "Enter") return;
-                    e.preventDefault(); // Enter would otherwise submit the whole form
+                    e.preventDefault();
                     const tag = tagInput.trim();
                     if (tag && !value.tags.includes(tag)) set("tags", [...value.tags, tag]);
                     setTagInput("");
@@ -360,59 +339,59 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                 />
               </div>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Description</Label>
+              <FormField label="Description" className="sm:col-span-2">
                 <Textarea rows={6} value={value.description} onChange={(e) => set("description", e.target.value)} />
-              </div>
+              </FormField>
 
-              <ToggleRow
+              <ToggleCard
                 label="Digital product"
                 hint="Buyers download a file instead of receiving a shipment."
                 checked={value.isDigital}
-                onChange={(v) => set("isDigital", v)}
+                onCheckedChange={(v) => set("isDigital", v)}
               />
-              <ToggleRow
+              <ToggleCard
                 label="Refundable"
                 hint="Customers may open a refund request for this product."
                 checked={value.refundable}
-                onChange={(v) => set("refundable", v)}
+                onCheckedChange={(v) => set("refundable", v)}
               />
 
               {value.isDigital && (
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Digital file</Label>
+                <FormField
+                  label="Digital file"
+                  hint={
+                    value.digitalFileUrl
+                      ? "Stored. Buyers receive a signed, expiring link — the file is never served directly."
+                      : undefined
+                  }
+                  className="sm:col-span-2"
+                >
                   <Input
                     type="file"
                     accept=".pdf,.zip,.epub,.mp3,.mp4,.jpg,.jpeg,.png"
                     onChange={(e) => handleSingleUpload(e.target.files?.[0] ?? null, "digital", "digitalFileUrl")}
                   />
-                  {value.digitalFileUrl && (
-                    <p className="text-xs text-muted-foreground">
-                      Stored. Buyers receive a signed, expiring link — the file is never served directly.
-                    </p>
-                  )}
-                </div>
+                </FormField>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* --- Media ----------------------------------------------------------- */}
         <TabsContent value="media">
           <Card>
             <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
                 <Label>Gallery images</Label>
                 <Input type="file" accept="image/*" multiple onChange={(e) => handleImageUpload(e.target.files)} />
-                <div className="flex flex-wrap gap-2 pt-2">
+                <div className="flex flex-wrap gap-3 pt-2">
                   {value.images.map((url) => (
                     <div key={url} className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="" className="h-20 w-20 rounded border object-cover" />
+                      <img src={url} alt="" className="h-20 w-20 rounded-lg border object-cover" />
                       <button
                         type="button"
                         aria-label="Remove image"
-                        className="absolute -end-1 -top-1 rounded-full border bg-background px-1 text-xs"
+                        className="absolute -end-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border bg-background shadow-sm hover:text-destructive"
                         onClick={() =>
                           onChange({
                             ...value,
@@ -421,11 +400,11 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                           })
                         }
                       >
-                        &#10005;
+                        <X className="h-3 w-3" />
                       </button>
                       <button
                         type="button"
-                        className="mt-1 block w-full text-center text-[10px] underline"
+                        className="mt-1 block w-full text-center text-[11px] font-medium text-primary underline"
                         onClick={() => set("thumbnailUrl", url)}
                       >
                         {value.thumbnailUrl === url ? "Thumbnail" : "Set thumbnail"}
@@ -435,8 +414,8 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                 </div>
               </div>
 
-              <Field label="Video provider">
-                <NativeSelect
+              <FormField label="Video provider">
+                <SelectField
                   value={value.videoProvider ?? ""}
                   onChange={(v) => set("videoProvider", (v || null) as ProductFormInput["videoProvider"])}
                   placeholder="None"
@@ -446,36 +425,37 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                     { value: "dailymotion", label: "Dailymotion" },
                   ]}
                 />
-              </Field>
-              <Field label="Video link">
+              </FormField>
+              <FormField label="Video link">
                 <Input
                   type="url"
                   value={value.videoLink ?? ""}
                   onChange={(e) => set("videoLink", e.target.value || null)}
                   disabled={!value.videoProvider}
                 />
-              </Field>
+              </FormField>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Specification PDF</Label>
+              <FormField
+                label="Specification PDF"
+                hint={value.pdfSpecUrl ? "A specification sheet is attached." : undefined}
+                className="sm:col-span-2"
+              >
                 <Input
                   type="file"
                   accept="application/pdf"
                   onChange={(e) => handleSingleUpload(e.target.files?.[0] ?? null, "document", "pdfSpecUrl")}
                 />
-                {value.pdfSpecUrl && <p className="text-xs text-muted-foreground">A specification sheet is attached.</p>}
-              </div>
+              </FormField>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* --- Variants -------------------------------------------------------- */}
         <TabsContent value="variants">
           <Card>
-            <CardHeader>
+            <CardHeader className="border-b bg-muted/20 pb-3.5">
               <CardTitle className="text-base">Colours &amp; options</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5 pt-5">
               <div className="space-y-2">
                 <Label>Colours</Label>
                 <div className="flex flex-wrap gap-2">
@@ -488,7 +468,9 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                         onClick={() =>
                           set("colors", active ? value.colors.filter((c) => c !== color.id) : [...value.colors, color.id])
                         }
-                        className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${active ? "border-primary ring-2 ring-primary" : ""}`}
+                        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                          active ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "hover:bg-accent"
+                        }`}
                       >
                         <span className="h-3 w-3 rounded-full border" style={{ backgroundColor: color.hex }} />
                         {color.name}
@@ -517,7 +499,9 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                               };
                             })
                           }
-                          className={`rounded-full border px-3 py-1 text-xs ${active ? "border-primary ring-2 ring-primary" : ""}`}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                            active ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "hover:bg-accent"
+                          }`}
                         >
                           {option}
                         </button>
@@ -532,37 +516,37 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
               </Button>
 
               {value.variants.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] text-sm">
-                    <thead>
-                      <tr className="border-b text-start text-xs uppercase text-muted-foreground">
-                        <th className="py-2 text-start">Variant</th>
-                        <th className="py-2 text-start">SKU</th>
-                        <th className="py-2 text-start">Price</th>
-                        <th className="py-2 text-start">Compare at</th>
-                        <th className="py-2 text-start">Stock</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <div className="rounded-lg border">
+                  <Table className="min-w-[640px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Variant</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Compare at</TableHead>
+                        <TableHead>Stock</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {value.variants.map((variant, index) => (
-                        <tr key={variant.sku} className="border-b">
-                          <td className="py-2 pe-2">
+                        <TableRow key={variant.sku}>
+                          <TableCell className="font-medium">
                             {Object.entries(variant.attributes)
                               .map(([k, v]) => `${k}: ${v}`)
                               .join(", ") || "Default"}
-                          </td>
-                          <td className="py-2 pe-2">
+                          </TableCell>
+                          <TableCell>
                             <Input value={variant.sku} onChange={(e) => updateVariant(index, { sku: e.target.value })} />
-                          </td>
-                          <td className="py-2 pe-2">
+                          </TableCell>
+                          <TableCell>
                             <Input
                               type="number"
                               min={0}
                               value={variant.price}
                               onChange={(e) => updateVariant(index, { price: Number(e.target.value) })}
                             />
-                          </td>
-                          <td className="py-2 pe-2">
+                          </TableCell>
+                          <TableCell>
                             <Input
                               type="number"
                               min={0}
@@ -573,30 +557,29 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                                 })
                               }
                             />
-                          </td>
-                          <td className="py-2">
+                          </TableCell>
+                          <TableCell>
                             <Input
                               type="number"
                               min={0}
                               value={variant.stock}
                               onChange={(e) => updateVariant(index, { stock: Number(e.target.value) })}
                             />
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* --- Pricing --------------------------------------------------------- */}
         <TabsContent value="pricing">
           <Card>
             <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-              <Field label="Base price" required>
+              <FormField label="Base price" required>
                 <Input
                   type="number"
                   min={0}
@@ -605,8 +588,8 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                   onChange={(e) => set("basePrice", Number(e.target.value))}
                   required
                 />
-              </Field>
-              <Field label="Purchase price" hint="Your cost. Used for profit reporting; never shown to shoppers.">
+              </FormField>
+              <FormField label="Purchase price" hint="Your cost. Used for profit reporting; never shown to shoppers.">
                 <Input
                   type="number"
                   min={0}
@@ -614,8 +597,8 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                   value={value.purchasePrice}
                   onChange={(e) => set("purchasePrice", Number(e.target.value))}
                 />
-              </Field>
-              <Field label="Discount">
+              </FormField>
+              <FormField label="Discount">
                 <Input
                   type="number"
                   min={0}
@@ -623,9 +606,9 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                   value={value.discount}
                   onChange={(e) => set("discount", Number(e.target.value))}
                 />
-              </Field>
-              <Field label="Discount type">
-                <NativeSelect
+              </FormField>
+              <FormField label="Discount type">
+                <SelectField
                   value={value.discountType}
                   onChange={(v) => set("discountType", v as "flat" | "percent")}
                   options={[
@@ -633,8 +616,8 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                     { value: "flat", label: "Flat amount" },
                   ]}
                 />
-              </Field>
-              <Field label="Tax" hint="Leave empty to use the store-wide tax rate.">
+              </FormField>
+              <FormField label="Tax" hint="Leave empty to use the store-wide tax rate.">
                 <Input
                   type="number"
                   min={0}
@@ -642,9 +625,9 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                   value={value.tax ?? ""}
                   onChange={(e) => set("tax", e.target.value === "" ? null : Number(e.target.value))}
                 />
-              </Field>
-              <Field label="Tax type">
-                <NativeSelect
+              </FormField>
+              <FormField label="Tax type">
+                <SelectField
                   value={value.taxType}
                   onChange={(v) => set("taxType", v as "flat" | "percent")}
                   options={[
@@ -652,17 +635,16 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                     { value: "flat", label: "Flat amount" },
                   ]}
                 />
-              </Field>
+              </FormField>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* --- Shipping -------------------------------------------------------- */}
         <TabsContent value="shipping">
           <Card>
             <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-              <Field label="Shipping" hint="Applies when the store runs product-wise shipping.">
-                <NativeSelect
+              <FormField label="Shipping" hint="Applies when the store runs product-wise shipping.">
+                <SelectField
                   value={value.shippingType}
                   onChange={(v) => set("shippingType", v as "free" | "flat_rate")}
                   options={[
@@ -670,8 +652,8 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                     { value: "flat_rate", label: "Flat rate" },
                   ]}
                 />
-              </Field>
-              <Field label="Shipping cost">
+              </FormField>
+              <FormField label="Shipping cost">
                 <Input
                   type="number"
                   min={0}
@@ -680,98 +662,49 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                   onChange={(e) => set("shippingCost", Number(e.target.value))}
                   disabled={value.shippingType === "free"}
                 />
-              </Field>
+              </FormField>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* --- SEO ------------------------------------------------------------- */}
         <TabsContent value="seo">
           <Card>
             <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-              <Field label="Meta title" hint="Defaults to the product name when empty.">
+              <FormField label="Meta title" hint="Defaults to the product name when empty.">
                 <Input
                   value={value.metaTitle ?? ""}
                   onChange={(e) => set("metaTitle", e.target.value || null)}
                   maxLength={200}
                 />
-              </Field>
-              <Field label="Meta image">
+              </FormField>
+              <FormField label="Meta image">
                 <Input
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleSingleUpload(e.target.files?.[0] ?? null, "image", "metaImageUrl")}
                 />
-              </Field>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Meta description</Label>
+              </FormField>
+              <FormField label="Meta description" className="sm:col-span-2">
                 <Textarea
                   rows={3}
                   maxLength={500}
                   value={value.metaDescription ?? ""}
                   onChange={(e) => set("metaDescription", e.target.value || null)}
                 />
-              </div>
+              </FormField>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      <Button type="submit" disabled={submitting}>
+      <Button type="submit" size="lg" disabled={submitting}>
         {submitLabel ?? "Save product"}
       </Button>
     </form>
   );
 }
 
-// --- Small local primitives ---------------------------------------------------
-
-function Field({
-  label,
-  hint,
-  required,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label>
-        {label}
-        {required && <span className="text-destructive"> *</span>}
-      </Label>
-      {children}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
-function ToggleRow({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 rounded-md border p-3">
-      <div>
-        <p className="text-sm font-medium">{label}</p>
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
-}
-
-function NativeSelect({
+function SelectField({
   value,
   onChange,
   options,
@@ -787,8 +720,7 @@ function NativeSelect({
   required?: boolean;
 }) {
   return (
-    <select
-      className="h-10 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-50"
+    <NativeSelect
       value={value}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
@@ -800,11 +732,6 @@ function NativeSelect({
           {option.label}
         </option>
       ))}
-    </select>
+    </NativeSelect>
   );
-}
-
-function errorMessage(err: unknown, fallback: string) {
-  const response = (err as { response?: { data?: { message?: string } } })?.response;
-  return response?.data?.message ?? fallback;
 }
