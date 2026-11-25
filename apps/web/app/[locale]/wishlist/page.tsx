@@ -3,9 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useLocale } from "next-intl";
-import { X } from "lucide-react";
+import { Heart, X } from "lucide-react";
 import { useWishlist, useRemoveWishlistItem } from "@/lib/hooks/useWishlist";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
+import { CardGridSkeleton } from "@/components/shared/loading-state";
 import { formatPrice } from "@/lib/format";
 
 export default function WishlistPage() {
@@ -14,44 +18,55 @@ export default function WishlistPage() {
   const removeItem = useRemoveWishlistItem();
 
   return (
-    <div className="container space-y-6 py-6">
-      <h1 className="text-2xl font-bold">My Wishlist</h1>
+    <div className="container space-y-6 py-6 lg:py-8">
+      <PageHeader title="My Wishlist" description="Products you saved for later." />
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <CardGridSkeleton count={6} columns="sm:grid-cols-2 lg:grid-cols-3" />
       ) : !items || items.length === 0 ? (
-        <div className="rounded-lg bg-card p-10 text-center shadow-sm">
-          <p className="mb-4 text-muted-foreground">Your wishlist is empty.</p>
-          <Button asChild>
-            <Link href={`/${locale}/products`}>Browse Products</Link>
-          </Button>
-        </div>
+        <EmptyState
+          icon={Heart}
+          title="Your wishlist is empty"
+          description="Save items you love while browsing to keep track of them here."
+          action={
+            <Button asChild>
+              <Link href={`/${locale}/products`}>Browse Products</Link>
+            </Button>
+          }
+        />
       ) : (
-        <div className="grid gap-4 rounded-lg bg-card p-4 shadow-sm sm:grid-cols-2 md:p-6 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
-            <div key={item.id} className="relative flex items-center gap-3 rounded-md border p-3">
-              <button
-                type="button"
-                onClick={() => removeItem.mutate(item.productId.id)}
-                aria-label="Remove from wishlist"
-                className="absolute end-2 top-2 text-muted-foreground hover:text-destructive"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <Link href={`/${locale}/product/${item.productId.slug}`} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                {item.productId.images[0] && (
-                  <Image src={item.productId.images[0]} alt={item.productId.name} fill className="object-cover" />
-                )}
-              </Link>
-              <div>
-                <Link href={`/${locale}/product/${item.productId.slug}`} className="font-medium hover:text-primary">
-                  {item.productId.name}
+            <Card key={item.id} className="relative overflow-hidden transition-shadow hover:shadow-md">
+              <CardContent className="flex items-center gap-3.5 p-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeItem.mutate(item.productId.id)}
+                  aria-label="Remove from wishlist"
+                  className="absolute end-2 top-2 h-8 w-8 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <Link
+                  href={`/${locale}/product/${item.productId.slug}`}
+                  className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border bg-muted"
+                >
+                  {item.productId.images[0] && (
+                    <Image src={item.productId.images[0]} alt={item.productId.name} fill className="object-cover" />
+                  )}
                 </Link>
-                <p className="text-sm text-muted-foreground">
-                  {formatPrice(item.productId.basePrice, item.productId.currency, locale)}
-                </p>
-              </div>
-            </div>
+                <div className="min-w-0 flex-1 pe-6">
+                  <Link href={`/${locale}/product/${item.productId.slug}`} className="line-clamp-2 font-semibold hover:text-primary">
+                    {item.productId.name}
+                  </Link>
+                  <p className="mt-1 text-sm font-bold text-primary">
+                    {formatPrice(item.productId.basePrice, item.productId.currency, locale)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

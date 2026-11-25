@@ -1,9 +1,12 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useLocale } from "next-intl";
+import { FolderTree } from "lucide-react";
 import { useCategories } from "@/lib/hooks/useProducts";
+import { PageHeader } from "@/components/shared/page-header";
+import { CategoryCard } from "@/components/storefront/category-card";
+import { CardGridSkeleton } from "@/components/shared/loading-state";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export default function AllCategoriesPage() {
   const locale = useLocale();
@@ -11,27 +14,22 @@ export default function AllCategoriesPage() {
   const topCategories = (categories ?? []).filter((c) => c.level === 0);
 
   return (
-    <div className="container space-y-6 py-6">
-      <h1 className="text-2xl font-bold">All Categories</h1>
+    <div className="container space-y-6 py-6 lg:py-8">
+      <PageHeader title="All Categories" description="Browse marketplace collections by category." />
+
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <CardGridSkeleton count={12} columns="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6" />
+      ) : topCategories.length === 0 ? (
+        <EmptyState icon={FolderTree} title="No categories available" description="Categories will appear here once added." />
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {topCategories.map((category) => (
-            <Link
+            <CategoryCard
               key={category.id}
               href={`/${locale}/category/${category.slug}`}
-              className="flex flex-col items-center gap-3 rounded-lg bg-card p-4 text-center shadow-sm hover:shadow-md"
-            >
-              <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-secondary">
-                {category.iconUrl ? (
-                  <Image src={category.iconUrl} alt={category.name} fill className="object-cover" sizes="64px" />
-                ) : (
-                  <span className="text-xl font-semibold text-muted-foreground">{category.name.charAt(0)}</span>
-                )}
-              </div>
-              <span className="text-sm font-medium">{category.name}</span>
-            </Link>
+              name={category.name}
+              imageUrl={category.iconUrl}
+            />
           ))}
         </div>
       )}

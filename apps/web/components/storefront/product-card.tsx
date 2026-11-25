@@ -4,18 +4,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Heart, Scale } from "lucide-react";
+import { Heart, Scale, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { RatingStars } from "@/components/shared/rating-stars";
+import { PriceDisplay } from "@/components/shared/price-display";
 import { useAuthStore, useCompareStore } from "@/lib/store";
 import { useWishlist, useAddWishlistItem, useRemoveWishlistItem } from "@/lib/hooks/useWishlist";
-import { useDisplayCurrency } from "@/lib/hooks/useDisplayCurrency";
 import type { Product } from "@ecommercemultivendor/types";
 
 export function ProductCard({ product }: { product: Product }) {
   const locale = useLocale();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { display } = useDisplayCurrency();
   const { data: wishlist } = useWishlist();
   const addWishlist = useAddWishlistItem();
   const removeWishlist = useRemoveWishlistItem();
@@ -27,10 +28,6 @@ export function ProductCard({ product }: { product: Product }) {
   const cheapestVariant = product.variants.length
     ? product.variants.reduce((a, b) => (a.price < b.price ? a : b))
     : null;
-  // `pricing` is the server's authority: it already applies the live flash-deal
-  // campaign or the product's own discount, so the card never advertises a price
-  // the cart will not honour. The variant price is only a fallback for payloads
-  // that predate it (admin/seller lists).
   const listPrice = product.pricing?.listPrice ?? cheapestVariant?.comparePrice ?? product.basePrice;
   const price = product.pricing?.price ?? (cheapestVariant ? cheapestVariant.price : product.basePrice);
   const percentOff = product.pricing
@@ -56,30 +53,41 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <Link href={`/${locale}/product/${product.slug}`}>
-      <Card className="h-full overflow-hidden transition-shadow hover:shadow-md">
-        <div className="group relative aspect-square bg-muted">
+    <Link href={`/${locale}/product/${product.slug}`} className="group block h-full">
+      <Card className="flex h-full flex-col overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+        <div className="relative aspect-square overflow-hidden bg-muted">
           {image ? (
-            <Image src={image} alt={product.name} fill className="object-cover" sizes="(max-width: 768px) 50vw, 25vw" />
+            <Image
+              src={image}
+              alt={product.name}
+              fill
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              sizes="(max-width: 768px) 50vw, 25vw"
+            />
           ) : (
-            <div className="flex h-full items-center justify-center text-muted-foreground">No image</div>
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No image</div>
           )}
-          {hasDiscount && (
-            <span className="absolute start-2 top-2 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-              {percentOff}% OFF
-            </span>
-          )}
-          {onFlashDeal && (
-            <span className="absolute start-2 top-7 rounded bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
-              Flash deal
-            </span>
-          )}
-          <div className="absolute end-2 top-2 flex flex-col gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+
+          <div className="absolute start-2 top-2 flex flex-col gap-1">
+            {hasDiscount && (
+              <Badge className="px-1.5 py-0.5 text-[10px] font-bold shadow-sm">
+                {percentOff}% OFF
+              </Badge>
+            )}
+            {onFlashDeal && (
+              <Badge variant="destructive" className="gap-0.5 px-1.5 py-0.5 text-[10px] font-bold shadow-sm">
+                <Zap className="h-2.5 w-2.5" />
+                Flash deal
+              </Badge>
+            )}
+          </div>
+
+          <div className="absolute end-2 top-2 flex flex-col gap-1.5 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
             <button
               type="button"
               onClick={toggleWishlist}
               aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow hover:text-primary"
+              className="flex h-8 w-8 items-center justify-center rounded-full border bg-background/95 shadow-sm backdrop-blur transition-colors hover:border-primary hover:text-primary"
             >
               <Heart className={`h-4 w-4 ${isWishlisted ? "fill-primary text-primary" : ""}`} />
             </button>
@@ -91,22 +99,24 @@ export function ProductCard({ product }: { product: Product }) {
                 toggleCompare(product.id);
               }}
               aria-label={isComparing ? "Remove from compare" : "Add to compare"}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow hover:text-primary"
+              className="flex h-8 w-8 items-center justify-center rounded-full border bg-background/95 shadow-sm backdrop-blur transition-colors hover:border-primary hover:text-primary"
             >
               <Scale className={`h-4 w-4 ${isComparing ? "text-primary" : ""}`} />
             </button>
           </div>
         </div>
-        <CardContent className="space-y-1 p-3">
-          <div className="flex items-baseline gap-2">
-            {hasDiscount && (
-              <span className="text-xs text-muted-foreground line-through">
-                {display(listPrice, product.currency)}
-              </span>
-            )}
-            <span className="text-sm font-semibold">{display(price, product.currency)}</span>
+
+        <CardContent className="flex flex-1 flex-col justify-between gap-2 p-3.5">
+          <div className="space-y-1.5">
+            <PriceDisplay price={price} listPrice={hasDiscount ? listPrice : undefined} currency={product.currency} size="sm" />
+            <p className="line-clamp-2 text-sm font-medium leading-snug text-foreground transition-colors group-hover:text-primary">
+              {product.name}
+            </p>
           </div>
-          <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
+
+          {product.ratingCount > 0 && (
+            <RatingStars value={product.ratingAverage} count={product.ratingCount} size="sm" />
+          )}
         </CardContent>
       </Card>
     </Link>

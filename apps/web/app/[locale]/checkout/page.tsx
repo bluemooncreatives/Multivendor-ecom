@@ -1,13 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import toast from "react-hot-toast";
+import { ShoppingBag, Truck, CreditCard, MapPin, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { NativeSelect } from "@/components/ui/native-select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { FormField } from "@/components/shared/form-field";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 import { useCart } from "@/lib/hooks/useCart";
 import {
   useCheckout,
@@ -33,10 +41,8 @@ import {
 import { useAuthStore } from "@/lib/store";
 import { formatPrice } from "@/lib/format";
 import { CheckoutSteps } from "@/components/storefront/checkout-steps";
+import { getApiErrorMessage } from "@/lib/utils";
 
-// Four steps, matching the legacy shipping-info -> delivery-info -> payment ->
-// confirm flow. The delivery step is where the shopper picks home delivery or
-// in-person collection per seller, which decides that seller's shipping cost.
 type Step = "address" | "delivery" | "payment" | "review";
 
 const PAYMENT_METHODS: { value: CheckoutInput["paymentMethod"]; label: string }[] = [
@@ -65,13 +71,10 @@ const REDIRECT_GATEWAYS: RedirectGateway[] = [
   "voguepay",
   "ngenius",
   "flutterwave",
-  // Stripe uses a hosted Checkout Session, so it redirects like the others.
   "stripe",
 ];
 
 const FORM_POST_GATEWAYS: FormPostGateway[] = ["payhere", "paytm", "twocheckout"];
-
-// Settled at order-creation time, with no gateway round trip.
 const SYNCHRONOUS_METHODS = ["cod", "wallet", "manual"];
 
 type DeliveryChoice = { method: "home_delivery" | "pickup_point"; pickupPointId?: string };
@@ -134,17 +137,20 @@ export default function CheckoutPage() {
   const [deliveryChoices, setDeliveryChoices] = useState<Record<string, DeliveryChoice>>({});
   const [paymentMethod, setPaymentMethod] = useState<CheckoutInput["paymentMethod"]>("cod");
   useEffect(() => {
-    if (options?.paymentMethods.length && !options.paymentMethods.includes(paymentMethod)) setPaymentMethod(options.paymentMethods[0]!);
+    if (options?.paymentMethods.length && !options.paymentMethods.includes(paymentMethod)) {
+      setPaymentMethod(options.paymentMethods[0]!);
+    }
   }, [options, paymentMethod]);
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [pointsToSpend, setPointsToSpend] = useState(0);
   const idempotencyKey = useMemo(() => crypto.randomUUID(), []);
 
-  // One group per seller — each gets its own delivery choice, and each becomes one
-  // shipment on the resulting order.
   const sellerGroups = useMemo(() => {
-    const groups = new Map<string, { sellerId: string; sellerName: string; items: typeof cart extends undefined ? never : NonNullable<typeof cart>["items"] }>();
+    const groups = new Map<
+      string,
+      { sellerId: string; sellerName: string; items: NonNullable<typeof cart>["items"] }
+    >();
     for (const item of cart?.items ?? []) {
       const existing = groups.get(item.sellerId);
       if (existing) existing.items.push(item);
@@ -155,9 +161,6 @@ export default function CheckoutPage() {
 
   const subtotal = cart?.subtotal ?? 0;
   const currency = cart?.items[0]?.currency;
-
-  // Indicative only — the server recomputes every figure at order time, so this is
-  // a preview and never what the shopper is actually charged.
   const pointsDiscount = clubPoints && pointsToSpend > 0 ? pointsToSpend * clubPoints.convertRate : 0;
   const estimatedTotal = Math.max(0, subtotal - discount - pointsDiscount);
 
@@ -168,7 +171,7 @@ export default function CheckoutPage() {
       setDiscount(result.discount);
       toast.success(`Coupon applied: -${formatPrice(result.discount, currency)}`);
     } catch (err) {
-      toast.error(apiError(err, "Invalid coupon"));
+      toast.error(getApiErrorMessage(err, "Invalid coupon"));
       setDiscount(0);
     }
   }
@@ -214,9 +217,6 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Only COD, wallet and manual reach here — every gateway is dispatched
-      // above. Falling through to the confirmation page for a card method is
-      // what previously produced confirmed-looking but unpaid orders.
       if (!SYNCHRONOUS_METHODS.includes(paymentMethod)) {
         toast.error("That payment method could not be started. Your order has not been charged.");
         return;
@@ -224,11 +224,10 @@ export default function CheckoutPage() {
 
       router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`);
     } catch (err) {
-      toast.error(apiError(err, "Could not place order"));
+      toast.error(getApiErrorMessage(err, "Could not place order"));
     }
   }
 
-  /** Razorpay Checkout opens over this page rather than redirecting away. */
   async function payWithRazorpay(order: { id: string; code: string }) {
     const rzp = await createRazorpayOrder.mutateAsync(order.id);
     await loadScript("https://checkout.razorpay.com/v1/checkout.js");
@@ -244,8 +243,6 @@ export default function CheckoutPage() {
       currency: rzp.currency,
       name: "Order payment",
       prefill: { contact: address.phone },
-      // The webhook is what actually settles the order; this callback only moves
-      // the shopper along once the modal reports success.
       handler: () => router.push(`/${locale}/checkout/order-confirmed?code=${order.code}`),
       modal: {
         ondismiss: () => toast.error("Payment cancelled — your order has not been charged."),
@@ -253,12 +250,6 @@ export default function CheckoutPage() {
     }).open();
   }
 
-  /**
-   * PayPal's SDK renders its own buttons, which needs a container in the DOM.
-   * Rather than restructure the review step around that, the order is created
-   * server-side and approved in a popup window opened from this click — which
-   * browsers allow because it is still within the user gesture.
-   */
   async function payWithPaypal(order: { id: string; code: string }) {
     const { paypalOrderId } = await createPaypalOrder.mutateAsync(order.id);
     const approvalUrl = `https://www.paypal.com/checkoutnow?token=${paypalOrderId}`;
@@ -269,8 +260,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Poll for the window closing, then capture. Capture is idempotent server-
-    // side, and an abandoned approval simply leaves the order unpaid.
     const timer = setInterval(async () => {
       if (!popup.closed) return;
       clearInterval(timer);
@@ -284,51 +273,79 @@ export default function CheckoutPage() {
   }
 
   if (!cart || cart.items.length === 0) {
-    return <div className="container py-16 text-center text-muted-foreground">Your cart is empty.</div>;
+    return (
+      <div className="container max-w-xl py-16">
+        <EmptyState
+          icon={ShoppingBag}
+          title="Your cart is empty"
+          description="Add products to your cart before starting checkout."
+          action={
+            <Button asChild>
+              <Link href={`/${locale}/products`}>Browse products</Link>
+            </Button>
+          }
+        />
+      </div>
+    );
   }
 
-  // Offset by one: step 1 in the stepper is the cart, which is its own page.
   const stepNumber = step === "address" ? 2 : step === "delivery" ? 3 : step === "payment" ? 4 : 5;
 
   return (
-    <div className="container max-w-xl space-y-6 py-6">
+    <div className="container max-w-2xl space-y-6 py-6 lg:py-8">
       <CheckoutSteps current={stepNumber} />
-      <h1 className="text-2xl font-bold">{t("title")}</h1>
+      <PageHeader title={t("title")} />
 
       {step === "address" && (
         <Card>
-          <CardHeader>
-            <CardTitle>{t("address")}</CardTitle>
+          <CardHeader className="border-b bg-muted/20 pb-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MapPin className="h-4 w-4 text-primary" />
+              {t("address")}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="checkout-line1">Address line 1</Label>
-                <Input id="checkout-line1" value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="checkout-city">City</Label>
-                  <Input id="checkout-city" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="checkout-state">State</Label>
-                  <Input id="checkout-state" value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="checkout-postal-code">Postal code</Label>
-                  <Input
-                    id="checkout-postal-code"
-                    value={address.postalCode}
-                    onChange={(e) => setAddress({ ...address, postalCode: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="checkout-phone">Phone</Label>
-                  <Input id="checkout-phone" value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} required />
-                </div>
-              </div>
+          <CardContent className="space-y-4 pt-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Address line 1" htmlFor="checkout-line1" required className="sm:col-span-2">
+                <Input
+                  id="checkout-line1"
+                  value={address.line1}
+                  onChange={(e) => setAddress({ ...address, line1: e.target.value })}
+                  required
+                />
+              </FormField>
+              <FormField label="City" htmlFor="checkout-city" required>
+                <Input
+                  id="checkout-city"
+                  value={address.city}
+                  onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                  required
+                />
+              </FormField>
+              <FormField label="State" htmlFor="checkout-state" required>
+                <Input
+                  id="checkout-state"
+                  value={address.state}
+                  onChange={(e) => setAddress({ ...address, state: e.target.value })}
+                  required
+                />
+              </FormField>
+              <FormField label="Postal code" htmlFor="checkout-postal-code" required>
+                <Input
+                  id="checkout-postal-code"
+                  value={address.postalCode}
+                  onChange={(e) => setAddress({ ...address, postalCode: e.target.value })}
+                  required
+                />
+              </FormField>
+              <FormField label="Phone" htmlFor="checkout-phone" required>
+                <Input
+                  id="checkout-phone"
+                  value={address.phone}
+                  onChange={(e) => setAddress({ ...address, phone: e.target.value })}
+                  required
+                />
+              </FormField>
             </div>
             <Button className="w-full" onClick={() => setStep("delivery")}>
               Continue
@@ -339,10 +356,13 @@ export default function CheckoutPage() {
 
       {step === "delivery" && (
         <Card>
-          <CardHeader>
-            <CardTitle>Delivery</CardTitle>
+          <CardHeader className="border-b bg-muted/20 pb-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Truck className="h-4 w-4 text-primary" />
+              Delivery
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-6">
             <p className="text-sm text-muted-foreground">
               Your order ships from {sellerGroups.length} seller{sellerGroups.length === 1 ? "" : "s"}. Choose how each
               one reaches you.
@@ -351,16 +371,19 @@ export default function CheckoutPage() {
             {sellerGroups.map((group) => {
               const choice = deliveryChoices[group.sellerId] ?? { method: "home_delivery" as const };
               return (
-                <div key={group.sellerId} className="space-y-2 rounded-md border p-3">
-                  <p className="text-sm font-medium">{group.sellerName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {group.items.map((i) => `${i.productName} × ${i.quantity}`).join(", ")}
-                  </p>
+                <div key={group.sellerId} className="space-y-3 rounded-lg border bg-muted/10 p-4">
+                  <div>
+                    <p className="text-sm font-semibold">{group.sellerName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {group.items.map((i) => `${i.productName} × ${i.quantity}`).join(", ")}
+                    </p>
+                  </div>
 
-                  <div className="flex flex-wrap gap-3 pt-1 text-sm">
-                    <label className="flex items-center gap-2">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <label className="flex cursor-pointer items-center gap-2">
                       <input
                         type="radio"
+                        className="accent-primary"
                         name={`delivery-${group.sellerId}`}
                         checked={choice.method === "home_delivery"}
                         onChange={() =>
@@ -369,9 +392,10 @@ export default function CheckoutPage() {
                       />
                       Home delivery
                     </label>
-                    <label className="flex items-center gap-2">
+                    <label className="flex cursor-pointer items-center gap-2">
                       <input
                         type="radio"
+                        className="accent-primary"
                         name={`delivery-${group.sellerId}`}
                         disabled={!pickupPoints || pickupPoints.length === 0}
                         checked={choice.method === "pickup_point"}
@@ -387,8 +411,7 @@ export default function CheckoutPage() {
                   </div>
 
                   {choice.method === "pickup_point" && (
-                    <select
-                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    <NativeSelect
                       value={choice.pickupPointId ?? ""}
                       onChange={(e) =>
                         setDeliveryChoices({
@@ -402,7 +425,7 @@ export default function CheckoutPage() {
                           {point.name} — {point.address}, {point.city}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   )}
                 </div>
               );
@@ -422,28 +445,38 @@ export default function CheckoutPage() {
 
       {step === "payment" && (
         <Card>
-          <CardHeader>
-            <CardTitle>{t("payment")}</CardTitle>
+          <CardHeader className="border-b bg-muted/20 pb-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CreditCard className="h-4 w-4 text-primary" />
+              {t("payment")}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
+          <CardContent className="space-y-4 pt-6">
+            <RadioGroup
+              value={paymentMethod}
+              onValueChange={(val) => setPaymentMethod(val as CheckoutInput["paymentMethod"])}
+              className="space-y-2"
+            >
               {PAYMENT_METHODS.filter((method) => options?.paymentMethods.includes(method.value)).map((method) => (
-                <label key={method.value} className="flex items-center gap-3 rounded-md border p-3 text-sm">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    checked={paymentMethod === method.value}
-                    onChange={() => setPaymentMethod(method.value)}
-                  />
-                  {method.label}
-                </label>
+                <Label
+                  key={method.value}
+                  htmlFor={`pay-${method.value}`}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border p-3.5 text-sm transition-colors hover:bg-accent/50 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5"
+                >
+                  <RadioGroupItem value={method.value} id={`pay-${method.value}`} />
+                  <span className="font-medium">{method.label}</span>
+                </Label>
               ))}
-            </div>
+            </RadioGroup>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep("delivery")}>
                 Back
               </Button>
-              <Button className="flex-1" onClick={() => setStep("review")} disabled={!options?.paymentMethods.includes(paymentMethod)}>
+              <Button
+                className="flex-1"
+                onClick={() => setStep("review")}
+                disabled={!options?.paymentMethods.includes(paymentMethod)}
+              >
                 Continue
               </Button>
             </div>
@@ -453,17 +486,20 @@ export default function CheckoutPage() {
 
       {step === "review" && (
         <Card>
-          <CardHeader>
-            <CardTitle>{t("review")}</CardTitle>
+          <CardHeader className="border-b bg-muted/20 pb-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardCheck className="h-4 w-4 text-primary" />
+              {t("review")}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1 text-sm">
+          <CardContent className="space-y-5 pt-6">
+            <div className="space-y-2 rounded-lg border bg-muted/20 p-3.5 text-sm">
               {cart.items.map((item) => (
-                <div key={`${item.productId}-${item.variantSku}`} className="flex justify-between">
-                  <span>
+                <div key={`${item.productId}-${item.variantSku}`} className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">
                     {item.productName} × {item.quantity}
                   </span>
-                  <span>{formatPrice(item.lineTotal, item.currency)}</span>
+                  <span className="font-medium">{formatPrice(item.lineTotal, item.currency)}</span>
                 </div>
               ))}
             </div>
@@ -476,8 +512,11 @@ export default function CheckoutPage() {
             </div>
 
             {clubPoints && clubPoints.points >= clubPoints.minConvertPoints && (
-              <div className="space-y-1">
-                <Label htmlFor="club-points">Redeem club points (you have {clubPoints.points})</Label>
+              <FormField
+                label={`Redeem club points (you have ${clubPoints.points})`}
+                htmlFor="club-points"
+                hint={`Minimum ${clubPoints.minConvertPoints} points. Worth ${formatPrice(pointsDiscount, currency)}.`}
+              >
                 <Input
                   id="club-points"
                   type="number"
@@ -486,32 +525,31 @@ export default function CheckoutPage() {
                   value={pointsToSpend}
                   onChange={(e) => setPointsToSpend(Math.min(clubPoints.points, Math.max(0, Number(e.target.value))))}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Minimum {clubPoints.minConvertPoints} points. Worth {formatPrice(pointsDiscount, currency)}.
-                </p>
-              </div>
+              </FormField>
             )}
 
-            <div className="space-y-1 border-t pt-3 text-sm">
+            <Separator />
+
+            <div className="space-y-1.5 text-sm">
               <div className="flex justify-between">
-                <span>Subtotal</span>
+                <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatPrice(subtotal, currency)}</span>
               </div>
               {discount > 0 && (
-                <div className="flex justify-between text-green-600">
+                <div className="flex justify-between text-emerald-600">
                   <span>Coupon</span>
                   <span>-{formatPrice(discount, currency)}</span>
                 </div>
               )}
               {pointsDiscount > 0 && (
-                <div className="flex justify-between text-green-600">
+                <div className="flex justify-between text-emerald-600">
                   <span>Club points</span>
                   <span>-{formatPrice(pointsDiscount, currency)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-lg font-semibold">
+              <div className="flex justify-between pt-2 text-lg font-bold">
                 <span>Estimated total</span>
-                <span>{formatPrice(estimatedTotal, currency)}</span>
+                <span className="text-primary">{formatPrice(estimatedTotal, currency)}</span>
               </div>
               <p className="text-xs text-muted-foreground">Tax and shipping are calculated when you place the order.</p>
             </div>
@@ -520,7 +558,11 @@ export default function CheckoutPage() {
               <Button variant="outline" onClick={() => setStep("payment")}>
                 Back
               </Button>
-              <Button className="flex-1" onClick={handlePlaceOrder} disabled={checkout.isPending || !options?.paymentMethods.includes(paymentMethod)}>
+              <Button
+                className="flex-1"
+                onClick={handlePlaceOrder}
+                disabled={checkout.isPending || !options?.paymentMethods.includes(paymentMethod)}
+              >
                 {t("placeOrder")}
               </Button>
             </div>
@@ -529,8 +571,4 @@ export default function CheckoutPage() {
       )}
     </div>
   );
-}
-
-function apiError(err: unknown, fallback: string) {
-  return (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
 }

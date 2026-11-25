@@ -17,8 +17,6 @@ export function SearchBox({ placeholder, className }: { placeholder: string; cla
   const containerRef = useRef<HTMLDivElement>(null);
   const { data: suggestions } = useSearchSuggestions(query);
 
-  // Clicking anywhere outside the box dismisses the dropdown; without this it
-  // would stay open over the page after the user moves on.
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
       if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
@@ -61,28 +59,32 @@ export function SearchBox({ placeholder, className }: { placeholder: string; cla
           className="pe-10"
           autoComplete="off"
         />
-        <button type="submit" aria-label="Search" className="absolute end-2 top-1/2 -translate-y-1/2 text-muted-foreground">
+        <button
+          type="submit"
+          aria-label="Search"
+          className="absolute end-2.5 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-primary"
+        >
           <Search className="h-4 w-4" />
         </button>
       </form>
 
       {open && query.trim().length >= 2 && (
-        <div className="absolute z-50 mt-1 max-h-96 w-full max-w-xl overflow-auto rounded-md border bg-background shadow-lg">
-          {!hasResults && <p className="p-3 text-sm text-muted-foreground">No matches for “{query}”.</p>}
+        <div className="absolute z-50 mt-1.5 max-h-96 w-full max-w-xl overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-lg">
+          {!hasResults && <p className="p-4 text-sm text-muted-foreground">No matches for “{query}”.</p>}
 
           {suggestions?.products.map((product) => (
             <Link
               key={product.id}
               href={`/${locale}/product/${product.slug}`}
               onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-2 text-sm hover:bg-muted"
+              className="flex items-center gap-3 px-3 py-2.5 text-sm transition-colors hover:bg-accent"
             >
               {product.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={product.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                <img src={product.imageUrl} alt="" className="h-9 w-9 rounded-md border object-cover" />
               )}
-              <span className="flex-1 truncate">{product.name}</span>
-              <span className="text-muted-foreground">{formatPrice(product.basePrice)}</span>
+              <span className="flex-1 truncate font-medium">{product.name}</span>
+              <span className="text-xs font-semibold text-primary">{formatPrice(product.basePrice)}</span>
             </Link>
           ))}
 
@@ -125,9 +127,9 @@ function SuggestionGroup({
 
   return (
     <div className="border-t">
-      <p className="px-2 pt-2 text-xs font-semibold uppercase text-muted-foreground">{label}</p>
+      <p className="px-3 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       {items.map((item) => (
-        <Link key={item.id} href={hrefFor(item.slug)} onClick={onNavigate} className="block p-2 text-sm hover:bg-muted">
+        <Link key={item.id} href={hrefFor(item.slug)} onClick={onNavigate} className="block px-3 py-2 text-sm hover:bg-accent">
           {item.name}
         </Link>
       ))}

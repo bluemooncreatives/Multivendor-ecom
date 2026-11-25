@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useLocale } from "next-intl";
-import { Store, Wallet, PackageCheck } from "lucide-react";
+import { Store, Wallet, PackageCheck, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 const BENEFITS = [
   { icon: Store, title: "Open Your Own Shop", body: "Get a dedicated storefront to showcase and sell your products." },
@@ -15,24 +16,31 @@ export default function BecomeSellerPage() {
   const locale = useLocale();
 
   return (
-    <div className="container max-w-3xl space-y-8 py-10 text-center">
-      <div className="space-y-3">
-        <h1 className="text-3xl font-bold">Become a Seller</h1>
-        <p className="text-muted-foreground">
-          Join our marketplace and start selling to thousands of customers.
+    <div className="container max-w-4xl space-y-10 py-12">
+      <div className="mx-auto max-w-2xl space-y-4 text-center">
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Become a Seller</h1>
+        <p className="text-base text-muted-foreground">
+          Join our marketplace and start selling to thousands of customers with dedicated storefronts and fast payouts.
         </p>
-        <Button asChild size="lg">
-          <Link href={`/${locale}/register?role=seller`}>Start Selling</Link>
+        <Button asChild size="lg" className="mt-2">
+          <Link href={`/${locale}/register?role=seller`}>
+            Start Selling
+            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+          </Link>
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-3">
         {BENEFITS.map((benefit) => (
-          <div key={benefit.title} className="rounded-lg bg-card p-5 text-left shadow-sm">
-            <benefit.icon className="mb-3 h-8 w-8 text-primary" />
-            <h3 className="font-semibold">{benefit.title}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{benefit.body}</p>
-          </div>
+          <Card key={benefit.title} className="transition-shadow hover:shadow-md">
+            <CardContent className="space-y-3 p-6">
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <benefit.icon className="h-6 w-6" />
+              </div>
+              <h3 className="font-semibold">{benefit.title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">{benefit.body}</p>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>

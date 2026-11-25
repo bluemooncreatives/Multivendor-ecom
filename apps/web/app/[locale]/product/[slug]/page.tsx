@@ -6,20 +6,33 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
-import { Heart, Scale, Store, CheckCircle2 } from "lucide-react";
+import { Heart, Scale, Store, CheckCircle2, ShoppingCart, Minus, Plus, PackageX } from "lucide-react";
 import { useProduct, useProducts } from "@/lib/hooks/useProducts";
 import { useSetCartItem } from "@/lib/hooks/useCart";
 import { useShopBySellerId } from "@/lib/hooks/useSeller";
 import { useWishlist, useAddWishlistItem, useRemoveWishlistItem } from "@/lib/hooks/useWishlist";
 import { useAuthStore, useCompareStore } from "@/lib/store";
-import { useDisplayCurrency } from "@/lib/hooks/useDisplayCurrency";
 import { useReferralCode } from "@/lib/hooks/useReferralCode";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { ProductCard } from "@/components/storefront/product-card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { ProductGrid } from "@/components/storefront/product-grid";
 import { ProductReviews } from "@/components/storefront/product-reviews";
 import { StorefrontSection } from "@/components/storefront/section";
+import { PriceDisplay } from "@/components/shared/price-display";
+import { RatingStars } from "@/components/shared/rating-stars";
+import { DetailPageSkeleton } from "@/components/shared/loading-state";
+import { EmptyState } from "@/components/shared/empty-state";
+import { cn, getApiErrorMessage } from "@/lib/utils";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -39,8 +52,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   );
 
   const { data: related } = useProducts({ categoryId: product?.categoryId, sort: "newest" });
-  // Legacy "top from seller": the vendor's best sellers. Only meaningful for
-  // seller-owned listings (admin products carry no sellerId).
   const { data: sellerTop } = useProducts(product?.sellerId ? { sellerId: product.sellerId, sort: "popular" } : {});
   const { data: shop } = useShopBySellerId(product?.sellerId);
   const { data: wishlist } = useWishlist();
@@ -48,20 +59,35 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const removeWishlist = useRemoveWishlistItem();
   const compareIds = useCompareStore((s) => s.productIds);
   const toggleCompare = useCompareStore((s) => s.toggle);
-  const { display } = useDisplayCurrency();
   const referralCode = useReferralCode(product?.id);
 
-  if (isLoading) return <div className="container py-10 text-muted-foreground">Loading…</div>;
-  if (!product) return <div className="container py-10">Product not found.</div>;
+  if (isLoading) return <DetailPageSkeleton />;
+  if (!product) {
+    return (
+      <div className="container py-16">
+        <EmptyState
+          icon={PackageX}
+          title="Product not found"
+          description="This listing may have been removed or is unavailable."
+          action={
+            <Button asChild>
+              <Link href={`/${locale}/products`}>Browse products</Link>
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   const available = variant?.stock ?? 0;
-  // The selected variant's server-computed price (live flash-deal campaign first,
-  // then the product's own discount) — the same figure the cart will charge.
   const variantPricing = product.pricing?.variants.find((v) => v.sku === variant?.sku);
   const listPrice = variantPricing?.listPrice ?? variant?.comparePrice ?? variant?.price ?? product.basePrice;
   const price = variantPricing?.price ?? variant?.price ?? product.basePrice;
   const hasDiscount = listPrice > price;
-  const onFlashDeal = product.pricing?.discountSource === "flash_deal" && !!variantPricing && variantPricing.price < variantPricing.listPrice;
+  const onFlashDeal =
+    product.pricing?.discountSource === "flash_deal" &&
+    !!variantPricing &&
+    variantPricing.price < variantPricing.listPrice;
   const relatedProducts = (related?.items ?? []).filter((p) => p.id !== product.id).slice(0, 5);
   const sellerTopProducts = product.sellerId
     ? (sellerTop?.items ?? []).filter((p) => p.id !== product.id).slice(0, 5)
@@ -85,159 +111,216 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         productId: product.id,
         variantSku: variant.sku,
         quantity,
-        // Credits the affiliate whose share link brought the shopper here.
         productReferralCode: referralCode,
       });
       toast.success("Added to cart");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Could not add to cart");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Could not add to cart"));
     }
   }
 
   return (
-    <div className="container space-y-8 py-6">
-      <div className="grid gap-8 rounded-lg bg-card p-4 shadow-sm md:grid-cols-2 md:p-6">
-        <div className="space-y-3">
-          <div className="relative aspect-square overflow-hidden rounded-lg bg-muted">
-            {product.images[activeImage] && (
-              <Image src={product.images[activeImage]} alt={product.name} fill className="object-cover" />
-            )}
-          </div>
-          {product.images.length > 1 && (
-            <div className="flex gap-2">
-              {product.images.map((img, i) => (
-                <button
-                  key={img}
-                  type="button"
-                  onClick={() => setActiveImage(i)}
-                  className={`relative h-16 w-16 overflow-hidden rounded-md border-2 ${i === activeImage ? "border-primary" : "border-transparent"}`}
-                >
-                  <Image src={img} alt="" fill className="object-cover" />
-                </button>
-              ))}
+    <div className="container space-y-8 py-6 lg:py-8">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href={`/${locale}`}>Home</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href={`/${locale}/products`}>Products</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="max-w-xs truncate">{product.name}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      <Card>
+        <CardContent className="grid gap-8 p-5 md:grid-cols-2 md:p-8">
+          <div className="space-y-3">
+            <div className="relative aspect-square overflow-hidden rounded-xl border bg-muted">
+              {product.images[activeImage] ? (
+                <Image src={product.images[activeImage]} alt={product.name} fill className="object-cover" priority />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No image</div>
+              )}
             </div>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          <h1 className="text-2xl font-bold">{product.name}</h1>
-
-          <Badge variant={available > 0 ? "secondary" : "destructive"}>
-            {available > 0 ? `${available} in stock` : "Out of stock"}
-          </Badge>
-
-          <div className="flex flex-wrap items-baseline gap-3 border-t pt-4">
-            {hasDiscount && (
-              <span className="text-lg text-muted-foreground line-through">
-                {display(listPrice, product.currency)}
-              </span>
-            )}
-            <span className="text-2xl font-bold text-primary">{display(price, product.currency)}</span>
-            {onFlashDeal && (
-              <Badge variant="destructive">
-                {product.pricing?.flashDealTitle ?? "Flash deal"} · {product.pricing?.discountPercent}% off
-              </Badge>
+            {product.images.length > 1 && (
+              <div className="flex flex-wrap gap-2">
+                {product.images.map((img, i) => (
+                  <button
+                    key={img}
+                    type="button"
+                    onClick={() => setActiveImage(i)}
+                    className={cn(
+                      "relative h-16 w-16 overflow-hidden rounded-lg border-2 transition-all",
+                      i === activeImage ? "border-primary ring-2 ring-primary/20" : "border-border opacity-75 hover:opacity-100",
+                    )}
+                  >
+                    <Image src={img} alt="" fill className="object-cover" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
-          {product.variants.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              {product.variants.map((v) => (
-                <Button
-                  key={v.sku}
-                  type="button"
-                  variant={v.sku === (variantSku ?? product.variants[0]?.sku) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setVariantSku(v.sku)}
-                >
-                  {Object.values(v.attributes).join(" / ") || v.sku}
+          <div className="flex flex-col justify-between space-y-5">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={available > 0 ? "success" : "destructive"}>
+                  {available > 0 ? `${available} in stock` : "Out of stock"}
+                </Badge>
+                {onFlashDeal && (
+                  <Badge variant="destructive">
+                    {product.pricing?.flashDealTitle ?? "Flash deal"} · {product.pricing?.discountPercent}% off
+                  </Badge>
+                )}
+              </div>
+
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{product.name}</h1>
+
+              {product.ratingCount > 0 && (
+                <RatingStars value={product.ratingAverage} count={product.ratingCount} size="md" />
+              )}
+
+              <Separator />
+
+              <PriceDisplay
+                price={price}
+                listPrice={hasDiscount ? listPrice : undefined}
+                currency={product.currency}
+                size="lg"
+              />
+
+              {product.variants.length > 1 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Options</p>
+                  <div className="flex flex-wrap gap-2">
+                    {product.variants.map((v) => (
+                      <Button
+                        key={v.sku}
+                        type="button"
+                        variant={v.sku === (variantSku ?? product.variants[0]?.sku) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setVariantSku(v.sku)}
+                      >
+                        {Object.values(v.attributes).join(" / ") || v.sku}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <div className="flex items-center rounded-lg border bg-background">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-e-none"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    disabled={quantity <= 1}
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-10 text-center text-sm font-semibold">{quantity}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-s-none"
+                    onClick={() => setQuantity((q) => Math.min(Math.max(1, available), q + 1))}
+                    disabled={quantity >= available}
+                    aria-label="Increase quantity"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <Button size="lg" className="flex-1 sm:flex-initial" onClick={handleAddToCart} disabled={available <= 0 || setCartItem.isPending}>
+                  <ShoppingCart className="h-4 w-4" />
+                  Add to Cart
                 </Button>
-              ))}
-            </div>
-          )}
 
-          <div className="flex items-center gap-3">
-            <Input
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-              className="w-20"
-            />
-            <Button onClick={handleAddToCart} disabled={available <= 0 || setCartItem.isPending}>
-              Add to Cart
+                <Button variant="outline" size="icon" className="h-11 w-11" onClick={toggleWishlist} aria-label="Toggle wishlist">
+                  <Heart className={isWishlisted ? "h-4 w-4 fill-primary text-primary" : "h-4 w-4"} />
+                </Button>
+
+                <Button variant="outline" size="icon" className="h-11 w-11" onClick={() => toggleCompare(product.id)} aria-label="Toggle compare">
+                  <Scale className={isComparing ? "h-4 w-4 text-primary" : "h-4 w-4"} />
+                </Button>
+              </div>
+            </div>
+
+            {shop && (
+              <Link
+                href={`/${locale}/store/${shop.slug}`}
+                className="flex items-center gap-3.5 rounded-xl border bg-muted/20 p-3.5 transition-colors hover:border-primary/40 hover:bg-accent/50"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border bg-background">
+                  <Store className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold">
+                    {shop.name}
+                    {shop.verified && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Visit seller storefront</p>
+                </div>
+              </Link>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-5 md:p-6">
+          <div className="flex gap-2 border-b pb-3">
+            <Button
+              type="button"
+              variant={tab === "description" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setTab("description")}
+            >
+              Description
             </Button>
-            <Button variant="outline" size="icon" onClick={toggleWishlist} aria-label="Toggle wishlist">
-              <Heart className={isWishlisted ? "h-4 w-4 fill-primary text-primary" : "h-4 w-4"} />
-            </Button>
-            <Button variant="outline" size="icon" onClick={() => toggleCompare(product.id)} aria-label="Toggle compare">
-              <Scale className={isComparing ? "h-4 w-4 text-primary" : "h-4 w-4"} />
+            <Button
+              type="button"
+              variant={tab === "reviews" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setTab("reviews")}
+            >
+              Reviews
             </Button>
           </div>
-
-          {shop && (
-            <Link
-              href={`/${locale}/store/${shop.slug}`}
-              className="flex items-center gap-3 rounded-md border p-3 hover:bg-accent"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                <Store className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="flex items-center gap-1 text-sm font-medium">
-                  {shop.name}
-                  {shop.verified && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
-                </p>
-                <p className="text-xs text-muted-foreground">Visit store</p>
-              </div>
-            </Link>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-lg bg-card p-4 shadow-sm md:p-6">
-        <div className="flex gap-6 border-b">
-          <button
-            type="button"
-            onClick={() => setTab("description")}
-            className={`border-b-2 px-1 pb-2 text-sm font-semibold ${tab === "description" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
-          >
-            Description
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("reviews")}
-            className={`border-b-2 px-1 pb-2 text-sm font-semibold ${tab === "reviews" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
-          >
-            Reviews
-          </button>
-        </div>
-        <div className="pt-4">
-          {tab === "description" ? (
-            <p className="whitespace-pre-line text-sm text-muted-foreground">{product.description}</p>
-          ) : (
-            <ProductReviews productId={product.id} />
-          )}
-        </div>
-      </div>
+          <div className="pt-5">
+            {tab === "description" ? (
+              <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                {product.description || "No description provided."}
+              </p>
+            ) : (
+              <ProductReviews productId={product.id} />
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {relatedProducts.length > 0 && (
         <StorefrontSection title="Related Products">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {relatedProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          <ProductGrid products={relatedProducts} columnsClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" />
         </StorefrontSection>
       )}
 
       {sellerTopProducts.length > 0 && (
         <StorefrontSection title={shop?.name ? `More from ${shop.name}` : "More from this shop"}>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {sellerTopProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          <ProductGrid products={sellerTopProducts} columnsClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" />
         </StorefrontSection>
       )}
     </div>

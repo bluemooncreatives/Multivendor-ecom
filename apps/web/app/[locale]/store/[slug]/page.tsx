@@ -2,17 +2,23 @@
 
 import { use, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import toast from "react-hot-toast";
-import { CheckCircle2, MessageCircle, Store } from "lucide-react";
+import { CheckCircle2, MessageCircle, Store, AlertTriangle } from "lucide-react";
 import { usePublicShop } from "@/lib/hooks/useSeller";
 import { useProducts } from "@/lib/hooks/useProducts";
 import { useStartConversation } from "@/lib/hooks/useConversations";
 import { useAuthStore } from "@/lib/store";
-import { ProductCard } from "@/components/storefront/product-card";
+import { ProductGrid } from "@/components/storefront/product-grid";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DetailPageSkeleton } from "@/components/shared/loading-state";
+import { EmptyState } from "@/components/shared/empty-state";
+import { getApiErrorMessage } from "@/lib/utils";
 
 const SHOP_TABS = [
   { value: "all", label: "All products" },
@@ -40,11 +46,8 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
   const [showMessageForm, setShowMessageForm] = useState(false);
   const [message, setMessage] = useState("");
 
-  // Legacy /shops/visit/{slug}/{type}: the same storefront, sorted differently.
-  // Filters on `sellerId` (the vendor's user id), not the shop document id — the
-  // latter matches nothing, so the grid was always empty.
   const [tab, setTab] = useState<ShopTab>("all");
-  const { data: products } = useProducts({ sellerId: shop?.sellerId, sort: TAB_SORT[tab] });
+  const { data: products, isLoading: loadingProducts } = useProducts({ sellerId: shop?.sellerId, sort: TAB_SORT[tab] });
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -58,88 +61,108 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
       setMessage("");
       setShowMessageForm(false);
       toast.success("Message sent");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Could not send message");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Could not send message"));
     }
   }
 
-  if (isLoading) return <div className="container py-10 text-muted-foreground">Loading…</div>;
-  if (!shop) return <div className="container py-10">Shop not found.</div>;
+  if (isLoading) return <DetailPageSkeleton />;
+  if (!shop) {
+    return (
+      <div className="container py-16">
+        <EmptyState
+          icon={Store}
+          title="Shop not found"
+          description="This storefront does not exist or has been closed."
+          action={
+            <Button asChild>
+              <Link href={`/${locale}/products`}>Browse products</Link>
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="container space-y-6 py-6">
-      <div className="overflow-hidden rounded-lg bg-card shadow-sm">
-        <div className="relative h-40 bg-secondary sm:h-56">
+    <div className="container space-y-6 py-6 lg:py-8">
+      <Card className="overflow-hidden">
+        <div className="relative h-44 bg-gradient-to-r from-secondary to-muted sm:h-60">
           {shop.bannerUrl && <Image src={shop.bannerUrl} alt="" fill className="object-cover" />}
         </div>
-        <div className="flex flex-col items-center gap-3 p-6 sm:flex-row">
-          <div className="relative -mt-16 h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-card bg-muted">
-            {shop.logoUrl ? (
-              <Image src={shop.logoUrl} alt={shop.name} fill className="object-cover" />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <Store className="h-8 w-8 text-muted-foreground" />
-              </div>
-            )}
-          </div>
-          <div className="text-center sm:text-left">
-            <h1 className="flex items-center justify-center gap-2 text-xl font-bold sm:justify-start">
-              {shop.name}
-              {shop.verified && <CheckCircle2 className="h-5 w-5 text-primary" />}
-            </h1>
-            {shop.description && <p className="mt-1 text-sm text-muted-foreground">{shop.description}</p>}
-          </div>
-          <Button variant="outline" className="sm:ms-auto" onClick={() => setShowMessageForm((v) => !v)}>
-            <MessageCircle className="me-2 h-4 w-4" />
-            Message seller
-          </Button>
-        </div>
-        {showMessageForm && (
-          <form className="flex gap-2 border-t p-4" onSubmit={handleSendMessage}>
-            <Input
-              placeholder="Ask the seller a question…"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              required
-            />
-            <Button type="submit" disabled={startConversation.isPending}>
-              Send
+        <CardContent className="p-6">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end">
+            <div className="relative -mt-16 h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-card bg-muted shadow-md">
+              {shop.logoUrl ? (
+                <Image src={shop.logoUrl} alt={shop.name} fill className="object-cover" />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <Store className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 text-center sm:text-start">
+              <h1 className="flex items-center justify-center gap-2 text-2xl font-bold sm:justify-start">
+                {shop.name}
+                {shop.verified && <CheckCircle2 className="h-5 w-5 text-primary" />}
+              </h1>
+              {shop.description && <p className="mt-1 text-sm text-muted-foreground">{shop.description}</p>}
+            </div>
+            <Button variant="outline" onClick={() => setShowMessageForm((v) => !v)}>
+              <MessageCircle className="h-4 w-4" />
+              Message seller
             </Button>
-          </form>
-        )}
-      </div>
+          </div>
+
+          {showMessageForm && (
+            <form className="mt-5 flex gap-2 border-t pt-4" onSubmit={handleSendMessage}>
+              <Input
+                placeholder="Ask the seller a question…"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                required
+              />
+              <Button type="submit" disabled={startConversation.isPending}>
+                Send
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
 
       {!shop.verified && (
-        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-          This seller has not completed verification yet. Take extra care before ordering.
-        </p>
+        <Alert variant="warning">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            This seller has not completed verification yet. Take extra care before ordering.
+          </AlertDescription>
+        </Alert>
       )}
 
-      <div className="rounded-lg bg-card p-4 shadow-sm md:p-6">
-        <div className="mb-4 flex flex-wrap gap-4 border-b">
-          {SHOP_TABS.map((shopTab) => (
-            <button
-              key={shopTab.value}
-              type="button"
-              onClick={() => setTab(shopTab.value)}
-              className={`border-b-2 px-1 pb-2 text-sm font-semibold ${
-                tab === shopTab.value ? "border-primary text-primary" : "border-transparent text-muted-foreground"
-              }`}
-            >
-              {shopTab.label}
-            </button>
-          ))}
-        </div>
-        {products && products.items.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {products.items.map((product) => (
-              <ProductCard key={product.id} product={product} />
+      <Card>
+        <CardContent className="space-y-5 p-5 md:p-6">
+          <div className="flex flex-wrap gap-2 border-b pb-3">
+            {SHOP_TABS.map((shopTab) => (
+              <Button
+                key={shopTab.value}
+                type="button"
+                variant={tab === shopTab.value ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTab(shopTab.value)}
+              >
+                {shopTab.label}
+              </Button>
             ))}
           </div>
-        ) : (
-          <p className="text-muted-foreground">No products listed yet.</p>
-        )}
-      </div>
+
+          <ProductGrid
+            products={products?.items}
+            isLoading={loadingProducts}
+            emptyTitle="No products listed yet"
+            emptyDescription="Check back soon for new listings from this shop."
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

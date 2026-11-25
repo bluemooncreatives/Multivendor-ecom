@@ -2,30 +2,17 @@
 
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { Star } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { useProductReviews, useCreateReview } from "@/lib/hooks/useReviews";
 import { useMyOrders } from "@/lib/hooks/useOrders";
 import { useAuthStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-
-function Stars({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          disabled={!onChange}
-          onClick={() => onChange?.(n)}
-          className={onChange ? "cursor-pointer" : "cursor-default"}
-        >
-          <Star className={cn("h-4 w-4", n <= value ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
-        </button>
-      ))}
-    </div>
-  );
-}
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { RatingStars } from "@/components/shared/rating-stars";
+import { EmptyState } from "@/components/shared/empty-state";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export function ProductReviews({ productId }: { productId: string }) {
   const user = useAuthStore((s) => s.user);
@@ -37,7 +24,7 @@ export function ProductReviews({ productId }: { productId: string }) {
   const [comment, setComment] = useState("");
 
   const eligibleOrder = myOrders?.find((order) =>
-    order.details.some((d) => d.status === "delivered" && d.items.some((i: any) => String(i.productId) === productId)),
+    order.details.some((d) => d.status === "delivered" && d.items.some((i: { productId?: string }) => String(i.productId) === productId)),
   );
 
   async function handleSubmit(e: React.FormEvent) {
@@ -47,19 +34,20 @@ export function ProductReviews({ productId }: { productId: string }) {
       await createReview.mutateAsync({ productId, orderId: eligibleOrder.id, rating, comment });
       setComment("");
       toast.success("Review submitted");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Could not submit review");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Could not submit review"));
     }
   }
 
   return (
     <div className="space-y-6">
       {user && eligibleOrder && (
-        <form className="space-y-3 rounded-md border p-4" onSubmit={handleSubmit}>
-          <p className="text-sm font-medium">Write a review</p>
-          <Stars value={rating} onChange={setRating} />
-          <textarea
-            className="w-full rounded-md border p-2 text-sm"
+        <form className="space-y-3 rounded-lg border bg-muted/20 p-4" onSubmit={handleSubmit}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">Write a review</p>
+            <RatingStars value={rating} onChange={setRating} size="md" />
+          </div>
+          <Textarea
             rows={3}
             placeholder="Share your experience with this product…"
             value={comment}
@@ -71,25 +59,32 @@ export function ProductReviews({ productId }: { productId: string }) {
         </form>
       )}
 
-      {isError ? <p className="text-sm text-destructive">Could not load reviews.</p> : isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading reviews…</p>
-      ) : !reviews || reviews.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No reviews yet.</p>
+      {isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>Could not load reviews.</AlertDescription>
+        </Alert>
+      ) : isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      ) : reviews.length === 0 ? (
+        <EmptyState icon={MessageSquare} title="No reviews yet" description="Verified buyers can leave a review after delivery." />
       ) : (
-        <div className="space-y-4">
+        <div className="divide-y">
           {reviews.map((review) => {
             const author = review.userId && typeof review.userId === "object" ? review.userId.name : "Customer";
             return (
-              <div key={review.id} className="border-b pb-4 last:border-0">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{author}</p>
-                  <Stars value={review.rating} />
+              <div key={review.id} className="space-y-2 py-4 first:pt-0 last:pb-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">{author}</span>
+                  <RatingStars value={review.rating} size="sm" />
                 </div>
-                {review.comment && <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p>}
+                {review.comment && <p className="text-sm text-muted-foreground">{review.comment}</p>}
                 {review.sellerReply && (
-                  <div className="mt-2 rounded-md bg-muted p-2 text-sm">
-                    <span className="font-medium">Seller response: </span>
-                    {review.sellerReply}
+                  <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                    <span className="font-semibold text-foreground">Seller response: </span>
+                    <span className="text-muted-foreground">{review.sellerReply}</span>
                   </div>
                 )}
               </div>
@@ -97,9 +92,12 @@ export function ProductReviews({ productId }: { productId: string }) {
           })}
         </div>
       )}
-      {hasNextPage && <Button variant="outline" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
-        {isFetchingNextPage ? "Loading…" : "Load more reviews"}
-      </Button>}
+
+      {hasNextPage && (
+        <Button variant="outline" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
+          {isFetchingNextPage ? "Loading…" : "Load more reviews"}
+        </Button>
+      )}
     </div>
   );
 }
