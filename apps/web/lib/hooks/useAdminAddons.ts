@@ -201,8 +201,8 @@ export function usePaidRefunds() {
 export function useResolveRefund() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; approve: boolean; resolutionNote?: string }) =>
-      (await api.post(`/addons/refunds/${input.id}/resolve`, { approve: input.approve, resolutionNote: input.resolutionNote })).data,
+    mutationFn: async (input: { id: string; approve: boolean; resolutionNote?: string; restock?: boolean }) =>
+      (await api.post(`/addons/refunds/${input.id}/resolve`, { approve: input.approve, resolutionNote: input.resolutionNote, restock: input.restock })).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "refunds"] }),
   });
 }

@@ -108,6 +108,16 @@ function RefundSection({ orderId }: { orderId: string }) {
                 Request refund
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Refund {formatPrice(shipment.amount)} ({formatPrice(shipment.merchandise)} goods
+              {shipment.tax > 0 ? ` + ${formatPrice(shipment.tax)} tax` : ""}
+              {shipment.discount > 0 ? ` − ${formatPrice(shipment.discount)} discount` : ""}). Shipping is not refunded.
+            </p>
+            {shipment.partial && (
+              <p className="text-xs text-muted-foreground">
+                Only the refundable items in this shipment are covered; final-sale items are excluded.
+              </p>
+            )}
             {shipment.windowClosesAt && (
               <p className="text-xs text-muted-foreground">
                 You can request a refund until {new Date(shipment.windowClosesAt).toLocaleDateString()}.

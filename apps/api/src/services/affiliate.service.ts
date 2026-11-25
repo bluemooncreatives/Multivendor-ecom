@@ -227,16 +227,24 @@ export async function reverseAffiliateForOrder(orderId: string) {
 }
 
 /** Reverse the refunded shipment's share without clawing back other vendors' sales. */
-export async function reverseAffiliateForShipment(order: InstanceType<typeof Order>, index: number, session: mongoose.ClientSession) {
+// `refundedLineKeys` restricts per-line share clawbacks to the items actually
+// refunded (a mixed shipment reverses only its refundable lines); `fraction`
+// (0..1) scales the order-level first-purchase/signup reversal to the refunded
+// merchandise. Both default to a full-shipment reversal.
+export async function reverseAffiliateForShipment(
+  order: InstanceType<typeof Order>, index: number, session: mongoose.ClientSession,
+  refundedLineKeys?: Set<string>, fraction = 1,
+) {
   const detail = order.details[index]!;
-  const lineKeys = new Set(detail.items.map((item) => `${item.productId}:${item.variantSku}`));
+  const lineKeys = refundedLineKeys ?? new Set(detail.items.map((item) => `${item.productId}:${item.variantSku}`));
+  const scale = Math.min(1, Math.max(0, fraction));
   const weights = order.details.map((shipment) => Math.max(0, shipment.subtotal - (shipment.discount ?? 0)));
   const earnings = await AffiliateEarningDetail.find({ orderId: order._id, status: "credited" }).session(session);
   for (const earning of earnings) {
     const share = ["product_share", "category_share"].includes(earning.kind);
     const amount = share
       ? (earning.lineKey && lineKeys.has(earning.lineKey) ? earning.amount : 0)
-      : allocateUnits(Math.round(earning.amount * 100), weights)[index]! / 100;
+      : round2(allocateUnits(Math.round(earning.amount * 100), weights)[index]! / 100 * scale);
     const reversal = Math.min(amount, Math.max(0, earning.amount - earning.reversedAmount));
     if (reversal <= 0) continue;
     earning.reversedAmount = round2(earning.reversedAmount + reversal);

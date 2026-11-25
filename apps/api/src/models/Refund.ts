@@ -8,6 +8,23 @@ const refundRequestSchema = new Schema(
     sellerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     reason: { type: String, required: true },
     images: { type: [String], default: [] },
+    // The refundable items this request covers (non-refundable items in a mixed
+    // shipment are excluded). `restocked` records the inspection outcome at
+    // resolution: true returns the units to sellable stock, false (damaged) does not.
+    lines: {
+      type: [new Schema({
+        productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+        variantSku: { type: String, required: true },
+        quantity: { type: Number, required: true, min: 1 },
+        restocked: { type: Boolean, default: false },
+      }, { _id: false })],
+      default: [],
+    },
+    // Breakdown of `amount`: amount = merchandise - discount + tax. Outbound
+    // shipping is never refunded on an item return (market-standard policy).
+    merchandise: { type: Number, default: 0, min: 0 },
+    tax: { type: Number, default: 0, min: 0 },
+    discount: { type: Number, default: 0, min: 0 },
     amount: { type: Number, required: true, min: 0 },
     status: { type: String, enum: ["pending", "approved", "rejected", "refunded"], default: "pending" },
     resolvedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
