@@ -1,10 +1,4 @@
-import type { Policy } from "../models/Content.js";
-
-type PolicyType = NonNullable<Parameters<typeof Policy.create>[0]> extends infer T
-  ? T extends { type: infer U }
-    ? U
-    : never
-  : never;
+type PolicyType = "privacy" | "terms" | "refund" | "return" | "shipping" | "support" | "seller_agreement";
 
 export const IMG = {
   earbuds: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop",

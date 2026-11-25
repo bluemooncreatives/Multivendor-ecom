@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface CategoryCardProps {
@@ -11,32 +10,61 @@ interface CategoryCardProps {
   className?: string;
 }
 
-/** Reusable avatar-tile card used for Categories and Brands on Home and browse pages. */
+/** Reusable avatar-tile card for categories and brands. */
 export function CategoryCard({ href, name, imageUrl, compact = false, className }: CategoryCardProps) {
-  return (
-    <Link href={href} className={cn("group block", className)}>
-      <Card
-        className={cn(
-          "flex flex-col items-center gap-2.5 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
-          compact ? "border-transparent bg-transparent p-2.5 shadow-none hover:bg-accent/60 hover:shadow-none" : "p-4",
-        )}
-      >
-        <div
-          className={cn(
-            "relative flex items-center justify-center overflow-hidden rounded-full border bg-secondary transition-transform duration-200 group-hover:scale-105",
-            compact ? "h-14 w-14" : "h-16 w-16",
-          )}
-        >
-          {imageUrl ? (
-            <Image src={imageUrl} alt={name} fill className="object-cover" sizes="64px" />
-          ) : (
-            <span className="text-lg font-bold text-primary/80">{name.charAt(0).toUpperCase()}</span>
-          )}
+  if (compact) {
+    return (
+      <Link href={href} className={cn("group flex flex-col items-center gap-2 text-center", className)}>
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-secondary to-muted p-0.5 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-md">
+          <div className={cn(
+            "relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-secondary",
+          )}>
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt={name}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-110"
+                sizes="56px"
+              />
+            ) : (
+              <span className="text-xl font-black text-primary/70">
+                {name.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
         </div>
-        <span className={cn("line-clamp-1 font-medium group-hover:text-primary", compact ? "text-xs" : "text-sm")}>
+        <span className="line-clamp-2 w-full text-[11px] font-semibold leading-tight text-foreground/80 transition-colors group-hover:text-primary">
           {name}
         </span>
-      </Card>
+      </Link>
+    );
+  }
+
+  return (
+    <Link href={href} className={cn("group block", className)}>
+      <div className="flex flex-col items-center gap-3 rounded-2xl border bg-card p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+        <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 to-secondary transition-transform duration-300 group-hover:scale-105">
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={name}
+              fill
+              className="object-cover"
+              sizes="80px"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <span className="text-3xl font-black text-primary/60">
+                {name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
+        <span className="line-clamp-2 text-sm font-semibold transition-colors group-hover:text-primary">
+          {name}
+        </span>
+      </div>
     </Link>
   );
 }
