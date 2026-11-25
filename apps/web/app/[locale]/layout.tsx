@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Open_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -12,10 +12,11 @@ import { SiteSettingsProvider } from "@/lib/site-settings-context";
 import { publicAssetUrl } from "@/lib/site-settings";
 import "../globals.css";
 
-const openSans = Open_Sans({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -57,7 +58,7 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} dir={dir} suppressHydrationWarning>
-      <body className={`${openSans.variable} flex min-h-screen flex-col font-sans`}>
+      <body className={`${inter.variable} flex min-h-screen flex-col font-sans antialiased`}>
         <NextIntlClientProvider messages={messages}>
           <SiteSettingsProvider value={settings}>
           <AppProviders>

@@ -6,7 +6,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import toast from "react-hot-toast";
-import { CheckCircle2, MessageCircle, Store, AlertTriangle } from "lucide-react";
+import {
+  CheckCircle2,
+  MessageCircle,
+  Store,
+  AlertTriangle,
+  ShoppingBag,
+  MapPin,
+  Star,
+  Package,
+  X,
+} from "lucide-react";
 import { usePublicShop } from "@/lib/hooks/useSeller";
 import { useProducts } from "@/lib/hooks/useProducts";
 import { useStartConversation } from "@/lib/hooks/useConversations";
@@ -14,21 +24,22 @@ import { useAuthStore } from "@/lib/store";
 import { ProductGrid } from "@/components/storefront/product-grid";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 import { DetailPageSkeleton } from "@/components/shared/loading-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { getApiErrorMessage } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const SHOP_TABS = [
-  { value: "all", label: "All products" },
-  { value: "new", label: "New arrivals" },
-  { value: "top", label: "Top rated" },
-  { value: "cheapest", label: "Lowest price" },
+  { value: "all", label: "All Products" },
+  { value: "new", label: "New Arrivals" },
+  { value: "top", label: "Top Rated" },
+  { value: "cheapest", label: "Lowest Price" },
 ] as const;
 
 type ShopTab = (typeof SHOP_TABS)[number]["value"];
-
 const TAB_SORT: Record<ShopTab, "newest" | "rating" | "price_asc"> = {
   all: "newest",
   new: "newest",
@@ -45,9 +56,11 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
   const startConversation = useStartConversation();
   const [showMessageForm, setShowMessageForm] = useState(false);
   const [message, setMessage] = useState("");
-
   const [tab, setTab] = useState<ShopTab>("all");
-  const { data: products, isLoading: loadingProducts } = useProducts({ sellerId: shop?.sellerId, sort: TAB_SORT[tab] });
+  const { data: products, isLoading: loadingProducts } = useProducts({
+    sellerId: shop?.sellerId,
+    sort: TAB_SORT[tab],
+  });
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -60,7 +73,7 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
       await startConversation.mutateAsync({ otherUserId: shop.sellerId, message });
       setMessage("");
       setShowMessageForm(false);
-      toast.success("Message sent");
+      toast.success("Message sent! 📨");
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Could not send message"));
     }
@@ -79,6 +92,7 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
               <Link href={`/${locale}/products`}>Browse products</Link>
             </Button>
           }
+          size="lg"
         />
       </div>
     );
@@ -86,52 +100,9 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
 
   return (
     <div className="container space-y-6 py-6 lg:py-8">
-      <Card className="overflow-hidden">
-        <div className="relative h-44 bg-gradient-to-r from-secondary to-muted sm:h-60">
-          {shop.bannerUrl && <Image src={shop.bannerUrl} alt="" fill className="object-cover" />}
-        </div>
-        <CardContent className="p-6">
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end">
-            <div className="relative -mt-16 h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-card bg-muted shadow-md">
-              {shop.logoUrl ? (
-                <Image src={shop.logoUrl} alt={shop.name} fill className="object-cover" />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <Store className="h-8 w-8 text-muted-foreground" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1 text-center sm:text-start">
-              <h1 className="flex items-center justify-center gap-2 text-2xl font-bold sm:justify-start">
-                {shop.name}
-                {shop.verified && <CheckCircle2 className="h-5 w-5 text-primary" />}
-              </h1>
-              {shop.description && <p className="mt-1 text-sm text-muted-foreground">{shop.description}</p>}
-            </div>
-            <Button variant="outline" onClick={() => setShowMessageForm((v) => !v)}>
-              <MessageCircle className="h-4 w-4" />
-              Message seller
-            </Button>
-          </div>
-
-          {showMessageForm && (
-            <form className="mt-5 flex gap-2 border-t pt-4" onSubmit={handleSendMessage}>
-              <Input
-                placeholder="Ask the seller a question…"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                required
-              />
-              <Button type="submit" disabled={startConversation.isPending}>
-                Send
-              </Button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-
+      {/* Verification warning */}
       {!shop.verified && (
-        <Alert variant="warning">
+        <Alert variant="warning" className="rounded-2xl">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
             This seller has not completed verification yet. Take extra care before ordering.
@@ -139,30 +110,107 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
         </Alert>
       )}
 
-      <Card>
-        <CardContent className="space-y-5 p-5 md:p-6">
-          <div className="flex flex-wrap gap-2 border-b pb-3">
-            {SHOP_TABS.map((shopTab) => (
+      {/* Store hero */}
+      <div className="overflow-hidden rounded-3xl border bg-card shadow-xs">
+        {/* Banner */}
+        <div className="relative h-48 overflow-hidden bg-gradient-to-br from-secondary via-muted to-secondary sm:h-64">
+          {shop.bannerUrl && (
+            <Image src={shop.bannerUrl} alt="" fill className="object-cover" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+        </div>
+
+        {/* Store info */}
+        <div className="relative px-6 pb-6 pt-0">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            {/* Avatar */}
+            <div className="-mt-14 flex items-end gap-4">
+              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-3xl border-4 border-card bg-muted shadow-lg">
+                {shop.logoUrl ? (
+                  <Image src={shop.logoUrl} alt={shop.name} fill className="object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <Store className="h-10 w-10 text-muted-foreground/40" />
+                  </div>
+                )}
+              </div>
+              <div className="mb-1 space-y-1">
+                <h1 className="flex flex-wrap items-center gap-2 text-2xl font-black">
+                  {shop.name}
+                  {shop.verified && (
+                    <CheckCircle2 className="h-6 w-6 text-primary" />
+                  )}
+                </h1>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  {shop.description && (
+                    <span className="max-w-sm truncate">{shop.description}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
               <Button
-                key={shopTab.value}
-                type="button"
-                variant={tab === shopTab.value ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setTab(shopTab.value)}
+                variant={showMessageForm ? "default" : "outline"}
+                className="rounded-xl"
+                onClick={() => setShowMessageForm((v) => !v)}
               >
-                {shopTab.label}
+                <MessageCircle className="h-4 w-4" />
+                {showMessageForm ? "Cancel" : "Message Seller"}
               </Button>
-            ))}
+            </div>
           </div>
 
+          {/* Message form */}
+          {showMessageForm && (
+            <form
+              className="mt-5 flex gap-2 border-t pt-5"
+              onSubmit={handleSendMessage}
+            >
+              <Input
+                placeholder="Ask the seller a question…"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                required
+                className="h-11 flex-1 rounded-xl"
+              />
+              <Button type="submit" disabled={startConversation.isPending} className="rounded-xl">
+                Send
+              </Button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {/* Products section */}
+      <div className="overflow-hidden rounded-3xl border bg-card shadow-xs">
+        {/* Tabs */}
+        <div className="flex gap-1 overflow-x-auto border-b bg-muted/20 p-3">
+          {SHOP_TABS.map((shopTab) => (
+            <Button
+              key={shopTab.value}
+              type="button"
+              variant={tab === shopTab.value ? "default" : "ghost"}
+              size="sm"
+              className="shrink-0 rounded-xl"
+              onClick={() => setTab(shopTab.value)}
+            >
+              {shopTab.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="p-5 md:p-6">
           <ProductGrid
             products={products?.items}
             isLoading={loadingProducts}
             emptyTitle="No products listed yet"
             emptyDescription="Check back soon for new listings from this shop."
+            columnsClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
