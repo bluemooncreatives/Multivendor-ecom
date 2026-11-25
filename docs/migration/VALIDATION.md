@@ -14,6 +14,7 @@ production acceptance remain unproven. Gateway implementation is excluded.
 | API/web production build | Passed after the order-SMS extension: both applications and 254 generated pages |
 | Standalone typecheck | Passed after the order-SMS, startup-index, phone-only-account and auth-index-migration changes (API and web) |
 | API production build | Passed after the phone-only-account and rate-limiter test-skip changes |
+| Web production build | Passed after the phone-only-account and catalogue (best-seller/popular/featured) changes |
 | SMS/OTP regressions | Passed in the full suite. The selected run found a missing `explicit` SMS audit enum; corrected before the passing full run |
 | Order SMS regressions | Passed in the full suite: transactional rollback, event replay, concurrent workers, expired/replaced leases, exhausted retries, current feature switches and suppression of stale notifications |
 | Browser checks | Passed before the order-SMS extension: 99 checks — 89 non-gateway pages, 8 interaction/runtime checks and 2 locale checks. Includes registration verification, phone sign-in/reset, SMS admin, reviews, CMS, POS and branding; see `browser-results.json` |

@@ -67,8 +67,12 @@ inventory still contains 1,263 original files, 1,261 embedded reference files an
   message file and routing configuration.
 - Other operational work remains: deployment-specific queue workers, durable
   newsletter delivery/retries, backups and observability. Analytics/pixel/chat
-  integration remains open. Phone-only account registration is not yet provided;
-  the current registration form still requires an email address.
+  integration remains open.
+- Phone-only accounts are now implemented across registration, phone sign-in,
+  password reset, profile management and the legacy importer, with a
+  read-only-by-default auth-index migration that installs the partial unique
+  indexes and reconciles contacts before any write. Browser acceptance of these
+  flows is still pending.
 
 Removed the obsolete ignored `apps/api/affiliate-test.log`. Build output, browser
 traces, test logs and runtime uploads stay outside version control. Production
