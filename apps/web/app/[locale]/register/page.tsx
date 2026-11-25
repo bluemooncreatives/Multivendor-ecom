@@ -23,7 +23,10 @@ export default function RegisterPage() {
   const sendPhoneCode = useSendPhoneCode("registration");
   const [phone, setPhone] = useState("");
   const [phoneCode, setPhoneCode] = useState("");
+  const [phoneOnly, setPhoneOnly] = useState(false);
   const { data: options, isPending: loadingOptions, isError: optionsFailed } = useAuthOptions();
+  const usingPhoneOnly = phoneOnly && options?.phone?.registration === true;
+  const requiresPhone = usingPhoneOnly || options?.phone?.registrationRequired === true;
   const [recaptchaToken, setRecaptchaToken] = useState("");
   const [captchaAttempt, setCaptchaAttempt] = useState(0);
   const defaultRole = searchParams.get("role") === "seller" ? "seller" : "customer";
@@ -35,9 +38,9 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await register.mutateAsync({ ...form, referralCode, recaptchaToken: recaptchaToken || undefined,
-        phone: phone || undefined, phoneCode: phoneCode || undefined });
-      toast.success("Check your email to verify your account");
+      await register.mutateAsync({ ...form, email: usingPhoneOnly ? undefined : form.email, referralCode, recaptchaToken: recaptchaToken || undefined,
+        phone: requiresPhone ? phone || undefined : undefined, phoneCode: requiresPhone ? phoneCode || undefined : undefined });
+      toast.success(usingPhoneOnly ? "Account created" : "Check your email to verify your account");
       router.push(`/${locale}/dashboard`);
     } catch (err: any) {
       setRecaptchaToken(""); setCaptchaAttempt((value) => value + 1);
@@ -53,11 +56,13 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
+            {options?.phone?.registration && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={phoneOnly}
+              onChange={(event) => { setPhoneOnly(event.target.checked); setPhoneCode(""); }} />Register using a phone number</label>}
             <div className="space-y-2">
               <Label htmlFor="name">{t("name")}</Label>
               <Input id="name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
-            <div className="space-y-2">
+            {!usingPhoneOnly && <div className="space-y-2">
               <Label htmlFor="email">{t("email")}</Label>
               <Input
                 id="email"
@@ -66,7 +71,7 @@ export default function RegisterPage() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
-            </div>
+            </div>}
             <div className="space-y-2">
               <Label htmlFor="password">{t("password")}</Label>
               <Input
@@ -78,12 +83,12 @@ export default function RegisterPage() {
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="register-phone">Phone number{options?.phone?.registrationRequired ? "" : " (optional)"}</Label>
+            {requiresPhone && <div className="space-y-2">
+              <Label htmlFor="register-phone">Phone number</Label>
               <Input id="register-phone" type="tel" autoComplete="tel" placeholder="+919000000001" pattern="\+[1-9][0-9]{7,14}"
-                required={options?.phone?.registrationRequired} value={phone} onChange={(event) => { setPhone(event.target.value); setPhoneCode(""); }} />
-            </div>
-            {options?.phone?.registrationRequired && <div className="space-y-2">
+                required value={phone} onChange={(event) => { setPhone(event.target.value); setPhoneCode(""); }} />
+            </div>}
+            {requiresPhone && <div className="space-y-2">
               <Button type="button" variant="outline" disabled={sendPhoneCode.isPending || !/^\+[1-9]\d{7,14}$/.test(phone)} onClick={async () => {
                 try { await sendPhoneCode.mutateAsync(phone); toast.success("Phone code sent. Check your messages."); }
                 catch (error: any) { toast.error(error?.response?.data?.message ?? "Could not send a code"); }
@@ -112,7 +117,7 @@ export default function RegisterPage() {
             </div>
             {options?.recaptcha.enabled && <RegistrationCaptcha key={captchaAttempt} siteKey={options.recaptcha.siteKey} onChange={setRecaptchaToken} />}
             {optionsFailed && <p className="text-sm text-destructive">Registration settings could not load. Reload to try again.</p>}
-            <Button type="submit" className="w-full" disabled={register.isPending || loadingOptions || optionsFailed || (options?.recaptcha.enabled && !recaptchaToken) || (options?.phone?.registrationRequired && !phoneCode)}>
+            <Button type="submit" className="w-full" disabled={register.isPending || loadingOptions || optionsFailed || (options?.recaptcha.enabled && !recaptchaToken) || (requiresPhone && !phoneCode)}>
               {t("signUp")}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

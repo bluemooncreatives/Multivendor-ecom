@@ -1,11 +1,13 @@
 import { Schema, model, type InferSchemaType } from "mongoose";
 import { withJsonId } from "./plugins.js";
+import { AUTH_INDEXES } from "../config/auth-indexes.js";
 
 const userSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+    email: { type: String, lowercase: true, trim: true },
     phone: { type: String, trim: true, index: true, sparse: true },
+    pendingPhone: { type: String, trim: true },
     passwordHash: { type: String, required: true, select: false },
     role: {
       type: String,
@@ -34,7 +36,7 @@ const userSchema = new Schema(
 );
 
 userSchema.index({ role: 1, banned: 1 });
-userSchema.index({ phone: 1 }, { name: "phone_login_unique", unique: true, partialFilterExpression: { phone: { $type: "string", $gt: "" } } });
+for (const index of AUTH_INDEXES) userSchema.index(index.key, index.options);
 withJsonId(userSchema);
 
 export type UserDoc = InferSchemaType<typeof userSchema>;

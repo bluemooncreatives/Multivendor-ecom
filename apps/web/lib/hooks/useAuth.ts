@@ -51,11 +51,12 @@ export function useSendPhoneCode(purpose: "login" | "password_reset" | "registra
 
 export function useRegister() {
   const setSession = useAuthStore((s) => s.setSession);
+  const guestId = useGuestStore((s) => s.guestId);
 
   return useMutation({
     mutationFn: async (input: {
       name: string;
-      email: string;
+      email?: string;
       phone?: string;
       phoneCode?: string;
       password: string;
@@ -65,6 +66,8 @@ export function useRegister() {
     }) => (await api.post<AuthResponse>("/auth/register", input)).data,
     onSuccess: async (data) => {
       setAccessToken(data.accessToken);
+      setSession(null, data.accessToken, data.refreshToken);
+      await api.post("/cart/merge", { guestId }).catch(() => {});
       const me = (await api.get<User>("/auth/me", { headers: { Authorization: `Bearer ${data.accessToken}` } })).data;
       setSession(me, data.accessToken, data.refreshToken);
     },

@@ -17,7 +17,7 @@ import { SellerPackage, CustomerPackage } from "../../models/Package.js";
 import { AffiliateUser, AffiliateConfig, AffiliatePayment } from "../../models/Affiliate.js";
 import { Page, Policy, Slider, Banner, HomeCategory, Link } from "../../models/Content.js";
 import { Subscriber, PickupPoint, Search } from "../../models/Marketing.js";
-import { BusinessSetting, GeneralSetting, SeoSetting, Addon, ManualPaymentMethod } from "../../models/Settings.js";
+import { BusinessSetting, GeneralSetting, SeoSetting, Addon, ManualPaymentMethod, OtpSetting } from "../../models/Settings.js";
 import { Language, Currency, Country } from "../../models/Localization.js";
 import { Role } from "../../models/Rbac.js";
 import { bool, date, jsonArray, jsonObject, num, parseDump, str, uploadUrl, type Row } from "./sql-dump.js";
@@ -557,6 +557,24 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
     }
   });
 
+  await run("otp_configurations", async (rows, report) => {
+    const values = new Map(rows.map((row) => [str(row.type), bool(row.value)]));
+    const active = [
+      ["nexmo", "nexmo"], ["twillo", "twilio"], ["ssl_wireless", "ssl_wireless"], ["fast2sms", "fast2sms"],
+    ].filter(([legacy]) => values.get(legacy) === true);
+    const provider = active[0]?.[1] ?? "none";
+    if (active.length > 1) reporter.warn("Several legacy SMS providers were enabled. Preserved the sendSMS helper's provider priority; review the selected provider before sending.");
+    if (!dryRun) await OtpSetting.updateOne({ key: "otp" }, { $set: {
+      provider, otpOnRegistration: values.get("otp_for_registration") ?? false,
+      otpOnForgotPassword: values.get("otp_for_forgot_password") ?? provider !== "none",
+      otpOnOrderPlacement: values.get("otp_for_order") ?? false,
+      smsOnDeliveryStatus: values.get("otp_for_delivery_status") ?? false,
+      smsOnPaymentStatus: values.get("otp_for_paid_status") ?? false,
+    } }, { upsert: true });
+    reporter.warn("Legacy SMS switches were imported without provider credentials. Configure and test those credentials before enabling delivery.");
+    report.updated += 1;
+  });
+
   // --- users --------------------------------------------------------------------
 
   const staffRows = rowsOf("staff");
@@ -566,8 +584,10 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
 
   await run("users", async (rows, report) => {
     for (const row of rows) {
-      const email = str(row.email)?.toLowerCase();
-      if (!email) { reporter.skip("user has no email address", String(row.id)); continue; }
+      const email = str(row.email)?.toLowerCase() || undefined;
+      const phone = str(row.phone) || undefined;
+      const phoneVerifiedAt = !email && phone && /^\+[1-9]\d{7,14}$/.test(phone) ? at(row.email_verified_at) : null;
+      if (!email && !phone) reporter.warn("Some legacy accounts have no login contact. Their records and relations were retained; repair their contact details before account recovery.");
       const type = str(row.user_type) ?? "customer";
       const role = type === "admin" ? "admin" : type === "staff" ? "staff" : type === "seller" ? "seller" : "customer";
 
@@ -589,20 +609,21 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
       }
 
       const userId = await upsert(User, "users", row.id, {
-        name: str(row.name) ?? email,
+        name: str(row.name) ?? email ?? phone ?? `Legacy account ${row.id}`,
         email,
-        phone: str(row.phone),
+        phone,
+        phoneVerifiedAt,
         passwordHash,
         role,
         avatarUrl: uploadUrl(row.avatar_original ?? row.avatar, uploads),
         banned: bool(row.banned),
-        emailVerifiedAt: at(row.email_verified_at),
+        emailVerifiedAt: email ? at(row.email_verified_at) : null,
         provider: str(row.provider_id) ? "google" : "credentials",
         providerId: str(row.provider_id) ?? undefined,
         referralCode: str(row.referral_code) ?? undefined,
         remainingUploads: num(row.remaining_uploads),
         createdAt: at(row.created_at) ?? new Date(),
-      }, report, { email });
+      }, report, email ? { email } : phoneVerifiedAt ? { phone, phoneVerifiedAt: { $type: "date" } } : undefined);
 
       if (role === "staff" && staffRoleByUser.has(String(row.id))) {
         // Role-held permissions are re-granted by an administrator (see above), so

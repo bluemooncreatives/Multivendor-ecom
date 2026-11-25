@@ -18,6 +18,7 @@
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
     "seed": "npm run seed -w apps/api",
+    "migrate:auth-indexes": "npm run migrate:auth-indexes -w apps/api --",
     "migrate:legacy": "npm run migrate:legacy -w apps/api --"
   },
   "devDependencies": {

@@ -32,7 +32,8 @@
     "signUp": "Create account",
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
-    "forgotPassword": "Forgot password?"
+    "forgotPassword": "Forgot password?",
+    "loginIdentifier": "Email address or phone number"
   },
   "checkout": {
     "title": "Checkout",

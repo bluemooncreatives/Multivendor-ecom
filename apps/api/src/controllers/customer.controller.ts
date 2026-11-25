@@ -20,9 +20,13 @@ export async function updateProfileHandler(req: Request, res: Response) {
   const user = await User.findById(req.user!.id);
   if (!user) throw new ApiError(404, "User not found");
   if (req.body.phone !== undefined && req.body.phone !== (user.phone ?? "")) {
-    if (req.body.phone && await User.exists({ phone: req.body.phone, _id: { $ne: user._id } })) throw new ApiError(409, "This phone number is already registered");
-    user.phone = req.body.phone || undefined;
-    user.phoneVerifiedAt = null;
+    if (req.body.phone && await User.exists({ phone: req.body.phone, phoneVerifiedAt: { $type: "date" }, _id: { $ne: user._id } })) throw new ApiError(409, "This phone number is already registered");
+    if (!req.body.phone) {
+      if (!user.email || !user.emailVerifiedAt) throw new ApiError(409, "Add a verified email address before removing your phone number");
+      user.phone = undefined; user.phoneVerifiedAt = null; user.pendingPhone = undefined;
+    } else { user.pendingPhone = req.body.phone; }
+  } else if (req.body.phone !== undefined) {
+    user.pendingPhone = undefined;
   }
   if (req.body.name !== undefined) user.name = req.body.name;
   if (req.body.avatarUrl !== undefined) user.avatarUrl = req.body.avatarUrl;

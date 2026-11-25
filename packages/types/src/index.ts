@@ -39,8 +39,9 @@ export type StockReservationStatus = "reserved" | "confirmed" | "released";
 export interface User {
   id: ID;
   name: string;
-  email: string;
+  email?: string;
   phone?: string;
+  pendingPhone?: string;
   role: UserRole;
   emailVerifiedAt?: string | null;
   phoneVerifiedAt?: string | null;

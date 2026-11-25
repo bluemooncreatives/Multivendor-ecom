@@ -55,6 +55,7 @@ export default function AdminSmsPage() {
           <CardTitle className="text-base">OTP settings</CardTitle>
         </CardHeader>
         <CardContent>
+          {form?.usesEnvironmentVerify && <p className="mb-4 text-sm text-muted-foreground">Phone codes currently use the environment's Twilio Verify configuration. Saving provider settings or credentials switches phone verification to the database configuration.</p>}
           {form && (
             <form
               className="grid gap-4 md:grid-cols-2"

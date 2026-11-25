@@ -5,20 +5,21 @@ import * as otpService from "../services/otp.service.js";
 import { User } from "../models/User.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { publicAuthOptions, socialProviderConfig, verifyRegistrationCaptcha } from "../services/auth-settings.service.js";
+import { findPhoneIdentity } from "../services/phone-identity.service.js";
 
 export const registerSchema = z.object({
   name: z.string().min(2).max(100),
-  email: z.string().email(),
+  email: z.string().trim().email().toLowerCase().optional(),
   phone: z.string().regex(/^\+[1-9]\d{7,14}$/).optional(),
   phoneCode: z.string().regex(/^\d{6}$/).optional(),
   password: z.string().min(8).max(72),
   role: z.enum(["customer", "seller"]).optional(),
   referralCode: z.string().trim().min(1).max(64).optional(),
   recaptchaToken: z.string().max(4096).optional(),
-});
+}).refine((value) => value.email || value.phone, { path: ["email"], message: "Provide an email address or a verified phone number" });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().min(1).max(254).refine((value) => z.string().email().safeParse(value).success || /^\+[1-9]\d{7,14}$/.test(value), "Enter an email address or international phone number"),
   password: z.string().min(1),
 });
 
@@ -136,17 +137,18 @@ export async function meHandler(req: Request, res: Response) {
 
 export async function sendPhoneOtpHandler(req: Request, res: Response) {
   const user = await User.findById(req.user!.id);
-  if (!user || user.phone !== req.body.phone) throw new ApiError(409, "Save this phone number on your profile first");
+  if (!user || (user.pendingPhone ?? user.phone) !== req.body.phone) throw new ApiError(409, "Save this phone number on your profile first");
   await otpService.sendPhoneOtp(req.body.phone, "verify_phone", req.user!.id);
   res.status(204).send();
 }
 
 export async function verifyPhoneOtpHandler(req: Request, res: Response) {
   const user = await User.findById(req.user!.id);
-  if (!user || user.phone !== req.body.phone) throw new ApiError(409, "Save this phone number on your profile first");
+  if (!user || (user.pendingPhone ?? user.phone) !== req.body.phone) throw new ApiError(409, "Save this phone number on your profile first");
   const ok = await otpService.checkPhoneOtp(req.body.phone, req.body.code, "verify_phone", req.user!.id);
   if (!ok) throw new ApiError(400, "Incorrect or expired code");
-  const saved = await User.updateOne({ _id: req.user!.id, phone: req.body.phone }, { phoneVerifiedAt: new Date() });
+  const saved = await User.updateOne({ _id: req.user!.id, ...(user.pendingPhone ? { pendingPhone: req.body.phone } : { phone: req.body.phone }) },
+    { $set: { phone: req.body.phone, phoneVerifiedAt: new Date() }, $unset: { pendingPhone: "" } });
   if (saved.matchedCount !== 1) throw new ApiError(409, "Your phone number changed; request a new code");
   res.status(204).send();
 }
@@ -161,7 +163,8 @@ export async function sendPublicOtpHandler(req: Request, res: Response) {
   const options = await otpService.phoneAuthOptions();
   if (!options.verification) throw new ApiError(503, "Phone verification is disabled or not configured");
   if (req.body.purpose === "password_reset" && !options.passwordReset) throw new ApiError(403, "Password reset by phone is disabled");
-  if (req.body.purpose === "registration" || await User.exists({ phone: req.body.phone, banned: false, phoneVerifiedAt: { $ne: null } })) {
+  const candidate = req.body.purpose === "registration" ? null : await findPhoneIdentity(req.body.phone);
+  if (req.body.purpose === "registration" || (candidate && !candidate.banned)) {
     await otpService.sendPhoneOtp(req.body.phone, req.body.purpose);
   }
   res.status(204).send();

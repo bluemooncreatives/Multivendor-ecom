@@ -7,6 +7,7 @@ import * as paymentService from "../services/payment.service.js";
 import * as paypalService from "../services/paypal.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { assertPayable } from "../services/order-state.js";
+import { queueOrderSms } from "../services/order-sms.service.js";
 
 export async function listManualPaymentMethodsHandler(_req: Request, res: Response) {
   res.json({ items: await ManualPaymentMethod.find({ active: true }) });
@@ -80,7 +81,7 @@ export async function capturePaypalOrderHandler(req: Request, res: Response) {
 
 export const submitManualPaymentSchema = z.object({
   methodId: z.string(),
-  proofUrl: z.string().url(),
+  proofUrl: z.string().url().refine((url) => /^https?:\/\//i.test(url), "Use an HTTP or HTTPS receipt URL"),
 });
 
 export async function submitManualPaymentHandler(req: Request, res: Response) {
@@ -110,12 +111,18 @@ export const approveManualPaymentSchema = z.object({
   approved: z.boolean(),
 });
 
-// Explicit one-way state machine: only a "pending" manual payment can be approved,
-// so an already-approved payment can't be re-approved (and double-settle the order).
+// Only a pending receipt can change resolution. Repeating the same decision
+// returns its existing result; an opposite decision cannot reopen it.
 export async function approveManualPaymentHandler(req: Request, res: Response) {
   const payment = await Payment.findOne({ orderId: req.params.orderId, method: "manual" });
   if (!payment) throw new ApiError(404, "No manual payment found for this order");
-  if (payment.status !== "pending") throw new ApiError(409, "This payment has already been resolved");
+  if (payment.status !== "pending") {
+    const sameResolution = (req.body.approved && payment.status === "paid") || (!req.body.approved && payment.status === "failed");
+    if (!sameResolution) throw new ApiError(409, "This payment has already been resolved");
+    const resolved = await Order.findById(payment.orderId);
+    if (resolved) await queueOrderSms(resolved, "payment");
+    return res.json(payment);
+  }
 
   if (req.body.approved) {
     await paymentService.settleOrderPayment(String(payment.orderId), "manual");
@@ -123,6 +130,8 @@ export async function approveManualPaymentHandler(req: Request, res: Response) {
   } else {
     await paymentService.failOrderPayment(String(payment.orderId), "manual");
   }
+  const resolved = await Order.findById(payment.orderId);
+  if (resolved) await queueOrderSms(resolved, "payment");
 
   res.json(await Payment.findById(payment._id));
 }

@@ -32,7 +32,7 @@ import { Review } from "../../models/Address.js";
 import { Conversation } from "../../models/Support.js";
 import { Shop } from "../../models/Shop.js";
 import { SellerLedger } from "../../models/Ledger.js";
-import { BusinessSetting, GeneralSetting, Addon, OtpSetting } from "../../models/Settings.js";
+import { BusinessSetting, GeneralSetting, Addon, OtpSetting, ManualPaymentMethod } from "../../models/Settings.js";
 import { CustomerProduct } from "../../models/CustomerProduct.js";
 import { Currency, Language, Translation } from "../../models/Localization.js";
 import { AffiliateConfig, AffiliateUser, AffiliateEarningDetail, AffiliatePayment } from "../../models/Affiliate.js";
@@ -744,11 +744,11 @@ describe("order SMS delivery", () => {
     await OtpSetting.create({ provider: "twilio", otpOnOrderPlacement: true, smsOnDeliveryStatus: true, smsOnPaymentStatus: true,
       credentials: { accountSid: "AC-test", authToken: "test-token", from: "+12025550100" } });
   }
-  async function placed(phone = "+919200000001") {
+  async function placed(phone = "+919200000001", paymentMethod: "cod" | "manual" = "cod") {
     const buyer = await account();
     const p = await product();
     await Cart.create({ userId: buyer.user._id, items: [{ productId: p._id, variantSku: "sku", quantity: 1 }] });
-    const input = { owner: { userId: String(buyer.user._id) }, paymentMethod: "cod" as const, idempotencyKey: `sms-order-${id()}`,
+    const input = { owner: { userId: String(buyer.user._id) }, paymentMethod, idempotencyKey: `sms-order-${id()}`,
       address: { line1: "Street", city: "Pune", state: "MH", country: "IN", postalCode: "411001", phone } };
     return { order: await createOrder(input), input, buyer };
   }
@@ -787,6 +787,25 @@ describe("order SMS delivery", () => {
     await OtpSetting.updateOne({}, { smsOnPaymentStatus: true });
     for (let attempt = 0; attempt < 2; attempt++) expect((await request(`/admin/orders/${order._id}/payment-status`, admin.token, "PATCH", { paymentStatus: "paid" })).status).toBe(200);
     expect(await SmsOutbox.countDocuments({ kind: "payment" })).toBe(1);
+  });
+
+  it("queues offline receipt resolutions once and rejects executable receipt URLs", async () => {
+    await configure();
+    await OtpSetting.updateOne({}, { otpOnOrderPlacement: false });
+    await Addon.create({ key: "manual_payment", enabled: true });
+    const method = await ManualPaymentMethod.create({ name: "Bank transfer", instructions: "Test-only receipt" });
+    const admin = await account("admin");
+    const { order, buyer } = await placed("+919200000009", "manual");
+    const submit = (proofUrl: string) => request(`/payments/${order._id}/manual`, buyer.token, "POST", { methodId: String(method._id), proofUrl });
+    expect((await submit("javascript:alert(1)")).status).toBe(422);
+    expect((await submit("https://example.test/test-only-receipt.pdf")).status).toBe(201);
+    const resolve = (approved: boolean) => request(`/payments/${order._id}/manual/approve`, admin.token, "POST", { approved });
+    const approvals = await Promise.all([resolve(true), resolve(true)]);
+    expect(approvals.map((response) => response.status)).toEqual([200, 200]);
+    expect((await resolve(true)).status).toBe(200);
+    expect((await resolve(false)).status).toBe(409);
+    expect(await SmsOutbox.countDocuments({ kind: "payment" })).toBe(1);
+    expect((await Order.findById(order._id))!.paymentStatus).toBe("paid");
   });
 
   it("leases a queued message to only one concurrent worker", async () => {

@@ -231,7 +231,7 @@ function PosTill({ scope, draftKey }: { scope: "seller" | "admin"; draftKey: str
             <div className="space-y-2 sm:col-span-2">
               <Label>Registered customer</Label>
               {customer ? <div className="flex items-center justify-between rounded border p-2 text-sm">
-                <span>{customer.name} · {customer.email}</span>
+                <span>{customer.name} · {customer.email || customer.phone}</span>
                 <Button variant="ghost" size="sm" onClick={() => { setCustomer(null); setPaymentType("cash"); }}>Use walk-in</Button>
               </div> : <>
                 <Input placeholder="Find by name, phone or email (3+ characters)" value={customerQuery} onChange={(e) => setCustomerQuery(e.target.value)} />

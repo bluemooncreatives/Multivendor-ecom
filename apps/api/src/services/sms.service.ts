@@ -15,6 +15,13 @@ export async function getOtpSettingsWithCredentials() {
 }
 
 export async function getOtpSettings() {
+  if (env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_VERIFY_SERVICE_SID) {
+    const existing = await OtpSetting.findOne({ key: "otp" });
+    // Merely opening the admin screen must not create a disabled DB provider
+    // and replace an existing env-only Verify deployment.
+    if (!existing) return new OtpSetting({ provider: "none", otpOnForgotPassword: true });
+    return existing;
+  }
   return OtpSetting.findOneAndUpdate({ key: "otp" }, { $setOnInsert: { key: "otp" } }, { upsert: true, new: true });
 }
 

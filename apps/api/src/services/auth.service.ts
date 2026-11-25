@@ -25,6 +25,7 @@ import jwt from "jsonwebtoken";
 import { socialProviderConfig } from "./auth-settings.service.js";
 import { BusinessSetting, GeneralSetting } from "../models/Settings.js";
 import { logger } from "../config/logger.js";
+import { findPhoneIdentity } from "./phone-identity.service.js";
 
 interface TokenPair {
   accessToken: string;
@@ -49,7 +50,7 @@ async function issueTokenPair(userId: string, role: string, permissions?: string
 
 export async function register(input: {
   name: string;
-  email: string;
+  email?: string;
   phone?: string;
   phoneCode?: string;
   password: string;
@@ -58,20 +59,24 @@ export async function register(input: {
 }) {
   const business = await BusinessSetting.findOne({ key: "business" });
   if (input.role === "seller" && business?.activation?.vendorSystem === false) throw new ApiError(403, "Seller registration is disabled");
-  const existing = await User.findOne({ email: input.email });
+  const email = input.email?.trim().toLowerCase();
+  if (!email && !input.phone) throw new ApiError(422, "Provide an email address or verified phone number");
+  const existing = email ? await User.findOne({ email }) : null;
   if (existing) throw new ApiError(409, "An account with this email already exists");
-  if (input.phone && await User.exists({ phone: input.phone })) throw new ApiError(409, "This phone number is already registered");
+  if (input.phone && await User.exists({ phone: input.phone, phoneVerifiedAt: { $type: "date" } })) throw new ApiError(409, "This phone number is already registered");
   const phoneOptions = await phoneAuthOptions();
-  if (phoneOptions.registrationRequired && (!input.phone || !input.phoneCode || !await checkPhoneOtp(input.phone, input.phoneCode, "registration"))) {
+  const needsPhoneProof = Boolean(input.phone) || phoneOptions.registrationRequired || !email;
+  if (needsPhoneProof && (!input.phone || !input.phoneCode || !await checkPhoneOtp(input.phone, input.phoneCode, "registration"))) {
     throw new ApiError(422, "Verify your phone number before registering");
   }
 
   const passwordHash = await hashPassword(input.password);
   const user = await User.create({
     name: input.name,
-    email: input.email,
+    email,
     phone: input.phone,
-    phoneVerifiedAt: phoneOptions.registrationRequired ? new Date() : null,
+    phoneVerifiedAt: needsPhoneProof ? new Date() : null,
+    emailVerifiedAt: email && business?.activation?.emailVerification === false ? new Date() : null,
     passwordHash,
     role: input.role === "seller" ? "seller" : "customer",
   });
@@ -82,7 +87,7 @@ export async function register(input: {
   // created, it simply earns nobody a commission.
   await attachReferral(String(user._id), input.referralCode);
 
-  if (business?.activation?.emailVerification !== false) {
+  if (user.email && business?.activation?.emailVerification !== false) {
     const verifyToken = signEmailVerificationToken(String(user._id));
     void sendVerificationEmail(user.email, verifyToken).catch((error) => logger.error("Verification email delivery failed", error));
   }
@@ -127,7 +132,8 @@ export async function socialLogin(input: {
 }
 
 export async function login(email: string, password: string) {
-  const user = await User.findOne({ email }).select("+passwordHash");
+  const phoneLogin = /^\+[1-9]\d{7,14}$/.test(email);
+  const user = phoneLogin ? await findPhoneIdentity(email, true) : await User.findOne({ email: email.trim().toLowerCase() }).select("+passwordHash");
   if (!user) throw new ApiError(401, "Invalid email or password");
   if (user.banned) throw new ApiError(403, "This account has been suspended");
 
@@ -191,7 +197,7 @@ export async function resendVerificationEmail(email: string): Promise<void> {
   const user = await User.findOne({ email });
   // Silent no-op for unknown or already-verified addresses: responding
   // differently would turn this into an account-existence oracle.
-  if (!user || user.emailVerifiedAt) return;
+  if (!user?.email || user.emailVerifiedAt) return;
   await sendVerificationEmail(user.email, signEmailVerificationToken(String(user._id)));
 }
 
@@ -238,7 +244,7 @@ export async function confirmEmailChange(token: string): Promise<{ email: string
 
 export async function requestPasswordReset(email: string): Promise<void> {
   const user = await User.findOne({ email });
-  if (!user) return; // do not reveal account existence
+  if (!user?.email) return; // do not reveal account existence
   const token = signPasswordResetToken(String(user._id));
   await sendPasswordResetEmail(user.email, token);
 }
@@ -255,8 +261,7 @@ export async function loginWithPhone(phone: string, code: string) {
   const verified = await checkPhoneOtp(phone, code);
   if (!verified) throw new ApiError(401, "That code is not valid");
 
-  const matches = await User.find({ phone, phoneVerifiedAt: { $ne: null } }).limit(2);
-  const user = matches.length === 1 ? matches[0] : null;
+  const user = await findPhoneIdentity(phone);
   if (!user) throw new ApiError(401, "That code is not valid");
   if (user.banned) throw new ApiError(403, "This account has been suspended");
 
@@ -270,12 +275,12 @@ export async function resetPasswordWithPhone(phone: string, code: string, newPas
   const verified = await checkPhoneOtp(phone, code, "password_reset");
   if (!verified) throw new ApiError(401, "That code is not valid");
 
-  const matches = await User.find({ phone, phoneVerifiedAt: { $ne: null } }).limit(2);
-  const user = matches.length === 1 ? matches[0] : null;
+  const user = await findPhoneIdentity(phone);
   if (!user) throw new ApiError(401, "That code is not valid");
   if (user.banned) throw new ApiError(403, "This account has been suspended");
 
   user.passwordHash = await hashPassword(newPassword);
+  user.phoneVerifiedAt = new Date();
   await user.save();
   // Same as the email path: a reset invalidates every existing session.
   await RefreshToken.updateMany({ userId: user._id, revokedAt: null }, { revokedAt: new Date() });

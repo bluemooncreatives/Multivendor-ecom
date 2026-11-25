@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { env } from "./env.js";
 import { logger } from "./logger.js";
+import { obsoleteAuthIndexes } from "./auth-indexes.js";
 
 let connected = false;
 
@@ -17,6 +18,11 @@ export async function connectDb(): Promise<typeof mongoose> {
     // not accept traffic while they are still building, or after a duplicate
     // historical row caused index creation to fail.
     await Promise.all(Object.values(mongoose.models).map((model) => model.init()));
+    const users = mongoose.models.User?.collection;
+    if (users) {
+      const obsolete = obsoleteAuthIndexes(await users.indexes());
+      if (obsolete.length) throw new Error(`Auth index upgrade required (${obsolete.join(", ")}). Stop API traffic and run migrate:auth-indexes; review its dry-run report before applying.`);
+    }
   } catch (error) {
     await mongoose.disconnect();
     throw error;

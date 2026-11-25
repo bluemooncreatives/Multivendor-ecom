@@ -10,7 +10,11 @@ import { SmsOutbox } from "../models/SmsOutbox.js";
 // Returned without `credentials` (the field is select:false), so the admin UI can
 // render the configuration form without ever receiving the provider secrets.
 export async function getOtpSettingsHandler(_req: Request, res: Response) {
-  res.json(await getOtpSettings());
+  const settings = await getOtpSettings();
+  const publicSettings = settings!.toJSON() as Record<string, unknown>;
+  delete publicSettings.credentials;
+  if (settings!.isNew) { delete publicSettings.id; delete publicSettings._id; }
+  res.json({ ...publicSettings, usesEnvironmentVerify: settings!.isNew });
 }
 
 export const otpSettingsSchema = z.object({

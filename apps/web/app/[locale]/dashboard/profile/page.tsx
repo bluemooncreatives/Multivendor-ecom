@@ -21,7 +21,7 @@ export default function ProfilePage() {
   const [phoneCode, setPhoneCode] = useState("");
   const [phoneCodeSent, setPhoneCodeSent] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
-  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [phone, setPhone] = useState(user?.pendingPhone ?? user?.phone ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -100,8 +100,8 @@ export default function ProfilePage() {
           <Button onClick={() => updateProfile.mutate()} disabled={updateProfile.isPending}>
             Save changes
           </Button>
-          {authOptions?.phone?.verification && user?.phone && phone === user.phone && <div className="space-y-2 border-t pt-3">
-            {user.phoneVerifiedAt ? <p className="text-sm">Phone number verified</p> : <>
+          {authOptions?.phone?.verification && (user?.pendingPhone || user?.phone) && phone === (user?.pendingPhone ?? user?.phone) && <div className="space-y-2 border-t pt-3">
+            {!user?.pendingPhone && user?.phoneVerifiedAt ? <p className="text-sm">Phone number verified</p> : <>
               <Button variant="outline" onClick={() => sendPhoneCode.mutate()} disabled={sendPhoneCode.isPending}>Send verification code</Button>
               {phoneCodeSent && <div className="space-y-2"><Label htmlFor="profile-phone-code">Phone verification code</Label>
                 <Input id="profile-phone-code" inputMode="numeric" autoComplete="one-time-code" value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} />
@@ -117,7 +117,7 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Currently <strong>{user?.email}</strong>. Changing it sends a confirmation link to the new address — your
+            Currently <strong>{user?.email || "no email address"}</strong>. Changing it sends a confirmation link to the new address — your
             sign-in stays on the current one until you follow that link.
           </p>
           <div className="space-y-2">

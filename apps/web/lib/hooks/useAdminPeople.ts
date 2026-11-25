@@ -183,7 +183,8 @@ export function useImportCustomers() {
 // --- SMS / OTP ---------------------------------------------------------------------
 
 export interface OtpSettings {
-  id: string;
+  id?: string;
+  usesEnvironmentVerify?: boolean;
   provider: "twilio" | "nexmo" | "msg91" | "ssl_wireless" | "fast2sms" | "none";
   otpOnRegistration: boolean;
   otpOnForgotPassword: boolean;

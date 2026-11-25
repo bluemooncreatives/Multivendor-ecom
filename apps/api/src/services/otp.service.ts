@@ -15,7 +15,7 @@ export async function phoneAuthOptions() {
   const legacyVerify = !settings && Boolean(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_VERIFY_SERVICE_SID);
   const enabled = addon?.enabled !== false && (addon?.enabled === true || legacyVerify) &&
     (settings ? settings.provider !== "none" : legacyVerify);
-  return { login: enabled, verification: enabled, passwordReset: enabled && (settings?.otpOnForgotPassword ?? legacyVerify),
+  return { login: enabled, registration: enabled, verification: enabled, passwordReset: enabled && (settings?.otpOnForgotPassword ?? legacyVerify),
     registrationRequired: enabled && settings?.otpOnRegistration === true };
 }
 
@@ -23,7 +23,6 @@ async function assertPurpose(purpose: OtpPurpose) {
   const options = await phoneAuthOptions();
   if (!options.verification) throw new ApiError(503, "Phone verification is disabled or not configured");
   if (purpose === "password_reset" && !options.passwordReset) throw new ApiError(403, "Password reset by phone is disabled");
-  if (purpose === "registration" && !options.registrationRequired) throw new ApiError(403, "Phone registration verification is disabled");
 }
 
 function verifyClient() {

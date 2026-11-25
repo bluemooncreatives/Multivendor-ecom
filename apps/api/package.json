@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "seed": "tsx src/scripts/seed.ts",
     "migrate:taxonomy": "tsx src/scripts/migrate-taxonomy.ts",
+    "migrate:auth-indexes": "tsx src/scripts/migrate-auth-indexes.ts",
     "test": "vitest run",
     "test:browser": "playwright test -c e2e/playwright.config.ts",
     "migrate:legacy": "tsx src/scripts/migrate-legacy.ts"

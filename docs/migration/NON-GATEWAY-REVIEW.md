@@ -28,6 +28,7 @@ inventory still contains 1,263 original files, 1,261 embedded reference files an
 | Localization | Language/currency controllers | Zero exchange rates are rejected; malformed stored rates fall back to the source amount. Target precision is honored by server and browser conversion. Translation search treats input literally; copying preserves existing values. Runtime overrides merge into shipped message keys with prototype keys rejected. |
 | Runtime auth settings | Legacy social and reCAPTCHA settings | Public auth options expose provider names and CAPTCHA site key only. NextAuth loads active provider credentials over the internal authenticated API. Registration CAPTCHA is verified server-side and bound to the storefront hostname. Twitter matches the frontend provider list. |
 | SMS and phone authentication | `Helpers.php::sendSMS`, OTP add-on controllers | SMS selects Twilio, Nexmo/Vonage, SSL Wireless, Fast2SMS or MSG91. Credentials use encrypted partial updates; explicit audiences deduplicate verified active accounts. Storefront phone sign-in/reset and profile verification use five-minute, purpose-bound, single-use challenges, a one-minute resend deadline and five attempts. Registration verification is enforced before account creation when enabled. Password reset revokes refresh sessions. The existing env-only Twilio Verify setup remains a compatibility path until DB configuration is selected. Provider acceptance is mocked. |
+| Order SMS notifications | `OrderController`, OTP add-on `send_order_code`, `send_delivery_status`, `send_payment_status` | Separate placement/delivery/payment switches. Checkout, fulfillment and cancellation queue notifications with their transactions; manual payment updates use an idempotent event key. A five-second worker uses expiring owner-checked leases and bounded retries. Newer order states suppress stale queued messages. Admin history shows provider acceptance and failed/uncertain attempts. Real network delivery remains at least once across ambiguous failures, not exactly once. |
 | Storage | Legacy upload/storage settings | Runtime-selected local/Cloudinary/S3 drivers. S3 object privacy is retained, public media is proxied, and paid downloads receive a short signed URL after entitlement verification. SDK calls are mocked in regression tests. |
 | Access/operations | Auth middleware, maintenance lifecycle | Every authenticated request uses current database role, grants and ban state. Missing accounts are rejected. Lease release checks its owner. Environment boolean strings parse correctly. Database readiness and bounded shutdown are provided. |
 
@@ -65,9 +66,8 @@ inventory still contains 1,263 original files, 1,261 embedded reference files an
   keys. Adding a new fully translated frontend locale still requires a bundled
   message file and routing configuration.
 - Other operational work remains: deployment-specific queue workers, durable
-  newsletter delivery/retries, backups and observability. Order placement,
-  fulfillment and payment-status SMS notifications and analytics/pixel/chat
-  integration remain open. Phone-only account registration is not yet provided;
+  newsletter delivery/retries, backups and observability. Analytics/pixel/chat
+  integration remains open. Phone-only account registration is not yet provided;
   the current registration form still requires an email address.
 
 Removed the obsolete ignored `apps/api/affiliate-test.log`. Build output, browser
@@ -81,4 +81,8 @@ remove the evidence still needed for reconciliation.
 Provider contracts consulted: [AWS S3 SDK examples](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/javascript_s3_code_examples.html),
 [Google verification](https://developers.google.com/recaptcha/docs/verify),
 [Google widget lifecycle](https://developers.google.com/recaptcha/docs/display),
-and [Playwright setup](https://playwright.dev/docs/intro).
+and [Playwright setup](https://playwright.dev/docs/intro). SMS contracts:
+[Vonage](https://developer.vonage.com/en/api/sms),
+[SSL Wireless](https://ismsplus.sslwireless.com/api-documentation),
+[MSG91](https://api.msg91.com/apidoc/textsms/send-sms-v1.php),
+[Fast2SMS](https://www.fast2sms.com/help/send-sms-dev-api/).

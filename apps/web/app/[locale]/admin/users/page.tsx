@@ -38,7 +38,7 @@ export default function AdminUsersPage() {
             <div key={user.id} className="flex items-center justify-between p-3 text-sm">
               <div>
                 <p className="font-medium">{user.name}</p>
-                <p className="text-muted-foreground">{user.email}</p>
+                <p className="text-muted-foreground">{user.email || user.phone || "No contact details"}</p>
               </div>
               <div className="flex items-center gap-3">
                 {user.banned && <Badge variant="destructive">Banned</Badge>}

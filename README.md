@@ -74,6 +74,11 @@ leases to coordinate multiple instances. `RUN_MAINTENANCE_JOBS=false` disables
 the timer when an external scheduler is used. The existing admin maintenance
 endpoints remain available. Readiness is exposed at `/api/v1/ready`; liveness
 at `/api/v1/health`. Shutdown allows 30 seconds for requests to finish.
+Order SMS notifications use a persistent queue and a worker that polls every
+five seconds when maintenance jobs are enabled. The admin SMS screen shows
+acceptance/failure history. Ambiguous network failures can cause repeat delivery;
+provider acceptance is not a delivery receipt. When jobs are externally scheduled,
+the existing maintenance-run endpoint also drains a bounded SMS batch.
 
 For browser checks, build first, ensure ports 3000, 4000 and 4001 are free, then run
 `npm run test:browser`. This starts a disposable MongoDB replica set and test

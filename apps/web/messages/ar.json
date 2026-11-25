@@ -32,7 +32,8 @@
     "signUp": "إنشاء حساب",
     "noAccount": "ليس لديك حساب؟",
     "hasAccount": "لديك حساب بالفعل؟",
-    "forgotPassword": "نسيت كلمة المرور؟"
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "loginIdentifier": "البريد الإلكتروني أو رقم الهاتف"
   },
   "checkout": {
     "title": "إتمام الشراء",
