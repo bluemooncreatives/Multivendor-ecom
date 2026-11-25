@@ -4,14 +4,12 @@ import { User } from "../models/User.js";
 import { Order } from "../models/Order.js";
 import { Addon } from "../models/Settings.js";
 import { Product } from "../models/Product.js";
-import { logger } from "../config/logger.js";
+import { RefundRequest } from "../models/Refund.js";
 import { allocateUnits } from "../utils/allocation.js";
 
-async function activeConfig() {
-  const [addon, config] = await Promise.all([
-    Addon.findOne({ key: "affiliate" }),
-    AffiliateConfig.findOne(),
-  ]);
+async function activeConfig(session?: mongoose.ClientSession) {
+  const addon = await Addon.findOne({ key: "affiliate" }).session(session ?? null);
+  const config = await AffiliateConfig.findOne().session(session ?? null);
   if (!addon?.enabled || !config?.enabled) return null;
   return config;
 }
@@ -61,44 +59,22 @@ export async function attachReferral(newUserId: string, referralCode?: string | 
  * redelivered webhook or a manual re-settle a no-op rather than a double payment.
  */
 async function creditOnce(input: {
-  affiliateUserId: unknown;
-  orderId: unknown;
-  buyerId?: unknown;
+  affiliateUserId: unknown; orderId: unknown; buyerId?: unknown;
   kind: "order_commission" | "first_purchase" | "product_share" | "category_share";
-  lineKey?: string | null;
-  amount: number;
-}) {
+  lineKey?: string | null; amount: number;
+}, session: mongoose.ClientSession) {
   if (input.amount <= 0) return false;
-  const session = await mongoose.startSession();
-  try {
-    let credited = false;
-    await session.withTransaction(async () => {
-      credited = false;
-      const key = input.kind === "first_purchase"
-        ? { buyerId: input.buyerId, kind: input.kind }
-        : { affiliateUserId: input.affiliateUserId, orderId: input.orderId, kind: input.kind, lineKey: input.lineKey ?? null };
-      // A duplicate insert aborts a MongoDB transaction even if JS catches it.
-      // Matching an existing earning through an upsert is a normal no-op.
-      const result = await AffiliateEarningDetail.updateOne(key, {
-        $setOnInsert: { ...input, lineKey: input.lineKey ?? null, status: "credited" },
-      }, { upsert: true, session });
-      if (result.upsertedCount !== 1) return;
-      await AffiliateUser.updateOne(
-        { _id: input.affiliateUserId },
-        { $inc: { totalEarnings: input.amount, availableBalance: input.amount } },
-        { session },
-      );
-      credited = true;
-    });
-    return credited;
-  } catch (error) {
-    // Concurrent upserts can race on the unique key. Handle that only after the
-    // transaction has aborted, so no balance change survives the losing insert.
-    if ((error as { code?: number }).code === 11000) return false;
-    throw error;
-  } finally {
-    await session.endSession();
-  }
+  const key = input.kind === "first_purchase"
+    ? { buyerId: input.buyerId, kind: input.kind }
+    : { affiliateUserId: input.affiliateUserId, orderId: input.orderId, kind: input.kind, lineKey: input.lineKey ?? null };
+  const result = await AffiliateEarningDetail.updateOne(key, {
+    $setOnInsert: { ...input, lineKey: input.lineKey ?? null, status: "credited" },
+  }, { upsert: true, session });
+  if (result.upsertedCount !== 1) return false;
+  await AffiliateUser.updateOne({ _id: input.affiliateUserId }, {
+    $inc: { totalEarnings: input.amount, availableBalance: input.amount },
+  }, { session });
+  return true;
 }
 
 function round2(value: number) {
@@ -116,7 +92,7 @@ function round2(value: number) {
  * every share link earned nothing however the program was configured.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function creditShareCommissions(order: any, config: any) {
+async function creditShareCommissions(order: any, config: any, session: mongoose.ClientSession) {
   const productSharing = config.productSharing?.enabled === true;
   const categorySharing = !productSharing && config.categorySharing?.enabled === true;
   if (!productSharing && !categorySharing) return;
@@ -131,11 +107,12 @@ async function creditShareCommissions(order: any, config: any) {
   );
 
   for (const detail of order.details) {
+    if (["cancelled", "refunded"].includes(detail.status)) continue;
     for (const item of detail.items) {
       const code = item.productReferralCode;
       if (!code) continue;
 
-      const sharer = await AffiliateUser.findOne({ referralCode: String(code).trim(), status: "approved" });
+      const sharer = await AffiliateUser.findOne({ referralCode: String(code).trim(), status: "approved" }).session(session);
       if (!sharer) continue;
       // Nobody earns a share commission on their own purchase.
       if (order.userId && String(sharer.userId) === String(order.userId)) continue;
@@ -146,7 +123,7 @@ async function creditShareCommissions(order: any, config: any) {
       if (productSharing) {
         rate = { commissionType: config.productSharing.commissionType, commission: config.productSharing.commission };
       } else {
-        const product = await Product.findById(item.productId, { categoryId: 1 });
+        const product = await Product.findById(item.productId, { categoryId: 1 }).session(session);
         rate = product ? rateByCategory.get(String(product.categoryId)) : undefined;
       }
       if (!rate || rate.commission <= 0) continue;
@@ -163,7 +140,7 @@ async function creditShareCommissions(order: any, config: any) {
         kind: productSharing ? "product_share" : "category_share",
         lineKey: `${String(item.productId)}:${item.variantSku}`,
         amount: capped,
-      });
+      }, session);
     }
   }
 }
@@ -173,68 +150,46 @@ async function creditShareCommissions(order: any, config: any) {
 // a manual re-settle cannot pay the same order's commission twice — the legacy
 // app recomputed affiliate earnings on every order write and double-paid on retries.
 export async function creditAffiliateForOrder(orderId: string) {
-  const config = await activeConfig();
-  if (!config) return;
-
-  const order = await Order.findById(orderId);
-  if (!order || order.paymentStatus !== "paid" || ["cancelled", "refunded"].includes(order.status)) return;
-
+  const session = await mongoose.startSession();
   try {
-    // Share-link commissions are paid on the lines themselves and do not depend on
-    // who the buyer was referred by - a guest checkout can earn one.
-    await creditShareCommissions(order, config);
-  } catch (err) {
-    logger.error(`Failed to credit share commissions for order ${orderId}: ${String(err)}`);
-  }
-
-  if (!order.userId) return;
-  const buyer = await User.findById(order.userId).select("referredBy createdAt");
-  if (!buyer?.referredBy) return;
-
-  const affiliate = await AffiliateUser.findOne({ userId: buyer.referredBy, status: "approved" });
-  if (!affiliate) return;
-
-  // Commission is taken on merchandise value only, never on tax or shipping.
-  const merchandise = Math.max(0, order.details.reduce((sum, d) => sum + d.subtotal, 0) - order.discount);
-
-  // Legacy `user_registration_first_purchase`: a percentage of the referred
-  // customer's first order, paid once. "First" is decided from the orders that
-  // have actually been paid for, so an abandoned checkout does not consume it.
-  if (config.firstPurchase?.enabled && config.firstPurchase.percent > 0) {
-    const earlierPaidOrders = await Order.countDocuments({
-      userId: order.userId,
-      paymentStatus: "paid",
-      _id: { $ne: order._id },
-      createdAt: { $lt: order.createdAt ?? new Date() },
+    await session.withTransaction(async () => {
+      // Claim the entire award, not individual kinds. Configuration changes must
+      // never create a second commission when a settlement is retried later.
+      const order = await Order.findOneAndUpdate({ _id: orderId, affiliateSettledAt: null,
+        paymentStatus: "paid", status: { $nin: ["cancelled", "refunded"] } },
+        { $set: { affiliateSettledAt: new Date() } }, { new: true, session });
+      if (!order) return;
+      const config = await activeConfig(session);
+      if (!config) return;
+      // Serialize simultaneous orders from one buyer before claiming their
+      // first-purchase bonus, even if the newer order settled first.
+      if (order.userId) await User.updateOne({ _id: order.userId }, { $inc: { financeRevision: 1 } }, { session });
+      await creditShareCommissions(order, config, session);
+      if (!order.userId) return;
+      const buyer = await User.findById(order.userId).select("referredBy createdAt").session(session);
+      if (!buyer?.referredBy || String(buyer.referredBy) === String(order.userId)) return;
+      const affiliate = await AffiliateUser.findOne({ userId: buyer.referredBy, status: "approved" }).session(session);
+      if (!affiliate) return;
+      const merchandise = order.details.reduce((sum, detail) =>
+        ["cancelled", "refunded"].includes(detail.status) ? sum : sum + Math.max(0, detail.subtotal - (detail.discount ?? 0)), 0);
+      if (config.firstPurchase?.enabled && config.firstPurchase.percent > 0) {
+        const earlierPaidOrders = await Order.countDocuments({ userId: order.userId, paymentStatus: "paid",
+          status: { $nin: ["cancelled", "refunded"] }, _id: { $ne: order._id }, createdAt: { $lt: order.createdAt } }).session(session);
+        if (earlierPaidOrders === 0) {
+          const [refund] = await RefundRequest.aggregate([
+            { $match: { orderId: order._id, status: "refunded" } },
+            { $group: { _id: null, amount: { $sum: "$amount" } } },
+          ]).session(session);
+          await creditOnce({ affiliateUserId: affiliate._id, orderId: order._id, buyerId: order.userId,
+            kind: "first_purchase", amount: round2(Math.max(0, order.grandTotal - (refund?.amount ?? 0)) * config.firstPurchase.percent / 100) }, session);
+        }
+      }
+      if (config.commissionPercent <= 0) return;
+      if (config.cookieDays > 0 && order.createdAt > new Date(buyer.createdAt.getTime() + config.cookieDays * 86_400_000)) return;
+      await creditOnce({ affiliateUserId: affiliate._id, orderId: order._id, kind: "order_commission",
+        amount: round2(merchandise * config.commissionPercent / 100) }, session);
     });
-    if (earlierPaidOrders === 0) {
-      await creditOnce({
-        affiliateUserId: affiliate._id,
-        orderId: order._id,
-        kind: "first_purchase",
-        buyerId: order.userId,
-        // The legacy bonus was a percentage of the order total, including tax and
-        // shipping, which is what `grand_total` held.
-        amount: round2((order.grandTotal * config.firstPurchase.percent) / 100),
-      });
-    }
-  }
-
-  if (config.commissionPercent <= 0) return;
-
-  // Attribution window: the recurring commission only earns on orders placed
-  // within cookieDays of the referred account being created.
-  if (config.cookieDays > 0) {
-    const windowEnd = new Date(buyer.createdAt!.getTime() + config.cookieDays * 24 * 60 * 60 * 1000);
-    if ((order.createdAt ?? new Date()) > windowEnd) return;
-  }
-
-  await creditOnce({
-    affiliateUserId: affiliate._id,
-    orderId: order._id,
-    kind: "order_commission",
-    amount: round2(merchandise * (config.commissionPercent / 100)),
-  });
+  } finally { await session.endSession(); }
 }
 
 // Reverses a previously credited commission when its order is refunded/cancelled,

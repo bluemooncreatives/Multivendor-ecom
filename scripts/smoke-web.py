@@ -22,6 +22,8 @@ def main():
     paths = []
     for page in (WEB / "app").rglob("page.tsx"):
         segments = ["en" if part == "[locale]" else part for part in page.parent.relative_to(WEB / "app").parts]
+        if "payment-gateways" in segments:
+            continue
         if any("[" in part for part in segments):
             continue
         paths.append("/" + "/".join(segments))

@@ -9,6 +9,7 @@ import { apiRouter } from "./routes/index.js";
 import { stripeWebhookHandler, razorpayWebhookHandler, paypalWebhookHandler } from "./controllers/webhook.controller.js";
 import { asyncHandler } from "./utils/asyncHandler.js";
 import { publicUploadsRoot, legacyUploadsRoot } from "./config/storage.js";
+import { sendPublicS3File } from "./services/s3-storage.service.js";
 
 export function createApp() {
   const app = express();
@@ -33,7 +34,7 @@ export function createApp() {
   app.use(
     rateLimit({
       windowMs: 60_000,
-      limit: 180,
+      limit: env.API_RATE_LIMIT_PER_MINUTE ?? 180,
       standardHeaders: true,
       legacyHeaders: false,
     }),
@@ -44,6 +45,10 @@ export function createApp() {
   // Content-Disposition/nosniff pair means a file that slipped past the upload
   // allow-list is downloaded rather than executed or rendered inline. Digital
   // goods are never written here — they go behind the signed download route.
+  app.get("/uploads/s3/:bucket/:kind/:ownerId/:filename", asyncHandler(async (req, res) => {
+    await sendPublicS3File(String(req.params.bucket), `${req.params.kind}/${req.params.ownerId}/${req.params.filename}`, res);
+  }));
+
   app.use(
     "/uploads",
     (req, res, next) => {

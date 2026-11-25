@@ -1,9 +1,27 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import Facebook from "next-auth/providers/facebook";
 import Twitter from "next-auth/providers/twitter";
 
 const SOCIAL_PROVIDERS = ["google", "facebook", "twitter"] as const;
+
+async function configuredProviders(): Promise<NextAuthConfig["providers"]> {
+  try {
+    const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+    const response = await fetch(`${api}/auth/social/config`, { cache: "no-store",
+      headers: { "x-internal-secret": process.env.INTERNAL_API_SECRET ?? "" }, signal: AbortSignal.timeout(5000) });
+    if (!response.ok) return [];
+    const config = await response.json() as { id: string; clientId: string; clientSecret: string }[];
+    const providers: NextAuthConfig["providers"] = [];
+    for (const provider of config) {
+      const options = { clientId: provider.clientId, clientSecret: provider.clientSecret };
+      if (provider.id === "google") providers.push(Google(options));
+      if (provider.id === "facebook") providers.push(Facebook(options));
+      if (provider.id === "twitter") providers.push(Twitter(options));
+    }
+    return providers;
+  } catch { return []; }
+}
 
 // NextAuth here only performs the OAuth handshake (Google/Facebook) — it is
 // NOT the app's session mechanism. Once a provider confirms the user's identity,
@@ -11,21 +29,8 @@ const SOCIAL_PROVIDERS = ["google", "facebook", "twitter"] as const;
 // pair via the API's internal-secret-gated /auth/social bridge, and the client
 // syncs those tokens into the existing Zustand auth store (see TokenSync /
 // SocialSessionSync) — matching the same JWT-based auth used everywhere else.
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
-    Facebook({
-      clientId: process.env.FACEBOOK_CLIENT_ID,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
-    }),
-    Twitter({
-      clientId: process.env.TWITTER_CLIENT_ID,
-      clientSecret: process.env.TWITTER_CLIENT_SECRET,
-    }),
-  ],
+export const { handlers, auth, signIn, signOut } = NextAuth(async () => ({
+  providers: await configuredProviders(),
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account && profile && (SOCIAL_PROVIDERS as readonly string[]).includes(account.provider)) {
@@ -60,4 +65,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return { ...session, accessToken: token.accessToken, refreshToken: token.refreshToken };
     },
   },
-});
+}));

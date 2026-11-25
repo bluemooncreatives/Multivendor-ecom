@@ -53,7 +53,9 @@ export async function listProductReviewsHandler(req: Request, res: Response) {
   const [items, total, breakdown] = await Promise.all([
     Review.find(filter)
       .populate("userId", "name avatarUrl")
-      .sort({ createdAt: -1 })
+      // Imported or batch-created reviews can share a timestamp. The unique
+      // tie-breaker keeps skip/limit pages from repeating or omitting rows.
+      .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize),
     Review.countDocuments(filter),

@@ -2,8 +2,13 @@
 
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { useAuthOptions } from "@/lib/hooks/useAuthOptions";
+import { useLocale } from "next-intl";
 
 export function SocialLoginButtons() {
+  const { data } = useAuthOptions();
+  const locale = useLocale();
+  if (!data?.providers.length) return null;
   return (
     <div className="space-y-2">
       <div className="relative">
@@ -15,8 +20,8 @@ export function SocialLoginButtons() {
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        {(["google", "facebook", "twitter"] as const).map((provider) => (
-          <Button key={provider} type="button" variant="outline" onClick={() => signIn(provider, { callbackUrl: "/" })}>
+        {data.providers.map((provider) => (
+          <Button key={provider} type="button" variant="outline" onClick={() => signIn(provider, { callbackUrl: `/${locale}/dashboard` })}>
             {provider[0]!.toUpperCase() + provider.slice(1)}
           </Button>
         ))}

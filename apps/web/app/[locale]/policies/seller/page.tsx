@@ -1,16 +1,7 @@
-import { StaticPage } from "@/components/storefront/static-page";
+import { PolicyPage } from "@/components/storefront/policy-page";
+
+export const dynamic = "force-dynamic";
 
 export default function SellerPolicyPage() {
-  return (
-    <StaticPage title="Seller Policy">
-      <p>
-        Sellers must list only genuine products with accurate descriptions, pricing, and stock
-        levels. Misrepresenting products or manipulating reviews will result in account suspension.
-      </p>
-      <p>
-        Orders must be fulfilled within the committed processing time. Repeated late fulfillment or
-        cancellations may affect your seller rating and withdrawal eligibility.
-      </p>
-    </StaticPage>
-  );
+  return <PolicyPage type="seller_agreement" title="Seller Policy" />;
 }

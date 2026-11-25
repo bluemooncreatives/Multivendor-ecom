@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SocialLoginButtons } from "@/components/shared/social-login-buttons";
 import { useRegister } from "@/lib/hooks/useAuth";
+import { useAuthOptions } from "@/lib/hooks/useAuthOptions";
+import { RegistrationCaptcha } from "@/components/shared/registration-captcha";
 
 export default function RegisterPage() {
   const t = useTranslations("auth");
@@ -18,6 +20,9 @@ export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const register = useRegister();
+  const { data: options, isPending: loadingOptions, isError: optionsFailed } = useAuthOptions();
+  const [recaptchaToken, setRecaptchaToken] = useState("");
+  const [captchaAttempt, setCaptchaAttempt] = useState(0);
   const defaultRole = searchParams.get("role") === "seller" ? "seller" : "customer";
   // Carried from an affiliate's shared link (?ref=CODE). An unknown code is not an
   // error — the account is created either way, it just earns nobody a commission.
@@ -27,10 +32,11 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await register.mutateAsync({ ...form, referralCode });
+      await register.mutateAsync({ ...form, referralCode, recaptchaToken: recaptchaToken || undefined });
       toast.success("Check your email to verify your account");
       router.push(`/${locale}/dashboard`);
     } catch (err: any) {
+      setRecaptchaToken(""); setCaptchaAttempt((value) => value + 1);
       toast.error(err?.response?.data?.message ?? "Could not create account");
     }
   }
@@ -87,7 +93,9 @@ export default function RegisterPage() {
                 </Button>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={register.isPending}>
+            {options?.recaptcha.enabled && <RegistrationCaptcha key={captchaAttempt} siteKey={options.recaptcha.siteKey} onChange={setRecaptchaToken} />}
+            {optionsFailed && <p className="text-sm text-destructive">Registration settings could not load. Reload to try again.</p>}
+            <Button type="submit" className="w-full" disabled={register.isPending || loadingOptions || optionsFailed || (options?.recaptcha.enabled && !recaptchaToken)}>
               {t("signUp")}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

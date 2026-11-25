@@ -25,11 +25,16 @@ import { reportRouter } from "./report.routes.js";
 import { homepageRouter } from "./homepage.routes.js";
 import { extraGatewayRouter } from "./extragateway.routes.js";
 import { uploadRouter } from "./upload.routes.js";
+import mongoose from "mongoose";
 
 export const apiRouter = Router();
 
 apiRouter.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "api", timestamp: new Date().toISOString() });
+});
+apiRouter.get("/ready", (_req, res) => {
+  const ready = mongoose.connection.readyState === 1;
+  res.status(ready ? 200 : 503).json({ status: ready ? "ready" : "unavailable" });
 });
 
 // No-op unless an admin has switched the store into demo mode, in which case every

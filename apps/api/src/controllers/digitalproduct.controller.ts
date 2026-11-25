@@ -16,7 +16,9 @@ export async function listMyDigitalPurchasesHandler(req: Request, res: Response)
 
   const purchases = [];
   for (const order of orders) {
+    if (["cancelled", "refunded"].includes(order.status)) continue;
     for (const detail of order.details) {
+      if (["cancelled", "refunded"].includes(detail.status)) continue;
       for (const item of detail.items) {
         if (digitalIds.has(String(item.productId))) {
           purchases.push({ orderId: order._id, orderCode: order.code, productId: item.productId, name: item.name });
@@ -35,10 +37,10 @@ export const requestDownloadSchema = z.object({
 
 export async function requestDownloadHandler(req: Request, res: Response) {
   const { productId, orderId } = req.body;
-  const order = await Order.findOne({ _id: orderId, userId: req.user!.id, paymentStatus: "paid" });
+  const order = await Order.findOne({ _id: orderId, userId: req.user!.id, paymentStatus: "paid", status: { $nin: ["cancelled", "refunded"] } });
   if (!order) throw new ApiError(404, "Order not found or not yet paid");
 
-  const purchased = order.details.some((d) => d.items.some((i) => String(i.productId) === productId));
+  const purchased = order.details.some((d) => !["cancelled", "refunded"].includes(d.status) && d.items.some((i) => String(i.productId) === productId));
   if (!purchased) throw new ApiError(403, "This product was not purchased in that order");
 
   const product = await Product.findOne({ _id: productId, isDigital: true }).select("+digitalFileUrl");

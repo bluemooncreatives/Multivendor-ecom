@@ -2,13 +2,25 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { Page, Policy, Link } from "../models/Content.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { safeHtml, safeLink } from "../utils/html.js";
+import { GeneralSetting, SeoSetting } from "../models/Settings.js";
+
+export async function getPublicSiteSettingsHandler(_req: Request, res: Response) {
+  const [general, seo, links] = await Promise.all([
+    GeneralSetting.findOne({ key: "general" }).select("appName defaultCurrency logoUrl footerLogoUrl faviconUrl address footerText socialProfiles supportEmail supportPhone").lean(),
+    SeoSetting.findOne({ key: "seo" }).select("metaTitle metaDescription metaKeywords metaImageUrl author").lean(),
+    Link.find().select("label url placement order").sort({ order: 1 }),
+  ]);
+  res.json({ general: general ?? { appName: "Marketplace", defaultCurrency: "INR" }, seo: seo ?? {},
+    links: links.filter((link) => safeLink(link.url)) });
+}
 
 // --- Pages -----------------------------------------------------------------
 
 export const pageSchema = z.object({
-  slug: z.string().min(1),
+  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(200),
   title: z.string().min(1),
-  body: z.string().min(1),
+  body: z.string().min(1).transform(safeHtml),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
   seoKeywords: z.array(z.string()).optional(),
@@ -19,7 +31,7 @@ export const pageSchema = z.object({
 export async function getPageBySlugHandler(req: Request, res: Response) {
   const page = await Page.findOne({ slug: req.params.slug, published: true });
   if (!page) throw new ApiError(404, "Page not found");
-  res.json(page);
+  res.json({ ...page.toJSON(), body: safeHtml(page.body) });
 }
 
 export async function listPagesHandler(_req: Request, res: Response) {
@@ -61,10 +73,10 @@ export async function getPolicyHandler(req: Request, res: Response) {
   const type = req.params.type as (typeof POLICY_TYPES)[number];
   if (!POLICY_TYPES.includes(type)) throw new ApiError(404, "Unknown policy type");
   const policy = (await Policy.findOne({ type })) ?? { type, body: "" };
-  res.json(policy);
+  res.json({ type, body: safeHtml(policy.body) });
 }
 
-export const upsertPolicySchema = z.object({ body: z.string().min(1) });
+export const upsertPolicySchema = z.object({ body: z.string().min(1).transform(safeHtml) });
 
 export async function upsertPolicyHandler(req: Request, res: Response) {
   const type = req.params.type as (typeof POLICY_TYPES)[number];
@@ -77,7 +89,7 @@ export async function upsertPolicyHandler(req: Request, res: Response) {
 
 export const linkSchema = z.object({
   label: z.string().min(1),
-  url: z.string().min(1),
+  url: z.string().min(1).refine(safeLink, "Use a relative link or an HTTP, email or telephone URL"),
   placement: z.enum(["header", "footer"]),
   order: z.number().int().optional(),
 });
@@ -85,7 +97,7 @@ export const linkSchema = z.object({
 export async function listLinksHandler(req: Request, res: Response) {
   const { placement } = req.query as { placement?: string };
   const links = await Link.find(placement ? { placement } : {}).sort({ order: 1 });
-  res.json({ items: links });
+  res.json({ items: links.filter((link) => safeLink(link.url)) });
 }
 
 export async function createLinkHandler(req: Request, res: Response) {

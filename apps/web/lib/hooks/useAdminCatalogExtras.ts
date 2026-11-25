@@ -327,7 +327,7 @@ export function useDeletePage() {
   });
 }
 
-const POLICY_TYPES = ["privacy", "terms", "refund", "shipping", "seller_agreement"] as const;
+const POLICY_TYPES = ["privacy", "terms", "refund", "return", "shipping", "support", "seller_agreement"] as const;
 export type PolicyType = (typeof POLICY_TYPES)[number];
 
 export function usePolicy(type: PolicyType) {

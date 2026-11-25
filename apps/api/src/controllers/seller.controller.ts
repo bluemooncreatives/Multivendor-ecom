@@ -120,41 +120,46 @@ export const fulfillmentSchema = z.object({
 export async function fulfillOrderItemHandler(req: Request, res: Response) {
   const { orderId } = req.params;
   const { status } = req.body as { status: string };
+  const session = await mongoose.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      const order = await Order.findOne({ _id: orderId, "details.sellerId": req.user!.id }).session(session);
+      if (!order) throw new ApiError(404, "Order not found");
+      if (inventoryStatus(order) !== "confirmed" || ["cancelled", "refunded"].includes(order.status)) {
+        throw new ApiError(409, "This order is not available for fulfillment");
+      }
 
-  const order = await Order.findOne({ _id: orderId, "details.sellerId": req.user!.id });
-  if (!order) throw new ApiError(404, "Order not found");
-  if (inventoryStatus(order) !== "confirmed" || ["cancelled", "refunded"].includes(order.status)) {
-    throw new ApiError(409, "This order is not available for fulfillment");
-  }
+      const detail = order.details.find((d) => String(d.sellerId) === req.user!.id);
+      if (!detail) throw new ApiError(404, "You do not have items on this order");
 
-  const detail = order.details.find((d) => String(d.sellerId) === req.user!.id);
-  if (!detail) throw new ApiError(404, "You do not have items on this order");
+      if (!FULFILLMENT_FLOW[detail.status]?.includes(status)) {
+        throw new ApiError(409, `Cannot move a ${detail.status} shipment to ${status}`);
+      }
 
-  if (!FULFILLMENT_FLOW[detail.status]?.includes(status)) {
-    throw new ApiError(409, `Cannot move a ${detail.status} shipment to ${status}`);
-  }
+      detail.status = status as never;
+      if (status === "delivered") detail.deliveredAt = new Date();
+      if (status === "cancelled") detail.cancelledAt = new Date();
 
-  detail.status = status as never;
-  if (status === "delivered") detail.deliveredAt = new Date();
-  if (status === "cancelled") detail.cancelledAt = new Date();
+      // Roll the per-seller shipment states up into one order-level status, so a
+      // multi-vendor order only reads "delivered" once every seller has delivered.
+      const statuses = order.details.map((d) => d.status);
+      if (statuses.every((s) => s === "delivered")) order.status = "delivered";
+      else if (statuses.every((s) => s === "cancelled")) order.status = "cancelled";
+      else if (statuses.some((s) => s === "shipped" || s === "delivered")) order.status = "shipped";
+      else if (statuses.some((s) => s === "processing")) order.status = "processing";
 
-  // Roll the per-seller shipment states up into one order-level status, so a
-  // multi-vendor order only reads "delivered" once every seller has delivered.
-  const statuses = order.details.map((d) => d.status);
-  if (statuses.every((s) => s === "delivered")) order.status = "delivered";
-  else if (statuses.every((s) => s === "cancelled")) order.status = "cancelled";
-  else if (statuses.some((s) => s === "shipped" || s === "delivered")) order.status = "shipped";
-  else if (statuses.some((s) => s === "processing")) order.status = "processing";
+      await order.save({ session });
 
-  await order.save();
-
-  // Loyalty points are awarded from the order-level "delivered" transition and are
-  // idempotent on the order id, so a repeated delivered-write cannot award twice.
-  if (status === "delivered") {
-    await awardClubPointsForOrder(String(order._id));
-  }
-
-  res.json(sellerOrderView(order, req.user!.id));
+      // Shipment delivery and its reward commit together. A multi-vendor order
+      // earns only the points of shipments that have actually been delivered.
+      if (status === "delivered") {
+        await awardClubPointsForOrder(String(order._id), session);
+      }
+      result = sellerOrderView(order, req.user!.id);
+    });
+    res.json(result);
+  } finally { await session.endSession(); }
 }
 
 // --- Shop verification --------------------------------------------------------

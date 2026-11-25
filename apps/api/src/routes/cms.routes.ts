@@ -18,9 +18,11 @@ import {
   pageSchema,
   upsertPolicySchema,
   linkSchema,
+  getPublicSiteSettingsHandler,
 } from "../controllers/cms.controller.js";
 
 export const cmsRouter = Router();
+cmsRouter.get("/site-settings", asyncHandler(getPublicSiteSettingsHandler));
 
 // Pages. The bare list is registered before /pages/:slug so "pages" alone is not
 // treated as a slug lookup.

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Slider, Banner, HomeCategory } from "../models/Content.js";
 import { Category, Brand } from "../models/Category.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { safeLink } from "../utils/html.js";
 
 // Single call for the whole homepage — one round trip for the storefront instead
 // of one per section.
@@ -14,8 +15,8 @@ export async function getHomepageSectionsHandler(_req: Request, res: Response) {
       .populate("categoryId")
       .populate("subSubCategoryIds", "name slug")
       .sort({ order: 1 }),
-    Category.find({ featured: true }).limit(10),
-    Brand.find({ featured: true }).limit(10),
+    Category.find({ featured: true, active: true }).limit(10),
+    Brand.find({ featured: true, active: true }).limit(10),
   ]);
   res.json({ sliders, banners, homeCategories, topCategories, topBrands });
 }
@@ -24,7 +25,7 @@ export async function getHomepageSectionsHandler(_req: Request, res: Response) {
 
 export const sliderSchema = z.object({
   imageUrl: z.string().url(),
-  linkUrl: z.string().optional(),
+  linkUrl: z.string().refine((url) => !url || safeLink(url), "Invalid link").optional(),
   order: z.number().int().optional(),
   active: z.boolean().optional(),
 });
@@ -50,7 +51,7 @@ export async function deleteSliderHandler(req: Request, res: Response) {
 
 export const bannerSchema = z.object({
   imageUrl: z.string().url(),
-  linkUrl: z.string().optional(),
+  linkUrl: z.string().refine((url) => !url || safeLink(url), "Invalid link").optional(),
   placement: z.enum(["home_top", "home_middle", "category", "checkout"]),
   active: z.boolean().optional(),
 });

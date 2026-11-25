@@ -9,6 +9,7 @@ To move the old database across, follow the
 ```text
 apps/
   api/
+    e2e/                    Disposable fixtures and browser acceptance checks
     src/
       app.ts                Express app construction
       server.ts             Database connection and listener
@@ -68,11 +69,26 @@ npm run migrate:legacy -- `
   --dry-run --report ../../import-report.json
 ```
 
-Two maintenance sweeps are exposed as admin endpoints and need a scheduler to
-call them: `POST /api/v1/admin/payments/expire-abandoned` releases stock held by
-checkouts that were never paid for, and
-`POST /api/v1/addons/admin/packages/unpublish-expired` unpublishes the catalogue
-of sellers whose subscription has lapsed.
+The API server runs maintenance every 15 minutes by default, using database
+leases to coordinate multiple instances. `RUN_MAINTENANCE_JOBS=false` disables
+the timer when an external scheduler is used. The existing admin maintenance
+endpoints remain available. Readiness is exposed at `/api/v1/ready`; liveness
+at `/api/v1/health`. Shutdown allows 30 seconds for requests to finish.
+
+For browser checks, build first, ensure ports 3000 and 4000 are free, then run
+`npm run test:browser`. This starts a disposable MongoDB replica set and test
+API, seeds dummy accounts, and starts the production frontend. It never uses
+the configured application database. Windows uses installed Edge when available;
+otherwise install Chromium with `npx playwright install chromium` from `apps/api`.
+Browser traces stay under ignored `apps/api/.browser-results`; the test report is
+written to `docs/migration/browser-results.json`.
+
+Storage can be switched in Admin > Settings. S3 uploads retain bucket privacy;
+image/document URLs use an API proxy, while paid digital files require an
+entitlement check followed by a 60-second signed download. Existing `AWS_BUCKET`,
+`AWS_REGION` and the standard AWS SDK credential chain are supported. Provider
+credentials, bucket access and actual delivery still need deployment acceptance.
+See [the non-gateway review](docs/migration/NON-GATEWAY-REVIEW.md).
 
 Integration tests start a disposable MongoDB 8.0.17 replica set. Its first run
 downloads the platform-specific MongoDB binary; subsequent runs use the cache.

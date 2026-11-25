@@ -4,6 +4,7 @@ out/
 dist/
 .turbo/
 coverage/
+.browser-results/
 *.tsbuildinfo
 
 .env

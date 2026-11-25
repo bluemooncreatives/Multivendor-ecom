@@ -44,7 +44,7 @@ const groupSchemas: Record<SecretGroup, z.ZodTypeAny> = {
 };
 
 function assertGroup(name: string): SecretGroup {
-  if (!(name in SECRET_GROUPS)) throw new ApiError(404, `Unknown settings group: ${name}`);
+  if (!Object.hasOwn(SECRET_GROUPS, name)) throw new ApiError(404, `Unknown settings group: ${name}`);
   return name as SecretGroup;
 }
 

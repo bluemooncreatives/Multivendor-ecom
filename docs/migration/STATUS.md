@@ -2,6 +2,12 @@
 
 Status: **in progress; full migration parity has not been established**.
 
+Current continuation scope: **all non-gateway features**. Payment gateway code
+and provider acceptance are excluded. Gateway entries below describe historical
+work only. See [the non-gateway feature review](NON-GATEWAY-REVIEW.md) for the
+latest corrections and remaining acceptance work; final command results are
+recorded separately in [VALIDATION.md](VALIDATION.md).
+
 This record distinguishes implemented corrections from the remaining migration.
 A passing build or a matching route is not proof that every legacy behavior has
 been ported. Do not remove the legacy reference or treat this application as
@@ -49,6 +55,7 @@ feature acceptance counts. PHP code has not been executed.
 | Abandoned payments | Target-only (legacy held no reservations) | Sweep releases stock, campaign allowance, points and coupon redemption from gateway checkouts left unpaid past a TTL, re-checking state inside the transaction. A capture arriving after the order closed is recorded against it and flagged for refund rather than discarded, and its provider transaction is claimed so it cannot pay another order. Database regressions. |
 | Legacy data import | `software_ecommercemvendor22.sql`; `scripts/legacy/` | A mysqldump reader and importer for 46 legacy tables into this application's collections: users (bcrypt hashes carried over, so passwords still work), wallets, taxonomy, shops/sellers, products with variants, orders rebuilt as per-seller shipments, carts, coupons, campaigns, packages, support, content and settings. Idempotent through a legacy-id map, `--dry-run`, per-table report with every skipped row and reason. Exercised against the real dump. |
 | Assets/runtime | `apps/web/public`, API `app.ts` / `server.ts` | Static assets moved into Next.js public root; public/private API storage separated under `data`; app construction separated from listening; production TS build excludes tests. |
+| Non-gateway module review | PHP reviews, conversations, affiliates, POS, pickup points, reports, newsletters, CMS, localization and settings | See `NON-GATEWAY-REVIEW.md` for source mappings, transaction/access corrections, runtime integrations and new regression/browser checks. A test definition is not a passing result; consult `VALIDATION.md`. |
 
 The tests use a disposable MongoDB replica set and a local HTTP listener. They
 do not use the user's application database, send invoice mail, create real
@@ -79,16 +86,16 @@ been run.
 
 | Priority | Feature / file | Outstanding work |
 | --- | --- | --- |
-| P0 | Gateway acceptance | Real sandbox acceptance remains required for every supported gateway/purpose. 2Checkout return trust, reference/currency binding, regional gateway session creation races, provider retries, and non-order payable flows are not fully verified. This needs provider credentials and cannot be completed from the repository alone. No live service availability is asserted. |
+| Excluded | Gateway acceptance | Outside the current request. Historical provider acceptance remains unverified; no gateway completion claim is made. |
 | P0 | Data import rehearsal on real data | The importer is exercised against the vendored dump, which contains 794 importable rows. A production cut-over still needs: a rehearsal against a copy of the live database, a copy of the `public/uploads` tree to the new storage root (the importer rewrites paths but moves no files), and sign-off on the skipped rows and warnings the report lists. Payment-gateway credentials, Laravel Passport tokens and positional staff role permissions are deliberately not imported. |
 | P1 | Historical accounting | Imported orders carry commission recomputed from current rates, because the legacy schema stored none per order; the per-seller running total (`sellers.admin_to_pay`) is imported as one opening ledger adjustment, and legacy wallet recharges carry no running balance. Reconciling those opening positions against the legacy reports is an operator task. Old orders without per-shipment discount snapshots still use proportional refund allocation. |
-| P1 | Refund return lifecycle | Per-item returns in mixed refundable/non-refundable shipments, returned-stock inspection, earned-point/affiliate clawbacks, and explicit tax/shipping refund policy need acceptance. Current merchandise refund does not automatically restock a delivered return. |
-| P1 | Storefront catalogue | Category/variant facets, banned/unverified vendor visibility, sale counters and all legacy listing filters still need full browser/API acceptance. Flash pricing and card/detail price consistency are implemented and covered by tests, but not browser-accepted. Displayed prices exclude tax and show it as its own line, where the legacy blade templates folded tax into the displayed price. |
-| P1 | Settings/storage/auth | Runtime S3 implementation, database storage/social/reCAPTCHA settings integration, complete feature activation enforcement, and callback processing during maintenance require completion. S3 uploads now fail explicitly rather than silently writing locally. |
-| P1 | Localization | Backend language/translation editing is not fully integrated with the frontend's bundled `en/hi/ar` locale configuration. Currency precision and zero exchange-rate handling need acceptance; an imported non-ISO currency code is reported but not rewritten. |
-| P1 | POS UI | Registered customer lookup/wallet selection, authoritative tax/discount totals, receipt interaction and till recovery need browser acceptance. API wallet sales support `customerId`; the current till primarily captures walk-ins. |
-| P1 | Other modules | Reviews/moderation totals, conversations, affiliates, classified listings, newsletters, reports, CMS/SEO, pickup-point staff scoping, and uploads need their own full feature-by-feature PHP comparison and edge-case tests. Their presence in the repository is not a completed parity result. |
-| P2 | Scheduling | The abandoned-payment sweep and the subscription-expiry sweep are exposed as admin endpoints (`POST /admin/payments/expire-abandoned`, `POST /addons/admin/packages/unpublish-expired`). Neither runs on a timer yet; a scheduler or cron entry has to call them. |
+| P1 | Refund return lifecycle | Earned-point and affiliate clawbacks are now implemented transactionally. Per-item returns in mixed refundable/non-refundable shipments, returned-stock inspection, and explicit tax/shipping refund policy still need decisions and acceptance. Current merchandise refund does not automatically restock a delivered return. |
+| P1 | Storefront catalogue | Vendor verification/ban/activation checks now share a tested rule across catalogue, cart and checkout. Category/variant facet UI, sale counters and every legacy listing filter still need complete acceptance. Displayed prices exclude tax and show it separately, where the legacy templates folded tax into the displayed price. |
+| P1 | Settings/storage/auth | Runtime S3 and database storage/social/reCAPTCHA integration are implemented with local contract tests. Actual provider delivery and complete feature activation enforcement still require acceptance. Gateway callback processing is excluded from this continuation. |
+| P1 | Localization | Overrides now merge into bundled `en/hi/ar` messages; target currency precision and zero-rate handling are covered locally. New frontend locales still require message files and routing configuration. An imported non-ISO currency code is reported but not rewritten. |
+| P1 | POS UI | Registered customer lookup/wallet selection, authoritative tax/discount totals, receipt action and per-account draft recovery are implemented. Browser results are recorded in `VALIDATION.md`; complete till/operator acceptance remains broader than the smoke checks. |
+| P1 | Other modules | The current feature review adds source comparisons and regressions for these modules; see `NON-GATEWAY-REVIEW.md`. Complete control-by-control and role/locale acceptance, SMS/OTP provider parity and durable newsletter delivery remain open. |
+| P2 | Scheduling | The API now runs the maintenance sweeps every 15 minutes by default, with database leases and owner-checked release. `RUN_MAINTENANCE_JOBS=false` leaves scheduling to an external operator. Deployment operation still needs acceptance. |
 | P2 | Production operations | Deployment configuration, readiness/shutdown, queue jobs, backups, observability and complete browser/role acceptance remain open. |
 
 ## Cleanup disposition

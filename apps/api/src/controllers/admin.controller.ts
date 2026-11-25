@@ -13,19 +13,12 @@ import { invalidateMaintenanceCache } from "../middleware/maintenance.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import mongoose from "mongoose";
 import { lockSellerFunds, sellerFunds, creditSellerWallet } from "../services/seller-funds.service.js";
+import { salesTotals } from "../services/sales-report.service.js";
 
 // --- Dashboard -------------------------------------------------------------
 
 export async function dashboardSummaryHandler(_req: Request, res: Response) {
-  const [orderStats] = await Order.aggregate([
-    {
-      $group: {
-        _id: null,
-        totalOrders: { $sum: 1 },
-        totalRevenue: { $sum: "$grandTotal" },
-      },
-    },
-  ]);
+  const orderStats = await salesTotals();
   const [sellerCount, customerCount, pendingWithdrawals] = await Promise.all([
     User.countDocuments({ role: "seller" }),
     User.countDocuments({ role: "customer" }),
@@ -33,8 +26,8 @@ export async function dashboardSummaryHandler(_req: Request, res: Response) {
   ]);
 
   res.json({
-    totalOrders: orderStats?.totalOrders ?? 0,
-    totalRevenue: orderStats?.totalRevenue ?? 0,
+    totalOrders: orderStats.orders,
+    totalRevenue: orderStats.revenue,
     sellerCount,
     customerCount,
     pendingWithdrawals,

@@ -4,12 +4,14 @@ import { useLocale } from "next-intl";
 import { useCurrencies } from "@/lib/hooks/useAdminCatalogExtras";
 import { useCurrencyStore } from "@/lib/store";
 import { formatPrice } from "@/lib/format";
+import { useSiteSettings } from "@/lib/site-settings-context";
 
 // Mirrors the server's currency.service.ts conversion formula exactly (rateToBase
 // = units of base/INR per 1 unit of that currency) so display-side conversion
 // never drifts from how the backend would compute the same thing.
 export function useDisplayCurrency() {
   const locale = useLocale();
+  const { general } = useSiteSettings();
   const { data: currencies } = useCurrencies();
   const code = useCurrencyStore((s) => s.code);
   const setCode = useCurrencyStore((s) => s.setCode);
@@ -28,7 +30,7 @@ export function useDisplayCurrency() {
   // `fromCode` is optional because several records (classifieds, packages) leave
   // currency unset and are priced in the store's base currency.
   function display(amount: number, fromCode?: string): string {
-    const converted = convert(amount, fromCode ?? "INR");
+    const converted = convert(amount, fromCode ?? general.defaultCurrency ?? "INR");
     const currency = currencies?.find((item) => item.code === converted.code);
     if (!currency) return formatPrice(converted.amount, converted.code, locale);
     const number = new Intl.NumberFormat(locale, {

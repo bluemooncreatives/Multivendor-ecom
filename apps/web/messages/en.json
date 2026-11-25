@@ -12,7 +12,7 @@
     "searchPlaceholder": "Search products..."
   },
   "footer": {
-    "copyright": "© {year} PHPStore. All rights reserved.",
+    "copyright": "© {year} {appName}. All rights reserved.",
     "tagline": "Be Vocal for Local — Digital India"
   },
   "cart": {

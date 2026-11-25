@@ -5,6 +5,7 @@ import { Role, StaffPermission } from "../models/Rbac.js";
 import { RefreshToken } from "../models/RefreshToken.js";
 import { hashPassword } from "../utils/password.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { PERMISSIONS } from "../config/permissions.js";
 
 export async function updateRoleHandler(req: Request, res: Response) {
   const role = await Role.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -27,8 +28,14 @@ export async function deleteRoleHandler(req: Request, res: Response) {
 
 // The catalog of permission strings the role editor offers, grouped for display.
 export async function listPermissionsHandler(_req: Request, res: Response) {
-  const items = await StaffPermission.find().sort({ group: 1, label: 1 });
-  res.json({ items });
+  const stored = await StaffPermission.find().lean();
+  // A migrated or upgraded database must not need the destructive demo seeder
+  // just to offer new named grants in the role editor.
+  const catalog = new Map(PERMISSIONS.map((permission) => [permission.key, { ...permission, id: `permission:${permission.key}` }]));
+  for (const permission of stored) catalog.set(permission.key, {
+    id: String(permission._id), key: permission.key, label: permission.label, group: permission.group,
+  });
+  res.json({ items: [...catalog.values()].sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label)) });
 }
 
 export async function listStaffHandler(_req: Request, res: Response) {

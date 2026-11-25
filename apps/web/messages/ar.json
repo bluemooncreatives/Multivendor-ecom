@@ -12,7 +12,7 @@
     "searchPlaceholder": "ابحث عن المنتجات..."
   },
   "footer": {
-    "copyright": "© {year} بي إتش بي ستور. جميع الحقوق محفوظة.",
+    "copyright": "© {year} {appName}. جميع الحقوق محفوظة.",
     "tagline": "كن صوت المحلي — الهند الرقمية"
   },
   "cart": {

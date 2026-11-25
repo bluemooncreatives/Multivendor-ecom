@@ -32,6 +32,8 @@ import {
   requestEmailChangeSchema,
   confirmEmailChangeHandler,
   confirmEmailChangeSchema,
+  getAuthOptionsHandler,
+  getInternalSocialConfigHandler,
 } from "../controllers/auth.controller.js";
 import { validateBody } from "../middleware/validate.js";
 import { authenticate } from "../middleware/auth.js";
@@ -39,6 +41,8 @@ import { requireInternalSecret } from "../middleware/internal.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const authRouter = Router();
+authRouter.get("/options", asyncHandler(getAuthOptionsHandler));
+authRouter.get("/social/config", requireInternalSecret, asyncHandler(getInternalSocialConfigHandler));
 
 // Tighter limit on credential/OTP endpoints specifically, on top of the global limiter.
 const authLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false });

@@ -103,6 +103,7 @@ const orderSchema = new Schema(
     // the order — drives the "updated" markers in the customer's order list.
     deliveryViewed: { type: Boolean, default: true },
     paymentStatusViewed: { type: Boolean, default: true },
+    affiliateSettledAt: { type: Date, default: null, select: false },
   },
   { timestamps: true },
 );

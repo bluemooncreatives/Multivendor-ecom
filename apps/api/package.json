@@ -12,9 +12,12 @@
     "seed": "tsx src/scripts/seed.ts",
     "migrate:taxonomy": "tsx src/scripts/migrate-taxonomy.ts",
     "test": "vitest run",
+    "test:browser": "playwright test -c e2e/playwright.config.ts",
     "migrate:legacy": "tsx src/scripts/migrate-legacy.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1177.0",
+    "@aws-sdk/s3-request-presigner": "^3.1177.0",
     "@ecommercemultivendor/types": "*",
     "@paypal/paypal-server-sdk": "^0.6.1",
     "axios": "^1.7.9",
@@ -35,6 +38,7 @@
     "papaparse": "^5.4.1",
     "pdfkit": "^0.15.1",
     "razorpay": "^2.9.5",
+    "sanitize-html": "^2.18.2",
     "stripe": "^17.4.0",
     "twilio": "^5.3.7",
     "uuid": "^11.0.3",
@@ -42,6 +46,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
@@ -51,6 +56,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/papaparse": "^5.3.15",
     "@types/pdfkit": "^0.13.5",
+    "@types/sanitize-html": "^2.16.2",
     "@types/uuid": "^10.0.0",
     "mongodb-memory-server": "^11.4.0",
     "tsx": "^4.19.2",

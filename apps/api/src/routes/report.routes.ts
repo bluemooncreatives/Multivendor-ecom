@@ -13,7 +13,7 @@ import {
 
 export const reportRouter = Router();
 
-reportRouter.use(authenticate, requirePermission("orders.manage"));
+reportRouter.use(authenticate, requirePermission("reports.view"));
 
 reportRouter.get("/stock", asyncHandler(stockReportHandler));
 reportRouter.get("/sales", asyncHandler(salesReportHandler));

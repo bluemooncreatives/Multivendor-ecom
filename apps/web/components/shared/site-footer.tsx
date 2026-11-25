@@ -8,8 +8,11 @@ import { Facebook, Instagram, Twitter, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSubscribeNewsletter } from "@/lib/hooks/useStorefront";
+import { useSiteSettings } from "@/lib/site-settings-context";
+import { publicAssetUrl } from "@/lib/site-settings";
 
 export function SiteFooter() {
+  const { general, links } = useSiteSettings();
   const t = useTranslations("footer");
   const locale = useLocale();
   const [email, setEmail] = useState("");
@@ -37,8 +40,8 @@ export function SiteFooter() {
 
       <div className="container grid gap-8 py-10 md:grid-cols-4">
         <div className="space-y-3">
-          <span className="text-xl font-bold text-primary">PHPStore</span>
-          <p className="text-sm text-muted-foreground">{t("tagline")}</p>
+          <span className="text-xl font-bold text-primary">{publicAssetUrl(general.footerLogoUrl) ? <img src={general.footerLogoUrl} alt={general.appName} className="h-10 max-w-40 object-contain" /> : general.appName}</span>
+          {general.footerText && <p className="text-sm text-muted-foreground">{general.footerText}</p>}
           <form
             className="flex gap-2"
             onSubmit={async (e) => {
@@ -68,14 +71,15 @@ export function SiteFooter() {
 
         <div className="space-y-2 text-sm">
           <h3 className="font-semibold">Contact Info</h3>
-          <p className="text-muted-foreground">123 Market Street, New Delhi, India</p>
-          <p className="text-muted-foreground">+91 98765 43210</p>
-          <p className="text-muted-foreground">support@phpstore.example</p>
+          {general.address && <p className="text-muted-foreground">{general.address}</p>}
+          {general.supportPhone && <p className="text-muted-foreground">{general.supportPhone}</p>}
+          {general.supportEmail && <p className="text-muted-foreground">{general.supportEmail}</p>}
         </div>
 
         <div className="space-y-2 text-sm">
           <h3 className="font-semibold">Useful Links</h3>
           <ul className="space-y-1 text-muted-foreground">
+            {links.filter((link) => link.placement === "footer").map((link) => <li key={link.id}><Link href={link.url} className="hover:text-primary">{link.label}</Link></li>)}
             <li><Link href={`/${locale}/policies/terms`} className="hover:text-primary">Terms &amp; Conditions</Link></li>
             <li><Link href={`/${locale}/policies/privacy`} className="hover:text-primary">Privacy Policy</Link></li>
             <li><Link href={`/${locale}/delivery-info`} className="hover:text-primary">Delivery Info</Link></li>
@@ -99,17 +103,17 @@ export function SiteFooter() {
       <div className="border-t">
         <div className="container flex flex-col items-center justify-between gap-4 py-4 text-sm text-muted-foreground md:flex-row">
           <p>
-            {t("copyright", { year: new Date().getFullYear() })}
+            {t("copyright", { year: new Date().getFullYear(), appName: general.appName })}
             {" · "}
             <Link href={`/${locale}/policies/terms`} className="hover:text-primary">Terms</Link>
             {" · "}
             <Link href={`/${locale}/policies/privacy`} className="hover:text-primary">Privacy</Link>
           </p>
           <div className="flex items-center gap-3">
-            <Facebook className="h-4 w-4" />
-            <Instagram className="h-4 w-4" />
-            <Twitter className="h-4 w-4" />
-            <Youtube className="h-4 w-4" />
+            {([["facebook", Facebook], ["instagram", Instagram], ["twitter", Twitter], ["youtube", Youtube]] as const).map(([name, Icon]) => {
+              const url = general.socialProfiles?.[name];
+              return url && /^https?:\/\//i.test(url) ? <a key={name} href={url} aria-label={name} target="_blank" rel="noopener noreferrer"><Icon className="h-4 w-4" /></a> : null;
+            })}
           </div>
         </div>
       </div>

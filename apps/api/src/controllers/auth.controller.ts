@@ -4,6 +4,7 @@ import * as authService from "../services/auth.service.js";
 import * as otpService from "../services/otp.service.js";
 import { User } from "../models/User.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { publicAuthOptions, socialProviderConfig, verifyRegistrationCaptcha } from "../services/auth-settings.service.js";
 
 export const registerSchema = z.object({
   name: z.string().min(2).max(100),
@@ -11,6 +12,7 @@ export const registerSchema = z.object({
   password: z.string().min(8).max(72),
   role: z.enum(["customer", "seller"]).optional(),
   referralCode: z.string().trim().min(1).max(64).optional(),
+  recaptchaToken: z.string().max(4096).optional(),
 });
 
 export const loginSchema = z.object({
@@ -73,8 +75,18 @@ function toAuthResponse(user: { _id: unknown }, tokens: { accessToken: string; r
 }
 
 export async function registerHandler(req: Request, res: Response) {
+  await verifyRegistrationCaptcha(req.body.recaptchaToken);
   const { user, tokens } = await authService.register(req.body);
   res.status(201).json(toAuthResponse(user, tokens));
+}
+
+export async function getAuthOptionsHandler(_req: Request, res: Response) {
+  res.json(await publicAuthOptions());
+}
+
+export async function getInternalSocialConfigHandler(_req: Request, res: Response) {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(await socialProviderConfig());
 }
 
 export async function loginHandler(req: Request, res: Response) {

@@ -40,6 +40,7 @@ export function useRegister() {
       password: string;
       role?: "customer" | "seller";
       referralCode?: string;
+      recaptchaToken?: string;
     }) => (await api.post<AuthResponse>("/auth/register", input)).data,
     onSuccess: async (data) => {
       setAccessToken(data.accessToken);

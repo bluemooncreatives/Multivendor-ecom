@@ -6,6 +6,8 @@ import { v2 as cloudinary } from "cloudinary";
 import { env } from "../config/env.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { publicUploadsRoot, privateUploadsRoot, legacyUploadsRoot } from "../config/storage.js";
+import { getDecryptedGroup } from "./settings.service.js";
+import { storeOnS3, signS3DigitalDownload } from "./s3-storage.service.js";
 
 export type UploadKind = "image" | "document" | "digital";
 
@@ -95,10 +97,12 @@ export async function storeUpload(file: UploadedFile, kind: UploadKind, ownerId:
   // segment is how directory traversal and extension-smuggling get in.
   const key = `${kind}/${ownerId}/${randomUUID()}${ext}`;
 
-  if (env.UPLOAD_DRIVER === "cloudinary") {
+  const storage = await getDecryptedGroup("storage");
+  const driver = storage.driver ?? env.UPLOAD_DRIVER;
+  if (driver === "cloudinary") {
     return storeOnCloudinary(file, key, kind);
   }
-  if (env.UPLOAD_DRIVER === "s3") throw new ApiError(503, "S3 uploads are not configured");
+  if (driver === "s3") return storeOnS3(file, key, kind);
   return storeLocally(file, key, kind);
 }
 
@@ -152,6 +156,12 @@ async function storeOnCloudinary(file: UploadedFile, key: string, kind: UploadKi
 
 export async function sendDigitalFile(fileUrl: string, res: Response) {
   const url = new URL(fileUrl);
+  if (url.protocol === "s3-private:") {
+    const signed = await signS3DigitalDownload(url);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.redirect(signed);
+    return;
+  }
   const apiUrl = new URL(env.API_PUBLIC_URL);
   const isLegacyLocal = url.origin === apiUrl.origin && url.pathname.startsWith("/uploads/digital/");
   if (url.protocol === "private-upload:" || isLegacyLocal) {

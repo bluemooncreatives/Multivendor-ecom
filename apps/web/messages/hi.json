@@ -12,7 +12,7 @@
     "searchPlaceholder": "उत्पाद खोजें..."
   },
   "footer": {
-    "copyright": "© {year} पीएचपीस्टोर. सर्वाधिकार सुरक्षित।",
+    "copyright": "© {year} {appName}. सर्वाधिकार सुरक्षित।",
     "tagline": "बी वोकल फॉर लोकल — डिजिटल इंडिया"
   },
   "cart": {

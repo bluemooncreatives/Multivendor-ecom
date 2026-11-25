@@ -966,13 +966,21 @@ describe("background maintenance", () => {
   });
 
   it("does not admit a second run while a lease is held", async () => {
-    // Hold the lease, then try to claim it.
+    let started!: () => void;
+    let release!: () => void;
+    const acquired = new Promise<void>((resolve) => { started = resolve; });
+    const finish = new Promise<void>((resolve) => { release = resolve; });
     const held = withJobLock("slow", 15, async () => {
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      started();
+      await finish;
       return "done";
     });
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(await withJobLock("slow", 15, async () => "other")).toBeNull();
+    await acquired;
+    try {
+      expect(await withJobLock("slow", 15, async () => "other")).toBeNull();
+    } finally {
+      release();
+    }
     expect(await held).toBe("done");
   });
 });

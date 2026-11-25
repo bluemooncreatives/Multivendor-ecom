@@ -1,16 +1,7 @@
-import { StaticPage } from "@/components/storefront/static-page";
+import { PolicyPage } from "@/components/storefront/policy-page";
+
+export const dynamic = "force-dynamic";
 
 export default function TermsPage() {
-  return (
-    <StaticPage title="Terms & Conditions">
-      <p>
-        By accessing or using this marketplace, you agree to be bound by these terms. Sellers and
-        customers must provide accurate information and comply with applicable laws.
-      </p>
-      <p>
-        We reserve the right to suspend accounts that violate our policies, including fraudulent
-        listings, abusive behavior, or repeated order cancellations.
-      </p>
-    </StaticPage>
-  );
+  return <PolicyPage type="terms" title="Terms & Conditions" />;
 }

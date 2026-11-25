@@ -14,8 +14,11 @@ import { useWishlist } from "@/lib/hooks/useWishlist";
 import { useDisplayCurrency } from "@/lib/hooks/useDisplayCurrency";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { locales } from "@/i18n";
+import { useSiteSettings } from "@/lib/site-settings-context";
+import { publicAssetUrl } from "@/lib/site-settings";
 
 export function SiteHeader() {
+  const { general, links } = useSiteSettings();
   const t = useTranslations("nav");
   const locale = useLocale();
   const pathname = usePathname();
@@ -56,6 +59,7 @@ export function SiteHeader() {
             ))}
           </select>
           <div className="flex items-center gap-4">
+            {links.filter((link) => link.placement === "header").map((link) => <Link key={link.id} href={link.url} className="hover:text-primary">{link.label}</Link>)}
             {currencies.length > 0 && (
               <select
                 aria-label="Currency"
@@ -103,7 +107,7 @@ export function SiteHeader() {
         </button>
 
         <Link href={`/${locale}`} className="shrink-0 text-xl font-bold text-primary">
-          PHPStore
+          {publicAssetUrl(general.logoUrl) ? <img src={general.logoUrl} alt={general.appName} className="h-10 max-w-40 object-contain" /> : general.appName}
         </Link>
 
         <button

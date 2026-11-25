@@ -9,9 +9,18 @@ import { z } from "zod";
 const here = path.dirname(fileURLToPath(import.meta.url));
 config({ path: path.resolve(here, "../../../../.env") });
 
+const envBoolean = z.preprocess((value) => {
+  if (typeof value === "string") {
+    if (["true", "1"].includes(value.toLowerCase())) return true;
+    if (["false", "0", ""].includes(value.toLowerCase())) return false;
+  }
+  return value;
+}, z.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   API_PORT: z.coerce.number().default(4000),
+  API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(10000).default(180),
   // Publicly reachable base URL of THIS API server (not the web app) — used to
   // build gateway callback/webhook URLs, which must point back at the API, never
   // at the Next.js origin.
@@ -39,7 +48,7 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
-  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_SECURE: envBoolean.default(false),
   MAIL_FROM: z.string().optional(),
   MAIL_FROM_NAME: z.string().optional(),
 
@@ -60,6 +69,13 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   UPLOAD_DRIVER: z.enum(["local", "cloudinary", "s3"]).default("local"),
+  S3_BUCKET: z.string().optional(),
+  S3_REGION: z.string().optional(),
+  S3_ENDPOINT: z.union([z.literal(""), z.string().url()]).optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_BUCKET: z.string().optional(),
+  AWS_REGION: z.string().optional(),
 
   // Encrypts provider credentials that admins enter through the settings UI
   // (SMTP password, S3 keys, social secrets, gateway keys) before they are
@@ -71,7 +87,7 @@ const envSchema = z.object({
   // and unpublishes the catalogue of sellers whose package has lapsed. Both
   // sweeps are also exposed as admin endpoints, so a deployment that runs them
   // from an external scheduler can leave this off.
-  RUN_MAINTENANCE_JOBS: z.coerce.boolean().default(true),
+  RUN_MAINTENANCE_JOBS: envBoolean.default(true),
   MAINTENANCE_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
   // How long a gateway checkout may hold stock before the sweep reclaims it.
   RESERVATION_TTL_MINUTES: z.coerce.number().int().min(5).max(10080).default(60),

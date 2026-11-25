@@ -11,7 +11,9 @@ const TYPES: { value: PolicyType; label: string }[] = [
   { value: "privacy", label: "Privacy Policy" },
   { value: "terms", label: "Terms" },
   { value: "refund", label: "Refund Policy" },
+  { value: "return", label: "Return Policy" },
   { value: "shipping", label: "Shipping Policy" },
+  { value: "support", label: "Support Policy" },
   { value: "seller_agreement", label: "Seller Agreement" },
 ];
 

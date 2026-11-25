@@ -18,7 +18,7 @@ const userSchema = new Schema(
     banned: { type: Boolean, default: false },
     emailVerifiedAt: { type: Date, default: null },
     phoneVerifiedAt: { type: Date, default: null },
-    provider: { type: String, enum: ["credentials", "google", "facebook"], default: "credentials" },
+    provider: { type: String, enum: ["credentials", "google", "facebook", "twitter"], default: "credentials" },
     providerId: { type: String, index: true, sparse: true },
     clubPoints: { type: Number, default: 0 },
     financeRevision: { type: Number, default: 0, select: false },

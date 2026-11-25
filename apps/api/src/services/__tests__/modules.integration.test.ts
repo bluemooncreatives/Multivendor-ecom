@@ -37,6 +37,11 @@ import { Wallet, WalletTransaction } from "../../models/Wallet.js";
 import { ClubPointTransaction } from "../../models/ClubPoints.js";
 import { awardClubPointsForOrder } from "../clubpoints.service.js";
 import { JobLock, withJobLock } from "../scheduler.service.js";
+import { Cart } from "../../models/Cart.js";
+import { createOrder } from "../checkout.service.js";
+import { setCartItem } from "../cart.service.js";
+import { RefundRequest } from "../../models/Refund.js";
+import { Page, Policy } from "../../models/Content.js";
 
 const id = () => new mongoose.Types.ObjectId();
 let repl: MongoMemoryReplSet;
@@ -94,6 +99,22 @@ async function deliveredOrder(userId: unknown, p: InstanceType<typeof Product>) 
 }
 
 describe("review parity", () => {
+  it("paginates reviews with identical timestamps without duplicates or omissions", async () => {
+    const p = await product();
+    const createdAt = new Date("2026-01-01T00:00:00.000Z");
+    const rows = await Review.create(Array.from({ length: 25 }, (_, index) => ({
+      productId: p._id, userId: id(), orderId: id(), rating: 5,
+      comment: `Tied review ${index}`, createdAt,
+    })));
+    const expected = rows.map((row) => String(row._id)).sort().reverse();
+    const seen: string[] = [];
+    for (let page = 1; page <= 3; page++) {
+      const result = await (await request(`/reviews/product/${p._id}?page=${page}&pageSize=10`)).json() as { items: { id: string }[] };
+      seen.push(...result.items.map((row) => row.id));
+    }
+    expect(seen).toEqual(expected);
+  });
+
   it("keeps the full star histogram across pagination and recomputes moderation totals", async () => {
     const { user: seller } = await account("seller");
     const { token: admin } = await account("admin");
@@ -174,6 +195,15 @@ describe("conversation parity and permissions", () => {
 });
 
 describe("report parity", () => {
+  it("offers built-in grants after migration and requires the report grant separately from order management", async () => {
+    const admin = await account("admin");
+    const reporter = await account("staff", ["reports.view"]);
+    const orderManager = await account("staff", ["orders.manage"]);
+    const permissions = await (await request("/admin/permissions", admin.token)).json() as { items: { key: string }[] };
+    expect(permissions.items.some((permission) => permission.key === "pos.manage")).toBe(true);
+    expect((await request("/admin/reports/sales", reporter.token)).status).toBe(200);
+    expect((await request("/admin/reports/sales", orderManager.token)).status).toBe(403);
+  });
   it("counts each populated seller's catalogue and descendants correctly", async () => {
     const { token } = await account("admin");
     const seller = await account("seller");
@@ -270,6 +300,28 @@ describe("affiliate retry and first purchase safety", () => {
     await Order.updateOne({ _id: first._id }, { paymentStatus: "paid" });
     await creditAffiliateForOrder(String(first._id));
     expect(await AffiliateEarningDetail.countDocuments({ affiliateUserId: affiliate._id })).toBe(1);
+    expect((await AffiliateUser.findById(affiliate._id))!.availableBalance).toBe(10);
+  });
+});
+
+describe("affiliate configuration replay", () => {
+  it("does not add new earning kinds when a settled order is replayed after configuration changes", async () => {
+    await Addon.create({ key: "affiliate", enabled: true });
+    const config = await AffiliateConfig.create({ enabled: true, productSharing: { enabled: true, commissionType: "percent", commission: 10 } });
+    const owner = await account();
+    const buyer = await account();
+    const affiliate = await AffiliateUser.create({ userId: owner.user._id, referralCode: `once-${id()}`, status: "approved" });
+    const p = await product();
+    const order = await deliveredOrder(buyer.user._id, p);
+    order.details[0]!.items[0]!.productReferralCode = affiliate.referralCode;
+    await order.save();
+    await creditAffiliateForOrder(String(order._id));
+    await AffiliateConfig.updateOne({ _id: config._id }, {
+      "productSharing.enabled": false, "categorySharing.enabled": true,
+      "categorySharing.rates": [{ categoryId: p.categoryId, commissionType: "amount", commission: 50 }],
+    });
+    await creditAffiliateForOrder(String(order._id));
+    expect(await AffiliateEarningDetail.countDocuments({ orderId: order._id })).toBe(1);
     expect((await AffiliateUser.findById(affiliate._id))!.availableBalance).toBe(10);
   });
 });
@@ -428,5 +480,65 @@ describe("maintenance lease ownership", () => {
     const lock = await JobLock.findById("lease-test");
     expect(lock!.owner).toBe("replacement");
     expect(lock!.lockedUntil.getTime()).toBeGreaterThan(Date.now());
+  });
+});
+
+describe("storefront vendor visibility", () => {
+  it("enforces verified and active sellers for browsing, carts, checkout and public shops without leaking verification documents", async () => {
+    const seller = await account("seller");
+    const buyer = await account();
+    const p = await product(seller.user._id);
+    const shop = await Shop.create({ sellerId: seller.user._id, name: "Private docs", slug: `shop-${id()}`, verified: false,
+      verificationDocs: ["https://private.example.test/passport.pdf"], verificationAnswers: { passport: "private" } });
+    expect((await request(`/catalog/products/${p.slug}`)).status).toBe(404);
+    await expect(setCartItem({ userId: String(buyer.user._id) }, String(p._id), "sku", 1)).rejects.toThrow(/not found/);
+    await Shop.updateOne({ _id: shop._id }, { verified: true });
+    expect((await request(`/catalog/products/${p.slug}`)).status).toBe(200);
+    const publicShop = await (await request(`/seller/shops/${shop.slug}`)).json() as Record<string, unknown>;
+    expect(publicShop.verificationDocs).toBeUndefined();
+    expect(publicShop.verificationAnswers).toBeUndefined();
+    await setCartItem({ userId: String(buyer.user._id) }, String(p._id), "sku", 1);
+    await User.updateOne({ _id: seller.user._id }, { banned: true });
+    expect((await request(`/catalog/products/${p.slug}`)).status).toBe(404);
+    await expect(createOrder({ owner: { userId: String(buyer.user._id) }, paymentMethod: "cod", idempotencyKey: `ban-${id()}`,
+      address: { line1: "Street", city: "Pune", state: "MH", postalCode: "411001", country: "IN", phone: "9000000000" } })).rejects.toThrow(/available/);
+    await User.updateOne({ _id: seller.user._id }, { banned: false });
+    await BusinessSetting.updateOne({}, { "activation.vendorSystem": false });
+    expect((await request(`/catalog/products/${p.slug}`)).status).toBe(404);
+    const inhouse = await product();
+    expect((await request(`/catalog/products/${inhouse.slug}`)).status).toBe(200);
+  });
+});
+
+describe("CMS and reported revenue", () => {
+  it("sanitizes legacy CMS pages and refuses script links on both write and public output", async () => {
+    const admin = await account("admin");
+    await Page.create({ slug: "unsafe-page", title: "Legacy", body: '<h2>Safe text</h2><script>bad()</script><img src="x" onerror="bad()"><a href="javascript:bad()">Link</a>', published: true });
+    const response = await request("/cms/pages/unsafe-page");
+    expect(response.status).toBe(200);
+    const body = (await response.json() as { body: string }).body;
+    expect(body).toContain("<h2>Safe text</h2>");
+    expect(body).not.toMatch(/<script|onerror|javascript:/);
+    await Policy.create({ type: "return", body: "<p>Configured return policy</p><script>bad()</script>" });
+    const policy = await (await request("/cms/policies/return")).json() as { body: string };
+    expect(policy.body).toBe("<p>Configured return policy</p>");
+    await GeneralSetting.updateOne({}, { appName: "Configured marketplace", supportEmail: "help@example.test" });
+    await BusinessSetting.updateOne({}, { smtp: { password: "private-smtp-value" } });
+    const settings = await (await request("/cms/site-settings")).json() as { general: { appName: string } };
+    expect(settings.general.appName).toBe("Configured marketplace");
+    expect(JSON.stringify(settings)).not.toContain("private-smtp-value");
+    expect((await request("/cms/admin/links", admin.token, "POST", { label: "Bad", url: "javascript:alert(1)", placement: "footer" })).status).toBe(422);
+  });
+
+  it("excludes unpaid checkouts from revenue and subtracts settled merchandise refunds", async () => {
+    const admin = await account("admin");
+    const buyer = await account();
+    const p = await product();
+    const paid = await deliveredOrder(buyer.user._id, p);
+    const unpaid = await deliveredOrder(buyer.user._id, p);
+    await Order.updateOne({ _id: unpaid._id }, { paymentStatus: "unpaid", grandTotal: 999 });
+    await RefundRequest.create({ orderId: paid._id, userId: buyer.user._id, amount: 40, reason: "Partial", status: "refunded" });
+    const totals = await (await request("/admin/reports/sales", admin.token)).json();
+    expect(totals).toMatchObject({ orders: 2, grossRevenue: 100, refunded: 40, revenue: 60 });
   });
 });

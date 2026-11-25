@@ -22,6 +22,9 @@ import { attachReferral } from "./affiliate.service.js";
 import { env } from "../config/env.js";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
+import { socialProviderConfig } from "./auth-settings.service.js";
+import { BusinessSetting, GeneralSetting } from "../models/Settings.js";
+import { logger } from "../config/logger.js";
 
 interface TokenPair {
   accessToken: string;
@@ -51,6 +54,8 @@ export async function register(input: {
   role?: "customer" | "seller";
   referralCode?: string;
 }) {
+  const business = await BusinessSetting.findOne({ key: "business" });
+  if (input.role === "seller" && business?.activation?.vendorSystem === false) throw new ApiError(403, "Seller registration is disabled");
   const existing = await User.findOne({ email: input.email });
   if (existing) throw new ApiError(409, "An account with this email already exists");
 
@@ -62,13 +67,16 @@ export async function register(input: {
     role: input.role === "seller" ? "seller" : "customer",
   });
 
-  await Wallet.create({ userId: user._id, balance: 0 });
+  const general = await GeneralSetting.findOne({ key: "general" });
+  await Wallet.create({ userId: user._id, balance: 0, currency: general?.defaultCurrency ?? "INR" });
   // An unknown or inactive referral code is not an error — the account is still
   // created, it simply earns nobody a commission.
   await attachReferral(String(user._id), input.referralCode);
 
-  const verifyToken = signEmailVerificationToken(String(user._id));
-  await sendVerificationEmail(user.email, verifyToken);
+  if (business?.activation?.emailVerification !== false) {
+    const verifyToken = signEmailVerificationToken(String(user._id));
+    void sendVerificationEmail(user.email, verifyToken).catch((error) => logger.error("Verification email delivery failed", error));
+  }
 
   const tokens = await issueTokenPair(String(user._id), user.role);
   return { user, tokens };
@@ -79,12 +87,14 @@ export async function register(input: {
 // asserting this email/provider pairing is verified. Find-or-create by email;
 // OAuth accounts are treated as pre-verified (the provider already confirmed it).
 export async function socialLogin(input: {
-  provider: "google" | "facebook";
+  provider: "google" | "facebook" | "twitter";
   providerId: string;
   email: string;
   name: string;
   avatarUrl?: string;
 }) {
+  const providers = await socialProviderConfig();
+  if (!providers.some((provider) => provider.id === input.provider)) throw new ApiError(403, "This sign-in provider is disabled");
   let user = await User.findOne({ email: input.email });
 
   if (!user) {

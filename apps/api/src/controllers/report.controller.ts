@@ -8,6 +8,7 @@ import { SellerLedger } from "../models/Ledger.js";
 import { Wishlist } from "../models/Address.js";
 import { User } from "../models/User.js";
 import { z } from "zod";
+import { salesTotals } from "../services/sales-report.service.js";
 
 /**
  * Resolves `?categoryId=` into that category and everything filed beneath it.
@@ -147,19 +148,7 @@ function parseDateRange(req: Request) {
 
 export async function salesReportHandler(req: Request, res: Response) {
   const dateFilter = parseDateRange(req);
-  const match = Object.keys(dateFilter).length ? { createdAt: dateFilter } : {};
-
-  const [totals] = await Order.aggregate([
-    { $match: match },
-    { $group: { _id: null, orders: { $sum: 1 }, revenue: { $sum: "$grandTotal" }, discount: { $sum: "$discount" }, tax: { $sum: "$tax" } } },
-  ]);
-
-  res.json({
-    orders: totals?.orders ?? 0,
-    revenue: totals?.revenue ?? 0,
-    discount: totals?.discount ?? 0,
-    tax: totals?.tax ?? 0,
-  });
+  res.json(await salesTotals(dateFilter));
 }
 
 // Per-seller sales + commission, sourced from the immutable ledger (never a
