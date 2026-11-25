@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Download } from "lucide-react";
 import {
   useAdminCategories,
   useSaveCategory,
@@ -15,17 +16,12 @@ import {
 } from "@/lib/hooks/useAdminCommerce";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+import { PageHeader } from "@/components/shared/page-header";
+import { FormField } from "@/components/shared/form-field";
+import { slugify } from "@/lib/utils";
 
 export default function AdminTaxonomyPage() {
   const { data: categories } = useAdminCategories();
@@ -44,7 +40,6 @@ export default function AdminTaxonomyPage() {
   const [category, setCategory] = useState<typeof emptyCategory & { id?: string }>(emptyCategory);
   const [brand, setBrand] = useState<typeof emptyBrand & { id?: string }>(emptyBrand);
 
-  // Only levels 0 and 1 can take children — level 2 is the deepest the API allows.
   const parentOptions = useMemo(() => (categories ?? []).filter((c) => c.level < 2), [categories]);
 
   const byParent = useMemo(() => {
@@ -60,10 +55,10 @@ export default function AdminTaxonomyPage() {
     const children = byParent.get(parentId) ?? [];
     return children.map((c) => (
       <div key={c.id} className="ms-4 border-s ps-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 py-1 text-sm">
-          <span className={c.active ? "" : "text-muted-foreground line-through"}>{c.name}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
+          <span className={c.active ? "font-medium" : "text-muted-foreground line-through"}>{c.name}</span>
           <div className="flex items-center gap-1">
-            {c.featured && <Badge variant="outline">Featured</Badge>}
+            {c.featured && <Badge variant="info">Featured</Badge>}
             <Button
               variant="ghost"
               size="sm"
@@ -86,7 +81,7 @@ export default function AdminTaxonomyPage() {
             >
               Edit
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => deleteCategory.mutate(c.id)}>
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteCategory.mutate(c.id)}>
               Deactivate
             </Button>
           </div>
@@ -98,18 +93,22 @@ export default function AdminTaxonomyPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Categories & brands</h1>
-        <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/admin/categories/export", "categories.csv")}>
-          Export categories CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="Categories & brands"
+        description="Build your 3-level category tree, commission overrides, and brand associations."
+        actions={
+          <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/admin/categories/export", "categories.csv")}>
+            <Download className="h-4 w-4" />
+            Export categories CSV
+          </Button>
+        }
+      />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">{category.id ? `Edit ${category.name}` : "Add a category"}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <form
             className="grid gap-4 md:grid-cols-5"
             onSubmit={(e) => {
@@ -117,8 +116,7 @@ export default function AdminTaxonomyPage() {
               saveCategory.mutate(category, { onSuccess: () => setCategory(emptyCategory) });
             }}
           >
-            <div className="space-y-1">
-              <Label htmlFor="cat-name">Name</Label>
+            <FormField label="Name" htmlFor="cat-name" required>
               <Input
                 id="cat-name"
                 value={category.name}
@@ -126,22 +124,18 @@ export default function AdminTaxonomyPage() {
                   setCategory((prev) => ({
                     ...prev,
                     name: e.target.value,
-                    // Keep the slug in step with the name until it's edited by hand.
                     slug: prev.slug === slugify(prev.name) || !prev.slug ? slugify(e.target.value) : prev.slug,
                   }))
                 }
                 required
               />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="cat-slug">Slug</Label>
+            </FormField>
+            <FormField label="Slug" htmlFor="cat-slug" required>
               <Input id="cat-slug" value={category.slug} onChange={(e) => setCategory({ ...category, slug: e.target.value })} required />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="cat-parent">Parent</Label>
-              <select
+            </FormField>
+            <FormField label="Parent" htmlFor="cat-parent">
+              <NativeSelect
                 id="cat-parent"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                 value={category.parentId ?? ""}
                 onChange={(e) => setCategory({ ...category, parentId: e.target.value || null })}
               >
@@ -152,10 +146,9 @@ export default function AdminTaxonomyPage() {
                     {c.name}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="cat-commission">Commission %</Label>
+              </NativeSelect>
+            </FormField>
+            <FormField label="Commission %" htmlFor="cat-commission">
               <Input
                 id="cat-commission"
                 type="number"
@@ -168,7 +161,7 @@ export default function AdminTaxonomyPage() {
                   setCategory({ ...category, commissionRate: e.target.value === "" ? null : Number(e.target.value) })
                 }
               />
-            </div>
+            </FormField>
             <div className="flex items-end gap-2">
               <Button type="submit" disabled={saveCategory.isPending}>
                 {category.id ? "Save" : "Add"}
@@ -184,17 +177,17 @@ export default function AdminTaxonomyPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Category tree</CardTitle>
         </CardHeader>
-        <CardContent>{renderTree("root")}</CardContent>
+        <CardContent className="pt-4">{renderTree("root")}</CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Brands</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 pt-5">
           <form
             className="grid gap-4 md:grid-cols-5"
             onSubmit={(e) => {
@@ -202,8 +195,7 @@ export default function AdminTaxonomyPage() {
               saveBrand.mutate(brand, { onSuccess: () => setBrand(emptyBrand) });
             }}
           >
-            <div className="space-y-1">
-              <Label htmlFor="brand-name">Name</Label>
+            <FormField label="Name" htmlFor="brand-name" required>
               <Input
                 id="brand-name"
                 value={brand.name}
@@ -216,21 +208,18 @@ export default function AdminTaxonomyPage() {
                 }
                 required
               />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="brand-slug">Slug</Label>
+            </FormField>
+            <FormField label="Slug" htmlFor="brand-slug" required>
               <Input id="brand-slug" value={brand.slug} onChange={(e) => setBrand({ ...brand, slug: e.target.value })} required />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="brand-logo">Logo URL</Label>
+            </FormField>
+            <FormField label="Logo URL" htmlFor="brand-logo">
               <Input id="brand-logo" value={brand.logoUrl ?? ""} onChange={(e) => setBrand({ ...brand, logoUrl: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="brand-categories">Categories</Label>
-              <select
+            </FormField>
+            <FormField label="Categories" htmlFor="brand-categories" hint="Leave empty to offer everywhere.">
+              <NativeSelect
                 id="brand-categories"
                 multiple
-                className="h-24 w-full rounded-md border bg-background px-3 py-1 text-sm"
+                className="h-24"
                 value={brand.categoryIds}
                 onChange={(e) =>
                   setBrand({ ...brand, categoryIds: Array.from(e.target.selectedOptions, (o) => o.value) })
@@ -242,9 +231,8 @@ export default function AdminTaxonomyPage() {
                     {c.name}
                   </option>
                 ))}
-              </select>
-              <p className="text-xs text-muted-foreground">Leave empty to offer this brand everywhere.</p>
-            </div>
+              </NativeSelect>
+            </FormField>
             <div className="flex items-end gap-2">
               <Button type="submit" disabled={saveBrand.isPending}>
                 {brand.id ? "Save" : "Add"}
@@ -257,12 +245,12 @@ export default function AdminTaxonomyPage() {
             </div>
           </form>
 
-          <div className="space-y-2">
+          <div className="space-y-2 border-t pt-4">
             {brands?.map((b) => (
-              <div key={b.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
-                <span className={b.active ? "" : "text-muted-foreground line-through"}>{b.name}</span>
+              <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                <span className={b.active ? "font-medium" : "text-muted-foreground line-through"}>{b.name}</span>
                 <div className="flex items-center gap-1">
-                  {b.featured && <Badge variant="outline">Featured</Badge>}
+                  {b.featured && <Badge variant="info">Featured</Badge>}
                   <Button variant="ghost" size="sm" onClick={() => toggleBrandFeatured.mutate({ id: b.id, featured: !b.featured })}>
                     {b.featured ? "Unfeature" : "Feature"}
                   </Button>
@@ -281,7 +269,7 @@ export default function AdminTaxonomyPage() {
                   >
                     Edit
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => deleteBrand.mutate(b.id)}>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteBrand.mutate(b.id)}>
                     Deactivate
                   </Button>
                 </div>

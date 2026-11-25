@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { Download, Package } from "lucide-react";
 import { usePendingProducts, useModerateProduct } from "@/lib/hooks/useAdmin";
 import {
   useAdminProducts,
@@ -14,25 +15,34 @@ import {
 import { ProductForm, toFormInput, emptyProduct } from "@/components/catalog/product-form";
 import type { ProductFormInput } from "@/lib/hooks/useCatalogForm";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { SearchInput } from "@/components/shared/search-input";
+import { PaginationBar } from "@/components/shared/pagination-bar";
+import { EmptyState } from "@/components/shared/empty-state";
+import { CardGridSkeleton, TableSkeleton } from "@/components/shared/loading-state";
 import { formatPrice } from "@/lib/format";
-
-function apiError(err: unknown, fallback: string) {
-  return (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
-}
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function AdminProductsPage() {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">Products</h1>
-        <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/admin/products/export", "products.csv")}>
-          Export CSV
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Products"
+        description="Moderate seller submissions, manage catalog placement, or publish In-House items."
+        actions={
+          <Button variant="outline" size="sm" onClick={() => downloadCsv("/catalog/admin/products/export", "products.csv")}>
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        }
+      />
 
       <Tabs defaultValue="moderation">
         <TabsList>
@@ -59,18 +69,20 @@ function ModerationQueue() {
   const { data: products, isLoading } = usePendingProducts();
   const moderate = useModerateProduct();
 
-  if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
-  if (!products || products.length === 0) return <p className="text-muted-foreground">No products awaiting review.</p>;
+  if (isLoading) return <CardGridSkeleton count={4} columns="sm:grid-cols-2" />;
+  if (!products || products.length === 0) {
+    return <EmptyState icon={Package} title="Moderation queue empty" description="No products awaiting review." />;
+  }
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {products.map((product: AdminProduct) => (
         <Card key={product.id}>
-          <CardHeader>
+          <CardHeader className="border-b bg-muted/20 pb-3">
             <CardTitle className="text-base">{product.name}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="font-semibold">{formatPrice(product.basePrice, product.currency)}</p>
+          <CardContent className="space-y-3 pt-4">
+            <p className="text-lg font-bold text-primary">{formatPrice(product.basePrice, product.currency)}</p>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => moderate.mutate({ id: product.id, approved: true })}>
                 Approve
@@ -113,7 +125,7 @@ function CatalogBrowser() {
       setEditing(null);
       toast.success("Product saved");
     } catch (err) {
-      toast.error(apiError(err, "Could not save product"));
+      toast.error(getApiErrorMessage(err, "Could not save product"));
     }
   }
 
@@ -137,75 +149,74 @@ function CatalogBrowser() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <Input
-          className="max-w-xs"
+      <div className="flex flex-wrap gap-3">
+        <SearchInput
+          className="w-full max-w-xs"
           placeholder="Search by name"
           value={filters.q}
-          onChange={(e) => setFilters({ ...filters, q: e.target.value, page: 1 })}
+          onChange={(q) => setFilters({ ...filters, q, page: 1 })}
         />
-        <select
-          className="h-10 rounded-md border bg-background px-3 text-sm"
-          value={filters.approvalStatus}
-          onChange={(e) => setFilters({ ...filters, approvalStatus: e.target.value, page: 1 })}
-        >
-          <option value="">Any status</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
+        <div className="w-44">
+          <NativeSelect
+            value={filters.approvalStatus}
+            onChange={(e) => setFilters({ ...filters, approvalStatus: e.target.value, page: 1 })}
+          >
+            <option value="">Any status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </NativeSelect>
+        </div>
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <TableSkeleton rows={6} />
       ) : !data || data.items.length === 0 ? (
-        <p className="text-muted-foreground">No products match those filters.</p>
+        <EmptyState icon={Package} title="No matching products" description="No products match those filters." />
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead>
-                <tr className="border-b text-xs uppercase text-muted-foreground">
-                  <th className="py-2 text-start">Product</th>
-                  <th className="py-2 text-start">Owner</th>
-                  <th className="py-2 text-start">Price</th>
-                  <th className="py-2 text-start">Status</th>
-                  <th className="py-2 text-start">Placement</th>
-                  <th className="py-2 text-start">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <Card className="overflow-hidden">
+            <Table className="min-w-[720px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Owner</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Placement</TableHead>
+                  <TableHead className="text-end">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {data.items.map((product) => (
-                  <tr key={product.id} className="border-b">
-                    <td className="py-2 pe-2">{product.name}</td>
-                    <td className="py-2 pe-2">
+                  <TableRow key={product.id}>
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell>
                       <Badge variant="outline">{product.addedBy === "admin" ? "In House" : "Seller"}</Badge>
-                    </td>
-                    <td className="py-2 pe-2">{formatPrice(product.basePrice, product.currency)}</td>
-                    <td className="py-2 pe-2">
-                      <Badge variant={product.published ? "secondary" : "outline"}>
-                        {product.published ? "Live" : product.approvalStatus}
-                      </Badge>
-                    </td>
-                    <td className="py-2 pe-2">
+                    </TableCell>
+                    <TableCell className="font-semibold">{formatPrice(product.basePrice, product.currency)}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={product.published ? "live" : product.approvalStatus} />
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-1">
                         <Button
-                          variant="ghost"
+                          variant={product.featured ? "secondary" : "ghost"}
                           size="sm"
                           onClick={() => updateFlags.mutate({ id: product.id, featured: !product.featured })}
                         >
                           {product.featured ? "Unfeature" : "Feature"}
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant={product.todaysDeal ? "secondary" : "ghost"}
                           size="sm"
                           onClick={() => updateFlags.mutate({ id: product.id, todaysDeal: !product.todaysDeal })}
                         >
                           {product.todaysDeal ? "Undeal" : "Deal"}
                         </Button>
                       </div>
-                    </td>
-                    <td className="py-2">
+                    </TableCell>
+                    <TableCell className="text-end">
                       <Button
                         variant="outline"
                         size="sm"
@@ -213,34 +224,20 @@ function CatalogBrowser() {
                       >
                         Edit
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </Card>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={filters.page <= 1}
-              onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
-            >
-              Previous
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {data.page} · {data.total} products
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={data.items.length === 0}
-              onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
-            >
-              Next
-            </Button>
-          </div>
+          <PaginationBar
+            page={data.page}
+            total={data.total}
+            hasNext={data.items.length > 0 && data.page * 20 < data.total}
+            onPageChange={(page) => setFilters({ ...filters, page })}
+            itemLabel="products"
+          />
         </>
       )}
     </div>
@@ -257,16 +254,18 @@ function InHouseProductForm() {
       setForm(emptyProduct);
       toast.success("In-House product published");
     } catch (err) {
-      toast.error(apiError(err, "Could not create product"));
+      toast.error(getApiErrorMessage(err, "Could not create product"));
     }
   }
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        In-House products are owned by the store rather than a vendor. They publish immediately without moderation and
-        carry no seller commission.
-      </p>
+      <Alert variant="info">
+        <AlertDescription>
+          In-House products are owned by the store rather than a vendor. They publish immediately without moderation and
+          carry no seller commission.
+        </AlertDescription>
+      </Alert>
       <ProductForm
         scope="admin"
         value={form}

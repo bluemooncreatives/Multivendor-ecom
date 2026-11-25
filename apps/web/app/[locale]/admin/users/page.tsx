@@ -2,12 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
+import { Users } from "lucide-react";
 import { useAdminUsers, useBanUser } from "@/lib/hooks/useAdmin";
 import { useImpersonateUser } from "@/lib/hooks/useAdminCatalogExtras";
 import { useAuthStore } from "@/lib/store";
 import { setAccessToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { TableSkeleton } from "@/components/shared/loading-state";
 
 export default function AdminUsersPage() {
   const locale = useLocale();
@@ -17,9 +23,6 @@ export default function AdminUsersPage() {
   const impersonate = useImpersonateUser();
   const setSession = useAuthStore((s) => s.setSession);
 
-  // One-way: swaps the admin's own session for the target user's. There is no
-  // "return to admin" path yet — sign back in separately, or impersonate from a
-  // private window so your admin session in another tab stays intact.
   async function handleImpersonate(userId: string) {
     const result = await impersonate.mutateAsync(userId);
     setAccessToken(result.accessToken);
@@ -28,34 +31,51 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Customers</h1>
+    <div className="space-y-6">
+      <PageHeader title="Customers" description="View registered shoppers, impersonate sessions, or manage account access." />
+
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <TableSkeleton rows={6} />
+      ) : !users || users.length === 0 ? (
+        <EmptyState icon={Users} title="No customers found" description="Registered customer accounts will appear here." />
       ) : (
-        <div className="divide-y rounded-md border">
-          {users?.map((user: any) => (
-            <div key={user.id} className="flex items-center justify-between p-3 text-sm">
-              <div>
-                <p className="font-medium">{user.name}</p>
-                <p className="text-muted-foreground">{user.email || user.phone || "No contact details"}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {user.banned && <Badge variant="destructive">Banned</Badge>}
-                <Button variant="outline" size="sm" onClick={() => handleImpersonate(user.id)} disabled={impersonate.isPending}>
-                  Login as
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => banUser.mutate({ id: user.id, banned: !user.banned })}
-                >
-                  {user.banned ? "Unban" : "Ban"}
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <Card className="overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-end">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user: { id: string; name: string; email?: string; phone?: string; banned?: boolean }) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{user.email || user.phone || "No contact details"}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={user.banned ? "banned" : "active"} />
+                  </TableCell>
+                  <TableCell className="text-end">
+                    <div className="inline-flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => handleImpersonate(user.id)} disabled={impersonate.isPending}>
+                        Login as
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => banUser.mutate({ id: user.id, banned: !user.banned })}
+                      >
+                        {user.banned ? "Unban" : "Ban"}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   );
