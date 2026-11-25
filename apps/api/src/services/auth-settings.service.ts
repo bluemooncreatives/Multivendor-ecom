@@ -1,6 +1,7 @@
 import { getDecryptedGroup } from "./settings.service.js";
 import { env } from "../config/env.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { phoneAuthOptions } from "./otp.service.js";
 
 export async function socialProviderConfig() {
   const config = await getDecryptedGroup("socialLogin");
@@ -20,7 +21,7 @@ export async function socialProviderConfig() {
 export async function publicAuthOptions() {
   const providers = await socialProviderConfig();
   const config = await getDecryptedGroup("recaptcha");
-  return { providers: providers.map((provider) => provider.id), recaptcha: {
+  return { providers: providers.map((provider) => provider.id), phone: await phoneAuthOptions(), recaptcha: {
     enabled: config.enabled === true, siteKey: config.enabled === true ? String(config.siteKey ?? "") : "",
   } };
 }

@@ -11,12 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SocialLoginButtons } from "@/components/shared/social-login-buttons";
 import { useLogin } from "@/lib/hooks/useAuth";
+import { useAuthOptions } from "@/lib/hooks/useAuthOptions";
+import { PhoneAuthForm } from "@/components/shared/phone-auth-form";
 
 export default function LoginPage() {
   const t = useTranslations("auth");
   const locale = useLocale();
   const router = useRouter();
   const login = useLogin();
+  const { data: options } = useAuthOptions();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -61,6 +64,7 @@ export default function LoginPage() {
               </span>
             </div>
           </form>
+          {options?.phone?.login && <PhoneAuthForm />}
           <div className="mt-4">
             <SocialLoginButtons />
           </div>

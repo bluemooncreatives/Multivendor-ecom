@@ -7,12 +7,13 @@ production acceptance remain unproven. Gateway implementation is excluded.
 | Check | Result |
 | --- | --- |
 | Original baseline | 79 tests; the earlier 115-test record is historical |
-| Full `npm test` | Passed: 197 tests in 12 files, including 68 commerce transaction tests, 28 module regressions and 7 legacy parser/import tests |
+| Full `npm test` | Passed: 215 tests in 13 files, including 68 commerce tests, 38 module regressions, 8 SMS adapter tests and 7 legacy import tests |
 | Final policy/permission regression | Passed: 2 selected tests; 25 skipped in that targeted run |
 | First API/web production build in this continuation | Passed: 254 generated pages; completed before the final policy/cache changes |
-| Final API/web production build | Passed: both applications; API rebuilt successfully after the review pagination correction |
-| Final standalone typecheck | Passed after the production build and final regression additions |
-| Browser checks | First run exposed timestamp-tie pagination omissions; fixed and covered by API regression. Final harness has 89 non-gateway page checks, 4 interaction/runtime checks and 2 locale checks; rerun pending |
+| API/web production build | Passed after the SMS/OTP continuation: both applications and 254 generated pages |
+| Standalone typecheck | Passed after SMS provider and phone authentication changes |
+| SMS/OTP regressions | Passed in the full suite. The selected run found a missing `explicit` SMS audit enum; corrected before the passing full run |
+| Browser checks | Passed before the order-SMS extension: 99 checks — 89 non-gateway pages, 8 interaction/runtime checks and 2 locale checks. Includes registration verification, phone sign-in/reset, SMS admin, reviews, CMS, POS and branding; see `browser-results.json` |
 | Source comparison inventory | Passed: 1,263 original files, 1,261 embedded reference files, 90 target page components; no substantive PHP-tree differences after whitespace normalization |
 | `git diff --check` | Passed before final documentation refresh |
 | Source PHP edits | None; reference retained |

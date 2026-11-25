@@ -4,6 +4,7 @@ import { startMaintenanceScheduler } from "./services/scheduler.service.js";
 import { connectDb } from "./config/db.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
+import { startOrderSmsWorker } from "./services/order-sms.service.js";
 
 async function main() {
   await connectDb();
@@ -19,6 +20,7 @@ async function main() {
     : null;
 
   const server = app.listen(env.API_PORT, () => logger.info(`API listening on http://localhost:${env.API_PORT}`));
+  const stopSmsWorker = env.RUN_MAINTENANCE_JOBS ? startOrderSmsWorker() : null;
 
   // Stop accepting work, finish what is in flight, then let the process exit.
   let shuttingDown = false;
@@ -27,14 +29,17 @@ async function main() {
     shuttingDown = true;
     logger.info(`${signal} received; shutting down`);
     stopScheduler?.();
+    const smsFinished = stopSmsWorker?.();
     const deadline = setTimeout(() => {
       server.closeAllConnections();
-      void mongoose.disconnect().finally(() => process.exit(1));
+      process.exit(1);
     }, 30_000);
     deadline.unref();
     server.close(() => {
-      clearTimeout(deadline);
-      void mongoose.disconnect().finally(() => process.exit(0));
+      void Promise.resolve(smsFinished).then(() => mongoose.disconnect()).then(
+        () => { clearTimeout(deadline); process.exit(0); },
+        () => { clearTimeout(deadline); process.exit(1); },
+      );
     });
   };
   process.on("SIGTERM", () => shutdown("SIGTERM"));

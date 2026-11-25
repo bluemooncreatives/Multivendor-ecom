@@ -30,6 +30,25 @@ export function useLogin() {
   });
 }
 
+export function usePhoneLogin() {
+  const setSession = useAuthStore((state) => state.setSession);
+  const guestId = useGuestStore((state) => state.guestId);
+  return useMutation({
+    mutationFn: async (input: { phone: string; code: string }) => (await api.post<AuthResponse>("/auth/phone/login", input)).data,
+    onSuccess: async (data) => {
+      setAccessToken(data.accessToken);
+      setSession(null, data.accessToken, data.refreshToken);
+      await api.post("/cart/merge", { guestId }).catch(() => {});
+      const me = (await api.get<User>("/auth/me")).data;
+      setSession(me, data.accessToken, data.refreshToken);
+    },
+  });
+}
+
+export function useSendPhoneCode(purpose: "login" | "password_reset" | "registration") {
+  return useMutation({ mutationFn: async (phone: string) => api.post("/auth/phone/otp", { phone, purpose }) });
+}
+
 export function useRegister() {
   const setSession = useAuthStore((s) => s.setSession);
 
@@ -37,6 +56,8 @@ export function useRegister() {
     mutationFn: async (input: {
       name: string;
       email: string;
+      phone?: string;
+      phoneCode?: string;
       password: string;
       role?: "customer" | "seller";
       referralCode?: string;

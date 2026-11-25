@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ group: vi.fn(), fetch: vi.fn() }));
 vi.mock("../settings.service.js", () => ({ getDecryptedGroup: mock.group }));
+vi.mock("../otp.service.js", () => ({ phoneAuthOptions: vi.fn(async () => ({ login: false, verification: false, passwordReset: false, registrationRequired: false })) }));
 vi.mock("../../config/env.js", () => ({ env: { NEXT_PUBLIC_APP_URL: "https://shop.example.test" } }));
 import { publicAuthOptions, verifyRegistrationCaptcha } from "../auth-settings.service.js";
 

@@ -1,4 +1,21 @@
 import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { createServer } from "node:http";
+
+// The production HTTP adapter runs against a local fake provider, not Vonage.
+// Only dummy fixture numbers are accepted. This shim is never in API dist/.
+const smsMessages = new Map<string, string>();
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const url = input instanceof Request ? input.url : String(input);
+  if (url === "https://rest.nexmo.com/sms/json") {
+    const body = new URLSearchParams(String(init?.body));
+    const phone = body.get("to") ?? "";
+    if (!/^919123450\d{3}$/.test(phone)) throw new Error("Only dummy browser fixture SMS numbers are allowed");
+    smsMessages.set(phone, body.get("text") ?? "");
+    return new Response(JSON.stringify({ messages: [{ status: "0" }] }), { status: 200 });
+  }
+  return originalFetch(input, init);
+};
 
 // Every credential and transport here is isolated from the application's .env.
 Object.assign(process.env, {
@@ -19,7 +36,10 @@ for (const key of [
   "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET", "S3_BUCKET", "S3_REGION", "S3_ENDPOINT",
   "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "AWS_BUCKET", "AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
 ]) process.env[key] = "";
-const repl = await MongoMemoryReplSet.create({ binary: { version: "8.0.17" }, replSet: { count: 1 } });
+console.log("Browser fixture starting; no application database will be used");
+const repl = await MongoMemoryReplSet.create({ binary: { version: "8.0.17" }, replSet: { count: 1 },
+  instanceOpts: [{ args: ["--wiredTigerCacheSizeGB", "0.25"] }] });
+console.log("Disposable browser MongoDB ready");
 process.env.MONGODB_URI = repl.getUri();
 process.env.MONGODB_DB = "browser_acceptance_only";
 const mongoose = (await import("mongoose")).default;
@@ -33,12 +53,14 @@ const { Wallet } = await import("../dist/models/Wallet.js");
 const { Page, Policy, Link } = await import("../dist/models/Content.js");
 const { Language, Currency, Country, Translation } = await import("../dist/models/Localization.js");
 const { Review } = await import("../dist/models/Address.js");
-const { GeneralSetting, BusinessSetting, Addon } = await import("../dist/models/Settings.js");
+const { GeneralSetting, BusinessSetting, Addon, OtpSetting } = await import("../dist/models/Settings.js");
 const { CustomerProduct } = await import("../dist/models/CustomerProduct.js");
 const { PickupPoint } = await import("../dist/models/Marketing.js");
 const { hashPassword } = await import("../dist/utils/password.js");
+const { startOrderSmsWorker } = await import("../dist/services/order-sms.service.js");
 await mongoose.connect(repl.getUri(), { dbName: "browser_acceptance_only" });
 await Promise.all(Object.values(mongoose.models).map((model) => model.init()));
+console.log("Browser fixture models ready; seeding dummy accounts");
 const passwordHash = await hashPassword("Browser-password-123");
 const [admin, seller, customer, staff] = await User.create(["admin", "seller", "customer", "staff"].map((role) => ({
   name: `Browser ${role}`, email: `${role}@browser.test`, passwordHash, role, emailVerifiedAt: new Date(),
@@ -47,6 +69,12 @@ const [admin, seller, customer, staff] = await User.create(["admin", "seller", "
 await GeneralSetting.create({ appName: "Browser marketplace", defaultCurrency: "INR" });
 await BusinessSetting.create({ shippingMode: "free", activation: { classifiedProduct: true, emailVerification: false } });
 await Addon.create(["pos", "affiliate", "club_points", "refunds", "classified_products"].map((key) => ({ key, enabled: true })));
+await Addon.create({ key: "otp", enabled: true });
+await OtpSetting.create({ provider: "nexmo", otpOnRegistration: true, otpOnForgotPassword: true, senderId: "Browser",
+  credentials: { apiKey: "browser-dummy-key", apiSecret: "browser-dummy-secret" } });
+await User.updateOne({ _id: customer!._id }, { phone: "+919123450001", phoneVerifiedAt: new Date() });
+await User.create({ name: "Browser reset", email: "phone-reset@browser.test", passwordHash, role: "customer",
+  emailVerifiedAt: new Date(), phone: "+919123450002", phoneVerifiedAt: new Date() });
 await Currency.create({ code: "INR", name: "Rupee", symbol: "₹", rateToBase: 1 });
 await Country.create({ code: "IN", name: "India" });
 await Language.create([{ code: "en", name: "English" }, { code: "hi", name: "Hindi" }, { code: "ar", name: "Arabic", rtl: true }]);
@@ -75,12 +103,24 @@ const order = await Order.create({ code: "BROWSER-ORDER", userId: customer!._id,
 await Review.create(Array.from({ length: 25 }, (_, index) => ({ productId: product._id, orderId: new mongoose.Types.ObjectId(),
   userId: customer!._id, rating: index % 5 + 1, approved: true, comment: `Browser review ${index + 1}` })));
 const app = createApp();
+// Read-only access to dummy SMS contents lets the browser complete real OTP
+// flows without a transport exception or a test backdoor in production routes.
+const smsProbe = createServer((request, response) => {
+  const phone = new URL(request.url ?? "/", "http://127.0.0.1:4001").searchParams.get("phone") ?? "";
+  if (!/^919123450\d{3}$/.test(phone)) { response.writeHead(404).end(); return; }
+  response.setHeader("Content-Type", "application/json");
+  response.end(JSON.stringify({ code: smsMessages.get(phone)?.match(/^\d{6}/)?.[0] ?? null, message: smsMessages.get(phone) ?? null }));
+});
+await new Promise<void>((resolve, reject) => { smsProbe.once("error", reject); smsProbe.listen(4001, "127.0.0.1", resolve); });
 const server = app.listen(4000, () => console.log("Browser fixture listening on 4000; disposable database only"));
+const stopSmsWorker = startOrderSmsWorker();
 let closing = false;
 async function stop() {
   if (closing) return;
   closing = true;
   server.close();
+  smsProbe.close();
+  await stopSmsWorker();
   await mongoose.disconnect();
   await repl.stop();
   process.exit(0);

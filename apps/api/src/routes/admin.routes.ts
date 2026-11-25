@@ -91,6 +91,7 @@ import {
   sendBulkSmsHandler,
   sendSmsSchema,
   listSmsLogsHandler,
+  listOrderSmsHandler,
 } from "../controllers/sms.controller.js";
 import { searchReportHandler } from "../controllers/search.controller.js";
 import { upload } from "../middleware/upload.js";
@@ -265,6 +266,7 @@ adminRouter.put(
 );
 adminRouter.post("/sms/send", requirePermission("settings.manage"), validateBody(sendSmsSchema), asyncHandler(sendBulkSmsHandler));
 adminRouter.get("/sms/logs", requirePermission("settings.manage"), asyncHandler(listSmsLogsHandler));
+adminRouter.get("/sms/deliveries", requirePermission("settings.manage"), asyncHandler(listOrderSmsHandler));
 
 adminRouter.get("/reports/searches", requirePermission("reports.view"), asyncHandler(searchReportHandler));
 

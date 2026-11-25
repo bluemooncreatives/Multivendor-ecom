@@ -2,16 +2,23 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import type { Server } from "node:http";
+const smsTransport = vi.hoisted(() => ({ send: vi.fn().mockResolvedValue({ status: "queued" }),
+  verifySend: vi.fn().mockResolvedValue({ status: "pending" }), verifyCheck: vi.fn().mockResolvedValue({ status: "approved" }) }));
+vi.mock("twilio", () => ({ default: vi.fn(() => ({ messages: { create: smsTransport.send },
+  verify: { v2: { services: vi.fn(() => ({ verifications: { create: smsTransport.verifySend }, verificationChecks: { create: smsTransport.verifyCheck } })) } },
+})) }));
 
 vi.mock("../../config/env.js", () => ({ env: {
   EMAIL_VERIFY_SECRET: "module-email-secret", JWT_ACCESS_SECRET: "module-access-secret", JWT_ACCESS_EXPIRES: "15m",
   JWT_REFRESH_SECRET: "module-refresh-secret", JWT_REFRESH_EXPIRES: "7d", UPLOAD_DRIVER: "local",
   API_PUBLIC_URL: "http://localhost:4000", NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+  SETTINGS_ENCRYPTION_KEY: "module-settings-encryption-key-32bytes",
 } }));
 vi.mock("../../config/logger.js", () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock("../email.service.js", () => ({
   sendOrderConfirmationEmail: vi.fn(), sendConversationMessageEmail: vi.fn(),
   sendNewsletterCampaign: vi.fn().mockResolvedValue(1), isMailConfigured: vi.fn().mockResolvedValue(true),
+  sendVerificationEmail: vi.fn().mockResolvedValue(undefined), sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined), sendEmailChangeEmail: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../invoice.service.js", () => ({ renderInvoiceBuffer: vi.fn() }));
 
@@ -25,7 +32,7 @@ import { Review } from "../../models/Address.js";
 import { Conversation } from "../../models/Support.js";
 import { Shop } from "../../models/Shop.js";
 import { SellerLedger } from "../../models/Ledger.js";
-import { BusinessSetting, GeneralSetting, Addon } from "../../models/Settings.js";
+import { BusinessSetting, GeneralSetting, Addon, OtpSetting } from "../../models/Settings.js";
 import { CustomerProduct } from "../../models/CustomerProduct.js";
 import { Currency, Language, Translation } from "../../models/Localization.js";
 import { AffiliateConfig, AffiliateUser, AffiliateEarningDetail, AffiliatePayment } from "../../models/Affiliate.js";
@@ -42,6 +49,12 @@ import { createOrder } from "../checkout.service.js";
 import { setCartItem } from "../cart.service.js";
 import { RefundRequest } from "../../models/Refund.js";
 import { Page, Policy } from "../../models/Content.js";
+import { PhoneChallenge } from "../../models/PhoneChallenge.js";
+import { sendPhoneOtp, checkPhoneOtp, phoneAuthOptions } from "../otp.service.js";
+import { comparePassword } from "../../utils/password.js";
+import { env } from "../../config/env.js";
+import { SmsOutbox } from "../../models/SmsOutbox.js";
+import { queueOrderSms, processOrderSmsQueue } from "../order-sms.service.js";
 
 const id = () => new mongoose.Types.ObjectId();
 let repl: MongoMemoryReplSet;
@@ -65,6 +78,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  smsTransport.send.mockResolvedValue({ status: "queued" });
   await Promise.all(Object.values(mongoose.models).map((model) => model.deleteMany({})));
   await BusinessSetting.create({ shippingMode: "free", activation: { classifiedProduct: true } });
   await GeneralSetting.create({ defaultCurrency: "INR" });
@@ -540,5 +554,338 @@ describe("CMS and reported revenue", () => {
     await RefundRequest.create({ orderId: paid._id, userId: buyer.user._id, amount: 40, reason: "Partial", status: "refunded" });
     const totals = await (await request("/admin/reports/sales", admin.token)).json();
     expect(totals).toMatchObject({ orders: 2, grossRevenue: 100, refunded: 40, revenue: 60 });
+  });
+});
+
+describe("SMS provider credentials", () => {
+  it("sends an explicit audience once and excludes banned, unknown or unverified numbers", async () => {
+    const admin = await account("admin");
+    const buyer = await account();
+    const banned = await account();
+    await User.updateOne({ _id: buyer.user._id }, { phone: "+919000000001", phoneVerifiedAt: new Date() });
+    await User.updateOne({ _id: banned.user._id }, { phone: "+919000000002", phoneVerifiedAt: new Date(), banned: true });
+    await OtpSetting.create({ provider: "twilio", credentials: { accountSid: "AC-test", authToken: "test-token", from: "+12025550100" } });
+    const response = await request("/admin/sms/send", admin.token, "POST", { audience: "explicit", message: "Test message",
+      phones: ["+919000000001", "+919000000001", "+919000000002", "+919000000003"] });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ recipients: 1, sent: 1, failed: 0 });
+    expect(smsTransport.send).toHaveBeenCalledTimes(1);
+    expect(smsTransport.send).toHaveBeenCalledWith(expect.objectContaining({ to: "+919000000001", body: "Test message" }));
+    expect((await request("/admin/sms/send", admin.token, "POST", { audience: "explicit", message: "Test", phones: [] })).status).toBe(422);
+  });
+
+  it("encrypts patches, preserves omitted keys, clears explicitly and never returns credentials", async () => {
+    const admin = await account("admin");
+    const endpoint = "/admin/settings/otp/credentials";
+    const first = await request(endpoint, admin.token, "PUT", { apiKey: "secret-api-value", from: "Marketplace" });
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ configuredKeys: expect.arrayContaining(["apiKey", "from"]) });
+    const stored = await OtpSetting.findOne().select("+credentials");
+    expect(stored!.credentials.apiKey).toMatch(/^enc:v1:/);
+    const encrypted = stored!.credentials.apiKey;
+    expect((await request(endpoint, admin.token, "PUT", { apiSecret: "new-api-secret" })).status).toBe(200);
+    expect((await OtpSetting.findOne().select("+credentials"))!.credentials.apiKey).toBe(encrypted);
+    const publicSettings = await (await request("/admin/settings/otp", admin.token)).json() as Record<string, unknown>;
+    expect(publicSettings.credentials).toBeUndefined();
+    const cleared = await (await request(endpoint, admin.token, "PUT", { apiKey: "__clear__" })).json() as { configuredKeys: string[] };
+    expect(cleared.configuredKeys).not.toContain("apiKey");
+    expect(cleared.configuredKeys).toContain("apiSecret");
+  });
+
+  it("initializes one settings row on simultaneous reads and rejects unauthorized credential updates", async () => {
+    const admin = await account("admin");
+    const staff = await account("staff");
+    const responses = await Promise.all(Array.from({ length: 5 }, () => request("/admin/settings/otp", admin.token)));
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200, 200]);
+    expect(await OtpSetting.countDocuments()).toBe(1);
+    expect((await request("/admin/settings/otp/credentials", staff.token, "PUT", { apiKey: "private" })).status).toBe(403);
+  });
+});
+
+describe("phone verification and authentication", () => {
+  it("retains env-only Twilio Verify compatibility with a purpose-bound, single-use local claim", async () => {
+    const runtime = env as unknown as Record<string, unknown>;
+    const keys = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_VERIFY_SERVICE_SID"];
+    const original = keys.map((key) => runtime[key]);
+    try {
+      Object.assign(runtime, { TWILIO_ACCOUNT_SID: "AC-test", TWILIO_AUTH_TOKEN: "test-token", TWILIO_VERIFY_SERVICE_SID: "VA-test" });
+      const phone = "+919100000000";
+      await sendPhoneOtp(phone);
+      expect(smsTransport.verifySend).toHaveBeenCalledWith({ to: phone, channel: "sms" });
+      expect((await PhoneChallenge.findById(phone))!.transport).toBe("twilio_verify");
+      expect(await checkPhoneOtp(phone, "123456", "password_reset")).toBe(false);
+      expect(await checkPhoneOtp(phone, "123456")).toBe(true);
+      expect(await checkPhoneOtp(phone, "123456")).toBe(false);
+      expect(smsTransport.verifyCheck).toHaveBeenCalledTimes(1);
+    } finally {
+      keys.forEach((key, index) => { if (original[index] === undefined) delete runtime[key]; else runtime[key] = original[index]; });
+    }
+  });
+
+  async function configure() {
+    await Addon.create({ key: "otp", enabled: true });
+    await OtpSetting.create({ provider: "twilio", otpOnRegistration: true, otpOnForgotPassword: true,
+      credentials: { accountSid: "AC-test", authToken: "test-token", from: "+12025550100" } });
+  }
+  function lastCode() { return String(smsTransport.send.mock.calls.at(-1)?.[0].body).match(/^\d{6}/)![0]; }
+  async function allowResend(phone: string) { await PhoneChallenge.updateOne({ _id: phone }, { resendAfter: new Date(0) }); }
+
+  it("binds codes to their purpose and account and consumes a correct code once under concurrent checks", async () => {
+    await configure();
+    const buyer = await account();
+    const phone = "+919100000001";
+    await sendPhoneOtp(phone, "verify_phone", String(buyer.user._id));
+    const code = lastCode();
+    const stored = await PhoneChallenge.findById(phone).select("+codeHash");
+    expect(stored!.codeHash).toHaveLength(64);
+    expect(stored!.codeHash).not.toBe(code);
+    expect(await checkPhoneOtp(phone, code, "login")).toBe(false);
+    expect(await checkPhoneOtp(phone, code, "verify_phone", String(id()))).toBe(false);
+    const results = await Promise.all([checkPhoneOtp(phone, code, "verify_phone", String(buyer.user._id)), checkPhoneOtp(phone, code, "verify_phone", String(buyer.user._id))]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+    expect(await checkPhoneOtp(phone, code, "verify_phone", String(buyer.user._id))).toBe(false);
+  });
+
+  it("limits wrong attempts and rejects expired codes independently of TTL cleanup", async () => {
+    await configure();
+    const phone = "+919100000002";
+    await sendPhoneOtp(phone);
+    const code = lastCode();
+    const wrong = code === "111111" ? "222222" : "111111";
+    const attempts = await Promise.all(Array.from({ length: 8 }, () => checkPhoneOtp(phone, wrong)));
+    expect(attempts.every((result) => !result)).toBe(true);
+    expect((await PhoneChallenge.findById(phone))!.attempts).toBe(5);
+    expect(await checkPhoneOtp(phone, code)).toBe(false);
+    await allowResend(phone);
+    await sendPhoneOtp(phone);
+    await PhoneChallenge.updateOne({ _id: phone }, { expiresAt: new Date(0) });
+    expect(await checkPhoneOtp(phone, lastCode())).toBe(false);
+  });
+
+  it("serializes sends across purposes and replaces the old challenge after the resend deadline", async () => {
+    await configure();
+    const phone = "+919100000003";
+    const sends = await Promise.allSettled([sendPhoneOtp(phone), sendPhoneOtp(phone)]);
+    expect(sends.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(smsTransport.send).toHaveBeenCalledTimes(1);
+    const old = lastCode();
+    await expect(sendPhoneOtp(phone, "password_reset")).rejects.toMatchObject({ status: 429 });
+    await allowResend(phone);
+    await sendPhoneOtp(phone, "password_reset");
+    expect(await checkPhoneOtp(phone, old, "login")).toBe(false);
+    expect(await checkPhoneOtp(phone, lastCode(), "password_reset")).toBe(true);
+  });
+
+  it("requires registration proof before creating an account when the setting is enabled", async () => {
+    await configure();
+    const phone = "+919100000004";
+    const body = { name: "Phone buyer", email: "phone-buyer@example.test", password: "Strong-password-123", phone };
+    expect((await request("/auth/register", undefined, "POST", body)).status).toBe(422);
+    expect(await User.exists({ email: body.email })).toBeNull();
+    await sendPhoneOtp(phone, "registration");
+    const response = await request("/auth/register", undefined, "POST", { ...body, phoneCode: lastCode() });
+    expect(response.status).toBe(201);
+    expect((await User.findOne({ email: body.email }))!.phoneVerifiedAt).toBeTruthy();
+  });
+
+  it("signs in and resets a verified account by phone, revokes old sessions and rejects cross-purpose codes", async () => {
+    await configure();
+    const buyer = await account();
+    const phone = "+919100000005";
+    await User.updateOne({ _id: buyer.user._id }, { phone, phoneVerifiedAt: new Date() });
+    expect((await request("/auth/phone/otp", undefined, "POST", { phone, purpose: "login" })).status).toBe(204);
+    const login = await request("/auth/phone/login", undefined, "POST", { phone, code: lastCode() });
+    expect(login.status).toBe(200);
+    const session = await login.json() as { refreshToken: string };
+    await allowResend(phone);
+    expect((await request("/auth/phone/otp", undefined, "POST", { phone, purpose: "password_reset" })).status).toBe(204);
+    const code = lastCode();
+    expect((await request("/auth/phone/login", undefined, "POST", { phone, code })).status).toBe(401);
+    expect((await request("/auth/phone/reset-password", undefined, "POST", { phone, code, password: "New-password-123" })).status).toBe(204);
+    const saved = await User.findById(buyer.user._id).select("+passwordHash");
+    expect(await comparePassword("New-password-123", saved!.passwordHash)).toBe(true);
+    expect((await request("/auth/refresh", undefined, "POST", { refreshToken: session.refreshToken })).status).toBe(401);
+  });
+
+  it("invalidates verification on profile phone changes and prevents another account claiming the same number", async () => {
+    await configure();
+    const buyer = await account();
+    const other = await account();
+    const phone = "+919100000006";
+    await User.updateOne({ _id: buyer.user._id }, { phone, phoneVerifiedAt: new Date() });
+    expect((await request("/me/profile", other.token, "PATCH", { phone })).status).toBe(409);
+    const replacement = "+919100000007";
+    expect((await request("/me/profile", buyer.token, "PATCH", { phone: replacement })).status).toBe(200);
+    expect((await User.findById(buyer.user._id))!.phoneVerifiedAt).toBeNull();
+    expect((await request("/auth/otp/send", buyer.token, "POST", { phone })).status).toBe(409);
+    expect((await request("/auth/otp/send", buyer.token, "POST", { phone: replacement })).status).toBe(204);
+    expect((await request("/auth/otp/verify", buyer.token, "POST", { phone: replacement, code: lastCode() })).status).toBe(204);
+    expect((await User.findById(buyer.user._id))!.phoneVerifiedAt).toBeTruthy();
+  });
+
+  it("fails closed when sending fails or a flow is disabled, preserving the resend deadline", async () => {
+    await configure();
+    const phone = "+919100000008";
+    smsTransport.send.mockRejectedValueOnce(new Error("private provider details"));
+    await expect(sendPhoneOtp(phone)).rejects.toMatchObject({ status: 503 });
+    expect((await PhoneChallenge.findById(phone))!.status).toBe("failed");
+    await expect(sendPhoneOtp(phone)).rejects.toMatchObject({ status: 429 });
+    await OtpSetting.updateOne({}, { otpOnForgotPassword: false });
+    await expect(sendPhoneOtp("+919100000009", "password_reset")).rejects.toMatchObject({ status: 403 });
+    await Addon.updateOne({}, { enabled: false });
+    expect(await phoneAuthOptions()).toMatchObject({ login: false, passwordReset: false, registrationRequired: false });
+    await expect(sendPhoneOtp("+919100000009")).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe("order SMS delivery", () => {
+  async function configure() {
+    await Addon.create({ key: "otp", enabled: true });
+    await OtpSetting.create({ provider: "twilio", otpOnOrderPlacement: true, smsOnDeliveryStatus: true, smsOnPaymentStatus: true,
+      credentials: { accountSid: "AC-test", authToken: "test-token", from: "+12025550100" } });
+  }
+  async function placed(phone = "+919200000001") {
+    const buyer = await account();
+    const p = await product();
+    await Cart.create({ userId: buyer.user._id, items: [{ productId: p._id, variantSku: "sku", quantity: 1 }] });
+    const input = { owner: { userId: String(buyer.user._id) }, paymentMethod: "cod" as const, idempotencyKey: `sms-order-${id()}`,
+      address: { line1: "Street", city: "Pune", state: "MH", country: "IN", postalCode: "411001", phone } };
+    return { order: await createOrder(input), input, buyer };
+  }
+
+  it("queues checkout once, sends after commit and rolls queued messages back with an aborted order transaction", async () => {
+    await configure();
+    const { order, input } = await placed();
+    expect(await SmsOutbox.countDocuments()).toBe(1);
+    await createOrder(input);
+    expect(await SmsOutbox.countDocuments()).toBe(1);
+    expect(smsTransport.send).not.toHaveBeenCalled();
+    const session = await mongoose.startSession();
+    try {
+      await expect(session.withTransaction(async () => {
+        const [aborted] = await Order.create([{ ...order.toObject(), _id: id(), code: `aborted-${id()}`, idempotencyKey: `aborted-${id()}` }], { session });
+        await queueOrderSms(aborted!, "placed", session);
+        throw new Error("abort notification transaction");
+      })).rejects.toThrow(/abort notification/);
+    } finally { await session.endSession(); }
+    expect(await SmsOutbox.countDocuments()).toBe(1);
+    expect(await processOrderSmsQueue()).toEqual({ accepted: 1, failed: 0, cancelled: 0 });
+    expect(smsTransport.send).toHaveBeenCalledTimes(1);
+    expect((await SmsOutbox.findOne())!.acceptedAt).toBeTruthy();
+  });
+
+  it("honors separate delivery/payment switches and deduplicates repeated admin status updates", async () => {
+    await configure();
+    await OtpSetting.updateOne({}, { otpOnOrderPlacement: false, smsOnPaymentStatus: false });
+    const admin = await account("admin");
+    const { order } = await placed();
+    expect(await SmsOutbox.countDocuments()).toBe(0);
+    for (let attempt = 0; attempt < 2; attempt++) expect((await request(`/admin/orders/${order._id}/status`, admin.token, "PATCH", { status: "processing" })).status).toBe(200);
+    expect(await SmsOutbox.countDocuments({ kind: "delivery" })).toBe(1);
+    expect((await request(`/admin/orders/${order._id}/payment-status`, admin.token, "PATCH", { paymentStatus: "paid" })).status).toBe(200);
+    expect(await SmsOutbox.countDocuments({ kind: "payment" })).toBe(0);
+    await OtpSetting.updateOne({}, { smsOnPaymentStatus: true });
+    for (let attempt = 0; attempt < 2; attempt++) expect((await request(`/admin/orders/${order._id}/payment-status`, admin.token, "PATCH", { paymentStatus: "paid" })).status).toBe(200);
+    expect(await SmsOutbox.countDocuments({ kind: "payment" })).toBe(1);
+  });
+
+  it("leases a queued message to only one concurrent worker", async () => {
+    await configure(); await placed();
+    const results = await Promise.all([processOrderSmsQueue(1), processOrderSmsQueue(1)]);
+    expect(results.reduce((total, value) => total + value.accepted, 0)).toBe(1);
+    expect(smsTransport.send).toHaveBeenCalledTimes(1);
+    expect(await processOrderSmsQueue(1)).toEqual({ accepted: 0, failed: 0, cancelled: 0 });
+  });
+
+  it("supersedes queued placement and old delivery states when an order advances", async () => {
+    await configure();
+    const admin = await account("admin");
+    const { order } = await placed();
+    for (const status of ["processing", "shipped"]) expect((await request(`/admin/orders/${order._id}/status`, admin.token, "PATCH", { status })).status).toBe(200);
+    const result = await processOrderSmsQueue();
+    expect(result).toEqual({ accepted: 1, failed: 0, cancelled: 2 });
+    expect(smsTransport.send).toHaveBeenCalledTimes(1);
+    expect(smsTransport.send.mock.calls[0]![0].body).toContain("is shipped");
+  });
+
+  it("queues cancellation with the reversal and suppresses an obsolete placement message", async () => {
+    await configure();
+    const { order, buyer } = await placed();
+    expect((await request(`/orders/${order._id}/cancel`, buyer.token, "POST")).status).toBe(200);
+    expect(await SmsOutbox.countDocuments()).toBe(2);
+    expect((await Order.findById(order._id))!.details[0]!.status).toBe("cancelled");
+    expect(await processOrderSmsQueue()).toEqual({ accepted: 1, failed: 0, cancelled: 1 });
+    expect(smsTransport.send.mock.calls[0]![0].body).toContain("is cancelled");
+  });
+
+  it("recovers expired leases and closes a crashed final attempt without an extra send", async () => {
+    await configure(); await placed();
+    await SmsOutbox.updateOne({}, { status: "sending", attempts: 5, owner: "dead-worker", leaseUntil: new Date(0) });
+    await processOrderSmsQueue(1);
+    const exhausted = await SmsOutbox.findOne();
+    expect(exhausted!.status).toBe("failed");
+    expect(exhausted!.lastError).toContain("uncertain");
+    expect(smsTransport.send).not.toHaveBeenCalled();
+    await placed();
+    await SmsOutbox.updateOne({ status: "queued" }, { status: "sending", attempts: 2, owner: "dead-worker", leaseUntil: new Date(0) });
+    expect((await processOrderSmsQueue(1)).accepted).toBe(1);
+    expect((await SmsOutbox.findOne({ status: "sent" }))!.attempts).toBe(3);
+  });
+
+  it("keeps a replacement lease when an old worker finishes late", async () => {
+    await configure(); await placed();
+    let started!: () => void;
+    let release!: (result: { status: string }) => void;
+    const ready = new Promise<void>((resolve) => { started = resolve; });
+    smsTransport.send.mockImplementationOnce(() => { started(); return new Promise((resolve) => { release = resolve; }); });
+    const pending = processOrderSmsQueue(1);
+    await ready;
+    await SmsOutbox.updateOne({}, { owner: "replacement-worker", leaseUntil: new Date(Date.now() + 60000) });
+    release({ status: "queued" });
+    await pending;
+    const item = await SmsOutbox.findOne().select("+owner");
+    expect(item!.owner).toBe("replacement-worker");
+    expect(item!.status).toBe("sending");
+    expect(item!.leaseUntil.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("retries provider failures with backoff, then retains a failed audit record after five attempts", async () => {
+    await configure(); await placed();
+    smsTransport.send.mockRejectedValue(new Error("private token-bearing error"));
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      expect((await processOrderSmsQueue(1)).failed).toBe(1);
+      const item = await SmsOutbox.findOne();
+      expect(item!.attempts).toBe(attempt);
+      expect(item!.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
+      expect(item!.status).toBe(attempt === 5 ? "failed" : "queued");
+      expect(item!.lastError).not.toContain("private");
+      await SmsOutbox.updateOne({}, { nextAttemptAt: new Date(0) });
+    }
+    expect((await processOrderSmsQueue(1)).accepted).toBe(0);
+    expect(smsTransport.send).toHaveBeenCalledTimes(5);
+  });
+
+  it("cancels unsent notifications when disabled and fails invalid phone formats without retrying", async () => {
+    await configure(); await placed();
+    await OtpSetting.updateOne({}, { otpOnOrderPlacement: false });
+    expect((await processOrderSmsQueue(1)).cancelled).toBe(1);
+    expect(smsTransport.send).not.toHaveBeenCalled();
+    await OtpSetting.updateOne({}, { otpOnOrderPlacement: true });
+    await placed("9000000000");
+    expect((await processOrderSmsQueue(1)).failed).toBe(1);
+    expect((await SmsOutbox.findOne({ status: "failed" }))!.attempts).toBe(1);
+    expect(smsTransport.send).not.toHaveBeenCalled();
+  });
+
+  it("exposes order message history only to SMS managers and hides lease owner tokens", async () => {
+    await configure(); await placed();
+    const customer = await account();
+    const manager = await account("staff", ["settings.manage"]);
+    expect((await request("/admin/sms/deliveries", customer.token)).status).toBe(403);
+    const response = await request("/admin/sms/deliveries", manager.token);
+    expect(response.status).toBe(200);
+    const history = await response.json() as { items: Record<string, unknown>[] };
+    expect(history.items).toHaveLength(1);
+    expect(history.items[0]!.owner).toBeUndefined();
   });
 });

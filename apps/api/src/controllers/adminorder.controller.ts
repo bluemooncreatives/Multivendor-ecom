@@ -8,6 +8,7 @@ import { awardClubPointsForOrder } from "../services/clubpoints.service.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { inventoryStatus } from "../services/order-state.js";
 import { getManagedPickupPoint, pickupOrderView } from "../services/pickuppoint.service.js";
+import { queueOrderSms } from "../services/order-sms.service.js";
 
 export const updateOrderStatusSchema = z.object({
   status: z.enum(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]),
@@ -45,6 +46,9 @@ export async function updateOrderStatusHandler(req: Request, res: Response) {
       await order.save({ session });
 
       if (req.body.status === "delivered") await awardClubPointsForOrder(String(order._id), session);
+      for (let index = 0; index < order.details.length; index++) {
+        if (order.details[index]!.status === req.body.status) await queueOrderSms(order, "delivery", session, index);
+      }
       result = order;
     });
     res.json(result);
@@ -64,10 +68,11 @@ export async function updateOrderPaymentStatusHandler(req: Request, res: Respons
   if (!order) throw new ApiError(404, "Order not found");
 
   if (req.body.paymentStatus === "paid") {
-    if (order.paymentStatus === "paid") throw new ApiError(409, "Order is already paid");
-    await settleOrderPayment(String(order._id), order.paymentMethod);
+    if (order.paymentStatus !== "paid") await settleOrderPayment(String(order._id), order.paymentMethod);
     await awardClubPointsForOrder(String(order._id));
-    return res.json(await Order.findById(order._id));
+    const paid = await Order.findById(order._id);
+    if (paid) await queueOrderSms(paid, "payment");
+    return res.json(paid);
   }
 
   if (order.paymentStatus === "paid") {
@@ -76,11 +81,14 @@ export async function updateOrderPaymentStatusHandler(req: Request, res: Respons
   if (["cancelled", "refunded"].includes(order.status)) throw new ApiError(409, "This order is closed");
   if (req.body.paymentStatus === "failed") {
     await failOrderPayment(String(order._id), order.paymentMethod);
-    return res.json(await Order.findById(order._id));
+    const failed = await Order.findById(order._id);
+    if (failed) await queueOrderSms(failed, "payment");
+    return res.json(failed);
   }
   order.paymentStatus = req.body.paymentStatus as never;
   order.paymentStatusViewed = false;
   await order.save();
+  await queueOrderSms(order, "payment");
   res.json(order);
 }
 

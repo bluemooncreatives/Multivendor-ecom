@@ -9,6 +9,8 @@ import { publicAuthOptions, socialProviderConfig, verifyRegistrationCaptcha } fr
 export const registerSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),
+  phone: z.string().regex(/^\+[1-9]\d{7,14}$/).optional(),
+  phoneCode: z.string().regex(/^\d{6}$/).optional(),
   password: z.string().min(8).max(72),
   role: z.enum(["customer", "seller"]).optional(),
   referralCode: z.string().trim().min(1).max(64).optional(),
@@ -46,12 +48,13 @@ export const resetPasswordSchema = z.object({
 });
 
 export const sendOtpSchema = z.object({
-  phone: z.string().min(6),
+  phone: z.string().regex(/^\+[1-9]\d{7,14}$/, "Use an international phone number beginning with +"),
+  purpose: z.enum(["login", "password_reset", "registration"]).default("login"),
 });
 
 export const verifyOtpSchema = z.object({
-  phone: z.string().min(6),
-  code: z.string().min(4).max(10),
+  phone: z.string().regex(/^\+[1-9]\d{7,14}$/),
+  code: z.string().regex(/^\d{4,10}$/),
 });
 
 export const resendVerificationSchema = z.object({ email: z.string().email() });
@@ -60,13 +63,13 @@ export const requestEmailChangeSchema = z.object({ email: z.string().email() });
 export const confirmEmailChangeSchema = z.object({ token: z.string().min(1) });
 
 export const phoneLoginSchema = z.object({
-  phone: z.string().min(6),
-  code: z.string().min(4).max(10),
+  phone: z.string().regex(/^\+[1-9]\d{7,14}$/),
+  code: z.string().regex(/^\d{4,10}$/),
 });
 
 export const phonePasswordResetSchema = z.object({
-  phone: z.string().min(6),
-  code: z.string().min(4).max(10),
+  phone: z.string().regex(/^\+[1-9]\d{7,14}$/),
+  code: z.string().regex(/^\d{4,10}$/),
   password: z.string().min(8).max(72),
 });
 
@@ -132,14 +135,19 @@ export async function meHandler(req: Request, res: Response) {
 }
 
 export async function sendPhoneOtpHandler(req: Request, res: Response) {
-  await otpService.sendPhoneOtp(req.body.phone);
+  const user = await User.findById(req.user!.id);
+  if (!user || user.phone !== req.body.phone) throw new ApiError(409, "Save this phone number on your profile first");
+  await otpService.sendPhoneOtp(req.body.phone, "verify_phone", req.user!.id);
   res.status(204).send();
 }
 
 export async function verifyPhoneOtpHandler(req: Request, res: Response) {
-  const ok = await otpService.checkPhoneOtp(req.body.phone, req.body.code);
+  const user = await User.findById(req.user!.id);
+  if (!user || user.phone !== req.body.phone) throw new ApiError(409, "Save this phone number on your profile first");
+  const ok = await otpService.checkPhoneOtp(req.body.phone, req.body.code, "verify_phone", req.user!.id);
   if (!ok) throw new ApiError(400, "Incorrect or expired code");
-  await User.updateOne({ _id: req.user!.id, phone: req.body.phone }, { phoneVerifiedAt: new Date() });
+  const saved = await User.updateOne({ _id: req.user!.id, phone: req.body.phone }, { phoneVerifiedAt: new Date() });
+  if (saved.matchedCount !== 1) throw new ApiError(409, "Your phone number changed; request a new code");
   res.status(204).send();
 }
 
@@ -150,7 +158,12 @@ export async function verifyPhoneOtpHandler(req: Request, res: Response) {
 export async function sendPublicOtpHandler(req: Request, res: Response) {
   // Always 204, whether or not the number is registered — a different response
   // for unknown numbers would let anyone test which phones have accounts.
-  await otpService.sendPhoneOtp(req.body.phone);
+  const options = await otpService.phoneAuthOptions();
+  if (!options.verification) throw new ApiError(503, "Phone verification is disabled or not configured");
+  if (req.body.purpose === "password_reset" && !options.passwordReset) throw new ApiError(403, "Password reset by phone is disabled");
+  if (req.body.purpose === "registration" || await User.exists({ phone: req.body.phone, banned: false, phoneVerifiedAt: { $ne: null } })) {
+    await otpService.sendPhoneOtp(req.body.phone, req.body.purpose);
+  }
   res.status(204).send();
 }
 

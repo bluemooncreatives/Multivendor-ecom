@@ -184,10 +184,12 @@ export function useImportCustomers() {
 
 export interface OtpSettings {
   id: string;
-  provider: "twilio" | "nexmo" | "msg91" | "ssl_wireless" | "none";
+  provider: "twilio" | "nexmo" | "msg91" | "ssl_wireless" | "fast2sms" | "none";
   otpOnRegistration: boolean;
   otpOnForgotPassword: boolean;
   otpOnOrderPlacement: boolean;
+  smsOnDeliveryStatus?: boolean;
+  smsOnPaymentStatus?: boolean;
   senderId?: string;
 }
 
@@ -215,7 +217,7 @@ export function useSaveOtpCredentials() {
 export function useSendBulkSms() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { message: string; audience: "all" | "customers" | "sellers" }) =>
+    mutationFn: async (input: { message: string; audience: "all" | "customers" | "sellers" | "explicit"; phones?: string[] }) =>
       (await api.post("/admin/sms/send", input)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "sms", "logs"] }),
   });
@@ -225,6 +227,13 @@ export function useSmsLogs() {
   return useQuery({
     queryKey: ["admin", "sms", "logs"],
     queryFn: async () => (await api.get("/admin/sms/logs")).data.items,
+  });
+}
+
+export function useOrderSmsDeliveries() {
+  return useQuery({ queryKey: ["admin", "sms", "deliveries"],
+    queryFn: async () => (await api.get<{ items: { id: string; phone: string; message: string; kind: string; status: string; attempts: number; lastError?: string }[] }>("/admin/sms/deliveries")).data.items,
+    refetchInterval: 10000,
   });
 }
 

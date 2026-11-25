@@ -7,6 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { useLogout } from "@/lib/hooks/useAuth";
+import { useAuthOptions } from "@/lib/hooks/useAuthOptions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,12 +17,24 @@ export default function ProfilePage() {
   const user = useAuthStore((s) => s.user);
   const setSession = useAuthStore((s) => s.setSession);
   const logout = useLogout();
+  const { data: authOptions } = useAuthOptions();
+  const [phoneCode, setPhoneCode] = useState("");
+  const [phoneCodeSent, setPhoneCodeSent] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const searchParams = useSearchParams();
+  const sendPhoneCode = useMutation({ mutationFn: async () => api.post("/auth/otp/send", { phone }),
+    onSuccess: () => { setPhoneCodeSent(true); toast.success("Phone code sent"); },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? "Could not send a code") });
+  const verifyPhone = useMutation({ mutationFn: async () => api.post("/auth/otp/verify", { phone, code: phoneCode }),
+    onSuccess: async () => {
+      const updated = (await api.get("/auth/me")).data;
+      setSession(updated, useAuthStore.getState().accessToken, useAuthStore.getState().refreshToken);
+      setPhoneCodeSent(false); setPhoneCode(""); toast.success("Phone number verified");
+    }, onError: (error: any) => toast.error(error?.response?.data?.message ?? "Could not verify the code") });
 
   const requestEmailChange = useMutation({
     mutationFn: async () => api.post("/auth/email-change", { email: newEmail }),
@@ -54,6 +67,7 @@ export default function ProfilePage() {
       setSession(updated, useAuthStore.getState().accessToken, useAuthStore.getState().refreshToken);
       toast.success("Profile updated");
     },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? "Could not update your profile"),
   });
 
   const changePassword = useMutation({
@@ -81,11 +95,19 @@ export default function ProfilePage() {
           </div>
           <div className="space-y-2">
             <Label>Phone</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Input type="tel" placeholder="+919000000001" value={phone} onChange={(e) => { setPhone(e.target.value); setPhoneCodeSent(false); setPhoneCode(""); }} />
           </div>
           <Button onClick={() => updateProfile.mutate()} disabled={updateProfile.isPending}>
             Save changes
           </Button>
+          {authOptions?.phone?.verification && user?.phone && phone === user.phone && <div className="space-y-2 border-t pt-3">
+            {user.phoneVerifiedAt ? <p className="text-sm">Phone number verified</p> : <>
+              <Button variant="outline" onClick={() => sendPhoneCode.mutate()} disabled={sendPhoneCode.isPending}>Send verification code</Button>
+              {phoneCodeSent && <div className="space-y-2"><Label htmlFor="profile-phone-code">Phone verification code</Label>
+                <Input id="profile-phone-code" inputMode="numeric" autoComplete="one-time-code" value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} />
+                <Button onClick={() => verifyPhone.mutate()} disabled={verifyPhone.isPending || !phoneCode}>Verify phone number</Button></div>}
+            </>}
+          </div>}
         </CardContent>
       </Card>
 

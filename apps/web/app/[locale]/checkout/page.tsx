@@ -303,29 +303,30 @@ export default function CheckoutPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4">
               <div className="space-y-2">
-                <Label>Address line 1</Label>
-                <Input value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} required />
+                <Label htmlFor="checkout-line1">Address line 1</Label>
+                <Input id="checkout-line1" value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>City</Label>
-                  <Input value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} required />
+                  <Label htmlFor="checkout-city">City</Label>
+                  <Input id="checkout-city" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
-                  <Label>State</Label>
-                  <Input value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} required />
+                  <Label htmlFor="checkout-state">State</Label>
+                  <Input id="checkout-state" value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
-                  <Label>Postal code</Label>
+                  <Label htmlFor="checkout-postal-code">Postal code</Label>
                   <Input
+                    id="checkout-postal-code"
                     value={address.postalCode}
                     onChange={(e) => setAddress({ ...address, postalCode: e.target.value })}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} required />
+                  <Label htmlFor="checkout-phone">Phone</Label>
+                  <Input id="checkout-phone" value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} required />
                 </div>
               </div>
             </div>

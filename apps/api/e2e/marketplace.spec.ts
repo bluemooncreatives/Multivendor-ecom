@@ -29,6 +29,48 @@ test("customer can sign in through the browser", async ({ page }) => {
   await expect(page).toHaveURL(/\/en\/dashboard/);
 });
 
+test("customer can sign in using a phone code from the fake SMS provider", async ({ page, context }) => {
+  await page.goto("/en/login");
+  await page.getByLabel("Phone number", { exact: true }).fill("+919123450001");
+  await page.getByRole("button", { name: "Send phone code", exact: true }).click();
+  await expect(page.getByLabel("Phone verification code", { exact: true })).toBeVisible();
+  const sms = await (await context.request.get("http://127.0.0.1:4001?phone=919123450001")).json();
+  expect(sms.code).toMatch(/^\d{6}$/);
+  await page.getByLabel("Phone verification code", { exact: true }).fill(sms.code);
+  await page.getByRole("button", { name: "Sign in with code", exact: true }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard/);
+});
+
+test("phone password reset works through the storefront", async ({ page, context }) => {
+  await page.goto("/en/forgot-password");
+  await page.getByLabel("Phone number", { exact: true }).fill("+919123450002");
+  await page.getByRole("button", { name: "Send phone code", exact: true }).click();
+  await expect(page.getByLabel("Phone verification code", { exact: true })).toBeVisible();
+  const sms = await (await context.request.get("http://127.0.0.1:4001?phone=919123450002")).json();
+  await page.getByLabel("Phone verification code", { exact: true }).fill(sms.code);
+  await page.getByLabel("New password", { exact: true }).fill("Browser-new-password-123");
+  await page.getByRole("button", { name: "Reset password by phone", exact: true }).click();
+  await expect(page).toHaveURL(/\/en\/login/);
+  await page.getByLabel("Email address", { exact: true }).fill("phone-reset@browser.test");
+  await page.getByLabel("Password", { exact: true }).fill("Browser-new-password-123");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard/);
+});
+
+test("registration enforces and accepts phone verification", async ({ page, context }) => {
+  await page.goto("/en/register");
+  await page.getByLabel("Full name", { exact: true }).fill("Browser new buyer");
+  await page.getByLabel("Email address", { exact: true }).fill("new-buyer@browser.test");
+  await page.getByLabel("Password", { exact: true }).fill("Browser-password-123");
+  await page.getByLabel("Phone number", { exact: true }).fill("+919123450003");
+  await page.getByRole("button", { name: "Send registration code", exact: true }).click();
+  await expect.poll(async () => (await (await context.request.get("http://127.0.0.1:4001?phone=919123450003")).json()).code).toMatch(/^\d{6}$/);
+  const sms = await (await context.request.get("http://127.0.0.1:4001?phone=919123450003")).json();
+  await page.getByLabel("Phone verification code", { exact: true }).fill(sms.code);
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard/);
+});
+
 test("review pagination and sanitized CMS content work after hydration", async ({ page }) => {
   await page.goto("/en/product/browser-product");
   await page.getByRole("button", { name: /Reviews/ }).click();
@@ -111,3 +153,58 @@ for (const locale of ["hi", "ar"]) {
     expect(errors).toEqual([]);
   });
 }
+
+test("SMS administration saves provider fields and sends a deduplicated explicit audience", async ({ page, context }) => {
+  await session(context, "admin");
+  await page.goto("/en/admin/sms");
+  await page.getByLabel("Provider", { exact: true }).selectOption("fast2sms");
+  await expect(page.getByLabel("DLT entity ID", { exact: true })).toBeVisible();
+  await page.getByLabel("Provider", { exact: true }).selectOption("nexmo");
+  await page.getByLabel("API key", { exact: true }).fill("browser-rotated-key");
+  await page.getByLabel("API secret", { exact: true }).fill("browser-rotated-secret");
+  await page.getByLabel("Sender", { exact: true }).fill("Browser");
+  await page.getByRole("button", { name: "Save credentials", exact: true }).click();
+  await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
+  await page.getByLabel("Audience", { exact: true }).selectOption("explicit");
+  await page.getByLabel("Selected phone numbers", { exact: true }).fill("+919123450001, +919123450001, +919123450099");
+  await page.getByLabel("Message", { exact: true }).fill("Browser-only SMS campaign");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText("Accepted by provider for 1 of 1 recipient(s); 0 failed.", { exact: true })).toBeVisible();
+  await page.getByLabel("Send order placement SMS", { exact: true }).check();
+  await page.getByLabel("Send delivery-status SMS", { exact: true }).check();
+  await page.getByLabel("Send payment-status SMS", { exact: true }).check();
+  await page.getByRole("button", { name: "Save settings", exact: true }).click();
+  await expect.poll(async () => (await (await context.request.get(`${API}/admin/settings/otp`, {
+    headers: { Authorization: `Bearer ${sessions.get("admin")!.accessToken}` },
+  })).json()).otpOnOrderPlacement).toBe(true);
+});
+
+test("wallet checkout completes and queues an order confirmation for the fake SMS provider", async ({ page, context, browser }) => {
+  await session(context, "customer");
+  await page.goto("/en/product/browser-product");
+  await page.getByRole("button", { name: "Add to Cart", exact: true }).click();
+  await expect(page.getByText("Added to cart", { exact: true })).toBeVisible();
+  await page.goto("/en/checkout");
+  await page.getByLabel("Address line 1", { exact: true }).fill("Browser checkout street");
+  await page.getByLabel("City", { exact: true }).fill("Pune");
+  await page.getByLabel("State", { exact: true }).fill("MH");
+  await page.getByLabel("Postal code", { exact: true }).fill("411001");
+  await page.getByLabel("Phone", { exact: true }).fill("+919123450001");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("radio", { name: "Wallet", exact: true }).check();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "Place order", exact: true }).click();
+  await expect(page).toHaveURL(/\/en\/checkout\/order-confirmed\?code=/);
+  const code = new URL(page.url()).searchParams.get("code")!;
+  await expect.poll(async () => (await (await context.request.get("http://127.0.0.1:4001?phone=919123450001")).json()).message,
+    { timeout: 20000 }).toContain(code);
+  const adminContext = await browser.newContext({ baseURL: "http://localhost:3000" });
+  try {
+    await session(adminContext, "admin");
+    const adminPage = await adminContext.newPage();
+    await adminPage.goto("/en/admin/sms");
+    await expect(adminPage.getByText(`Your order ${code} has been placed.`, { exact: true })).toBeVisible();
+    await expect(adminPage.getByText("+919123450001 · sent · 1 attempt(s)", { exact: true })).toBeVisible();
+  } finally { await adminContext.close(); }
+});

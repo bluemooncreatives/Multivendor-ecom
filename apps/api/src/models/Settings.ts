@@ -156,10 +156,12 @@ export const ManualPaymentMethod = model("ManualPaymentMethod", manualPaymentMet
 const otpSettingSchema = new Schema(
   {
     key: { type: String, required: true, unique: true, default: "otp" },
-    provider: { type: String, enum: ["twilio", "nexmo", "msg91", "ssl_wireless", "none"], default: "none" },
+    provider: { type: String, enum: ["twilio", "nexmo", "msg91", "ssl_wireless", "fast2sms", "none"], default: "none" },
     otpOnRegistration: { type: Boolean, default: false },
     otpOnForgotPassword: { type: Boolean, default: false },
     otpOnOrderPlacement: { type: Boolean, default: false },
+    smsOnDeliveryStatus: { type: Boolean, default: false },
+    smsOnPaymentStatus: { type: Boolean, default: false },
     senderId: String,
     credentials: { type: Schema.Types.Mixed, default: {}, select: false },
   },
@@ -174,7 +176,7 @@ const smsLogSchema = new Schema(
   {
     sentBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     message: { type: String, required: true },
-    audience: { type: String, enum: ["all", "customers", "sellers"], required: true },
+    audience: { type: String, enum: ["all", "customers", "sellers", "explicit"], required: true },
     recipientCount: { type: Number, required: true, min: 0 },
     provider: { type: String, required: true },
   },

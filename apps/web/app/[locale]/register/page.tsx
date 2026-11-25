@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SocialLoginButtons } from "@/components/shared/social-login-buttons";
-import { useRegister } from "@/lib/hooks/useAuth";
+import { useRegister, useSendPhoneCode } from "@/lib/hooks/useAuth";
 import { useAuthOptions } from "@/lib/hooks/useAuthOptions";
 import { RegistrationCaptcha } from "@/components/shared/registration-captcha";
 
@@ -20,6 +20,9 @@ export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const register = useRegister();
+  const sendPhoneCode = useSendPhoneCode("registration");
+  const [phone, setPhone] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
   const { data: options, isPending: loadingOptions, isError: optionsFailed } = useAuthOptions();
   const [recaptchaToken, setRecaptchaToken] = useState("");
   const [captchaAttempt, setCaptchaAttempt] = useState(0);
@@ -32,7 +35,8 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await register.mutateAsync({ ...form, referralCode, recaptchaToken: recaptchaToken || undefined });
+      await register.mutateAsync({ ...form, referralCode, recaptchaToken: recaptchaToken || undefined,
+        phone: phone || undefined, phoneCode: phoneCode || undefined });
       toast.success("Check your email to verify your account");
       router.push(`/${locale}/dashboard`);
     } catch (err: any) {
@@ -75,6 +79,19 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="register-phone">Phone number{options?.phone?.registrationRequired ? "" : " (optional)"}</Label>
+              <Input id="register-phone" type="tel" autoComplete="tel" placeholder="+919000000001" pattern="\+[1-9][0-9]{7,14}"
+                required={options?.phone?.registrationRequired} value={phone} onChange={(event) => { setPhone(event.target.value); setPhoneCode(""); }} />
+            </div>
+            {options?.phone?.registrationRequired && <div className="space-y-2">
+              <Button type="button" variant="outline" disabled={sendPhoneCode.isPending || !/^\+[1-9]\d{7,14}$/.test(phone)} onClick={async () => {
+                try { await sendPhoneCode.mutateAsync(phone); toast.success("Phone code sent. Check your messages."); }
+                catch (error: any) { toast.error(error?.response?.data?.message ?? "Could not send a code"); }
+              }}>Send registration code</Button>
+              <Label htmlFor="register-phone-code">Phone verification code</Label>
+              <Input id="register-phone-code" required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} />
+            </div>}
+            <div className="space-y-2">
               <Label>Account type</Label>
               <div className="flex gap-2">
                 <Button
@@ -95,7 +112,7 @@ export default function RegisterPage() {
             </div>
             {options?.recaptcha.enabled && <RegistrationCaptcha key={captchaAttempt} siteKey={options.recaptcha.siteKey} onChange={setRecaptchaToken} />}
             {optionsFailed && <p className="text-sm text-destructive">Registration settings could not load. Reload to try again.</p>}
-            <Button type="submit" className="w-full" disabled={register.isPending || loadingOptions || optionsFailed || (options?.recaptcha.enabled && !recaptchaToken)}>
+            <Button type="submit" className="w-full" disabled={register.isPending || loadingOptions || optionsFailed || (options?.recaptcha.enabled && !recaptchaToken) || (options?.phone?.registrationRequired && !phoneCode)}>
               {t("signUp")}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

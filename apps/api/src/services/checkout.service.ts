@@ -26,6 +26,7 @@ import type { PaymentMethod } from "@ecommercemultivendor/types";
 import { checkoutOptions } from "./payment-options.service.js";
 import { allocateUnits } from "../utils/allocation.js";
 import { publicProductFilter } from "./catalog-visibility.service.js";
+import { queueOrderSms } from "./order-sms.service.js";
 
 export interface InlineAddress {
   line1: string;
@@ -395,6 +396,7 @@ export async function createOrder(input: CheckoutInput) {
       }
 
       await Cart.deleteOne({ _id: cart._id }).session(session);
+      await queueOrderSms(order!, "placed", session);
       createdOrder = order;
     });
 

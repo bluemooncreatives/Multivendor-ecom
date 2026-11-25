@@ -75,9 +75,10 @@ the timer when an external scheduler is used. The existing admin maintenance
 endpoints remain available. Readiness is exposed at `/api/v1/ready`; liveness
 at `/api/v1/health`. Shutdown allows 30 seconds for requests to finish.
 
-For browser checks, build first, ensure ports 3000 and 4000 are free, then run
+For browser checks, build first, ensure ports 3000, 4000 and 4001 are free, then run
 `npm run test:browser`. This starts a disposable MongoDB replica set and test
-API, seeds dummy accounts, and starts the production frontend. It never uses
+API, seeds dummy accounts, and starts the production frontend. Port 4001 exposes
+only dummy SMS contents from a local fake provider for the phone-auth tests. It never uses
 the configured application database. Windows uses installed Edge when available;
 otherwise install Chromium with `npx playwright install chromium` from `apps/api`.
 Browser traces stay under ignored `apps/api/.browser-results`; the test report is

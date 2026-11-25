@@ -9,6 +9,7 @@ import { BusinessSetting } from "../models/Settings.js";
 import { getManagedPickupPoint, pickupScope, pickupOrderView } from "../services/pickuppoint.service.js";
 import { inventoryStatus } from "../services/order-state.js";
 import { awardClubPointsForOrder } from "../services/clubpoints.service.js";
+import { queueOrderSms } from "../services/order-sms.service.js";
 
 export const pickupPointSchema = z.object({
   name: z.string().min(1),
@@ -82,6 +83,7 @@ export async function fulfillPickupShipmentHandler(req: Request, res: Response) 
       else if (active.some((d) => d.status === "processing")) order.status = "processing";
       order.deliveryViewed = false;
       await order.save({ session });
+      await queueOrderSms(order, "delivery", session, order.details.indexOf(detail));
       await awardClubPointsForOrder(String(order._id), session);
       result = pickupOrderView(order, pointId);
     });

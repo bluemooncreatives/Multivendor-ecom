@@ -12,13 +12,21 @@ import { ApiError } from "../middleware/errorHandler.js";
 
 export const updateProfileSchema = z.object({
   name: z.string().min(2).max(100).optional(),
-  phone: z.string().optional(),
+  phone: z.union([z.literal(""), z.string().regex(/^\+[1-9]\d{7,14}$/, "Use an international phone number beginning with +")]).optional(),
   avatarUrl: z.string().url().optional(),
 });
 
 export async function updateProfileHandler(req: Request, res: Response) {
-  const user = await User.findByIdAndUpdate(req.user!.id, req.body, { new: true });
+  const user = await User.findById(req.user!.id);
   if (!user) throw new ApiError(404, "User not found");
+  if (req.body.phone !== undefined && req.body.phone !== (user.phone ?? "")) {
+    if (req.body.phone && await User.exists({ phone: req.body.phone, _id: { $ne: user._id } })) throw new ApiError(409, "This phone number is already registered");
+    user.phone = req.body.phone || undefined;
+    user.phoneVerifiedAt = null;
+  }
+  if (req.body.name !== undefined) user.name = req.body.name;
+  if (req.body.avatarUrl !== undefined) user.avatarUrl = req.body.avatarUrl;
+  await user.save();
   res.json(user);
 }
 

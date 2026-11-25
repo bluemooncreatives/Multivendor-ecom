@@ -7,6 +7,7 @@ import {
   useSaveOtpCredentials,
   useSendBulkSms,
   useSmsLogs,
+  useOrderSmsDeliveries,
   type OtpSettings,
 } from "@/lib/hooks/useAdminPeople";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,10 +21,23 @@ export default function AdminSmsPage() {
   const saveCredentials = useSaveOtpCredentials();
   const sendSms = useSendBulkSms();
   const { data: logs } = useSmsLogs();
+  const { data: deliveries } = useOrderSmsDeliveries();
 
   const [form, setForm] = useState<OtpSettings | null>(null);
-  const [credentials, setCredentials] = useState({ accountSid: "", authToken: "", from: "" });
-  const [blast, setBlast] = useState<{ message: string; audience: "all" | "customers" | "sellers" }>({
+  const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const credentialFields: { key: string; label: string; secret?: boolean }[] = form?.provider === "twilio"
+    ? [{ key: "accountSid", label: "Account SID" }, { key: "authToken", label: "Auth token", secret: true }, { key: "from", label: "Send from number" }]
+    : form?.provider === "nexmo"
+    ? [{ key: "apiKey", label: "API key", secret: true }, { key: "apiSecret", label: "API secret", secret: true }, { key: "from", label: "Sender" }, { key: "entityId", label: "DLT entity ID (if required)" }, { key: "templateId", label: "DLT content ID (if required)" }]
+    : form?.provider === "ssl_wireless"
+    ? [{ key: "apiKey", label: "API token", secret: true }, { key: "sid", label: "SID" }]
+    : form?.provider === "msg91"
+    ? [{ key: "apiKey", label: "Auth key", secret: true }, { key: "from", label: "Sender" }, { key: "templateId", label: "DLT template ID (if required)" }]
+    : form?.provider === "fast2sms"
+    ? [{ key: "apiKey", label: "API key", secret: true }, { key: "from", label: "DLT sender" }, { key: "entityId", label: "DLT entity ID" }, { key: "templateId", label: "DLT template ID" }]
+    : [];
+  const [selectedPhones, setSelectedPhones] = useState("");
+  const [blast, setBlast] = useState<{ message: string; audience: "all" | "customers" | "sellers" | "explicit" }>({
     message: "",
     audience: "customers",
   });
@@ -56,13 +70,14 @@ export default function AdminSmsPage() {
                   id="provider"
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                   value={form.provider}
-                  onChange={(e) => setForm({ ...form, provider: e.target.value as OtpSettings["provider"] })}
+                  onChange={(e) => { setCredentials({}); setForm({ ...form, provider: e.target.value as OtpSettings["provider"] }); }}
                 >
                   <option value="none">Disabled</option>
                   <option value="twilio">Twilio</option>
                   <option value="nexmo">Nexmo / Vonage</option>
                   <option value="msg91">MSG91</option>
                   <option value="ssl_wireless">SSL Wireless</option>
+                  <option value="fast2sms">Fast2SMS</option>
                 </select>
               </div>
               <div className="space-y-1">
@@ -71,14 +86,14 @@ export default function AdminSmsPage() {
               </div>
 
               <fieldset className="space-y-2 md:col-span-2">
-                <legend className="text-sm font-medium">Require an OTP for</legend>
+                <legend className="text-sm font-medium">Phone verification</legend>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={form.otpOnRegistration}
                     onChange={(e) => setForm({ ...form, otpOnRegistration: e.target.checked })}
                   />
-                  Registration
+                  Verify phone before registration
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <input
@@ -86,7 +101,7 @@ export default function AdminSmsPage() {
                     checked={form.otpOnForgotPassword}
                     onChange={(e) => setForm({ ...form, otpOnForgotPassword: e.target.checked })}
                   />
-                  Password reset
+                  Allow password reset by phone
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <input
@@ -94,8 +109,12 @@ export default function AdminSmsPage() {
                     checked={form.otpOnOrderPlacement}
                     onChange={(e) => setForm({ ...form, otpOnOrderPlacement: e.target.checked })}
                   />
-                  Order placement
+                  Send order placement SMS
                 </label>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.smsOnDeliveryStatus ?? false}
+                  onChange={(event) => setForm({ ...form, smsOnDeliveryStatus: event.target.checked })} />Send delivery-status SMS</label>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.smsOnPaymentStatus ?? false}
+                  onChange={(event) => setForm({ ...form, smsOnPaymentStatus: event.target.checked })} />Send payment-status SMS</label>
               </fieldset>
 
               <div className="md:col-span-2">
@@ -122,29 +141,25 @@ export default function AdminSmsPage() {
               e.preventDefault();
               const payload = Object.fromEntries(Object.entries(credentials).filter(([, v]) => v));
               saveCredentials.mutate(payload as Record<string, string>, {
-                onSuccess: () => setCredentials({ accountSid: "", authToken: "", from: "" }),
+                onSuccess: () => setCredentials({}),
               });
             }}
           >
-            <div className="space-y-1">
-              <Label htmlFor="sid">Account SID / API key</Label>
-              <Input id="sid" value={credentials.accountSid} onChange={(e) => setCredentials({ ...credentials, accountSid: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="token">Auth token</Label>
-              <Input
-                id="token"
-                type="password"
-                value={credentials.authToken}
-                onChange={(e) => setCredentials({ ...credentials, authToken: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="from">Send from number</Label>
-              <Input id="from" value={credentials.from} onChange={(e) => setCredentials({ ...credentials, from: e.target.value })} />
-            </div>
+            {credentialFields.map((field) => <div key={field.key} className="space-y-1">
+              <Label htmlFor={`sms-${field.key}`}>{field.label}</Label>
+              <Input id={`sms-${field.key}`} type={field.secret ? "password" : "text"} autoComplete="off"
+                value={credentials[field.key] ?? ""} onChange={(e) => setCredentials({ ...credentials, [field.key]: e.target.value })} />
+            </div>)}
+            {form?.provider === "fast2sms" && <div className="space-y-1">
+              <Label htmlFor="sms-route">Route</Label>
+              <select id="sms-route" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={credentials.route ?? ""}
+                onChange={(e) => setCredentials({ ...credentials, route: e.target.value })}>
+                <option value="">Keep existing (default: Quick SMS)</option><option value="q">Quick SMS</option><option value="dlt_manual">DLT manual</option>
+              </select>
+              <p className="text-xs text-muted-foreground">DLT manual needs the sender, entity and template IDs. Message text must match your approved template.</p>
+            </div>}
             <div className="md:col-span-3">
-              <Button type="submit" variant="outline" disabled={saveCredentials.isPending}>
+              <Button type="submit" variant="outline" disabled={saveCredentials.isPending || credentialFields.length === 0}>
                 Save credentials
               </Button>
               {saveCredentials.data && (
@@ -166,7 +181,8 @@ export default function AdminSmsPage() {
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              sendSms.mutate(blast, { onSuccess: () => setBlast({ ...blast, message: "" }) });
+              sendSms.mutate({ ...blast, ...(blast.audience === "explicit" ? { phones: selectedPhones.split(/[\s,;]+/).filter(Boolean) } : {}) },
+                { onSuccess: () => setBlast({ ...blast, message: "" }) });
             }}
           >
             <div className="space-y-1">
@@ -180,8 +196,16 @@ export default function AdminSmsPage() {
                 <option value="customers">Customers</option>
                 <option value="sellers">Sellers</option>
                 <option value="all">Everyone</option>
+                <option value="explicit">Selected phone numbers</option>
               </select>
             </div>
+            {blast.audience === "explicit" && <div className="space-y-1">
+              <Label htmlFor="sms-phones">Selected phone numbers</Label>
+              <textarea id="sms-phones" className="min-h-20 w-full rounded-md border bg-background p-3 text-sm"
+                value={selectedPhones} onChange={(event) => setSelectedPhones(event.target.value)} required
+                placeholder="+919000000001, +919000000002" />
+              <p className="text-xs text-muted-foreground">Separate numbers with spaces or commas. Only verified, active accounts are included.</p>
+            </div>}
             <div className="space-y-1">
               <Label htmlFor="message">Message</Label>
               <textarea
@@ -201,7 +225,7 @@ export default function AdminSmsPage() {
             </Button>
             {sendSms.data && (
               <p className="text-sm text-muted-foreground">
-                Delivered to {sendSms.data.sent} of {sendSms.data.recipients} recipient(s); {sendSms.data.failed} failed.
+                Accepted by provider for {sendSms.data.sent} of {sendSms.data.recipients} recipient(s); {sendSms.data.failed} failed.
               </p>
             )}
           </form>
@@ -225,6 +249,17 @@ export default function AdminSmsPage() {
               <p className="mt-1">{log.message}</p>
             </div>
           ))}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle className="text-base">Order SMS status</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-muted-foreground">Sent means the provider accepted the message. Failed attempts retry automatically up to five times; network failures can leave delivery uncertain.</p>
+          {deliveries?.length === 0 && <p className="text-sm text-muted-foreground">No order SMS messages yet.</p>}
+          {deliveries?.map((delivery) => <div key={delivery.id} className="rounded-md border p-3 text-sm">
+            <p className="font-medium">{delivery.phone} · {delivery.status} · {delivery.attempts} attempt(s)</p>
+            <p>{delivery.message}</p>{delivery.lastError && <p className="text-destructive">{delivery.lastError}</p>}
+          </div>)}
         </CardContent>
       </Card>
     </div>

@@ -11,6 +11,7 @@ import { inventoryStatus } from "../services/order-state.js";
 import { sellerOrderView } from "../services/order.service.js";
 import { lockSellerFunds, sellerFunds } from "../services/seller-funds.service.js";
 import { publicSellerIds, PUBLIC_SHOP_FIELDS } from "../services/catalog-visibility.service.js";
+import { queueOrderSms } from "../services/order-sms.service.js";
 
 export const shopSchema = z.object({
   name: z.string().min(1).max(120),
@@ -150,6 +151,7 @@ export async function fulfillOrderItemHandler(req: Request, res: Response) {
       else if (statuses.some((s) => s === "processing")) order.status = "processing";
 
       await order.save({ session });
+      await queueOrderSms(order, "delivery", session, order.details.indexOf(detail));
 
       // Shipment delivery and its reward commit together. A multi-vendor order
       // earns only the points of shipments that have actually been delivered.

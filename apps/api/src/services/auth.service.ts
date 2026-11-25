@@ -17,7 +17,7 @@ import {
 } from "../utils/jwt.js";
 import { sha256Hex } from "../utils/hash.js";
 import { sendVerificationEmail, sendPasswordResetEmail, sendEmailChangeEmail } from "./email.service.js";
-import { checkPhoneOtp } from "./otp.service.js";
+import { checkPhoneOtp, phoneAuthOptions } from "./otp.service.js";
 import { attachReferral } from "./affiliate.service.js";
 import { env } from "../config/env.js";
 import mongoose from "mongoose";
@@ -50,6 +50,8 @@ async function issueTokenPair(userId: string, role: string, permissions?: string
 export async function register(input: {
   name: string;
   email: string;
+  phone?: string;
+  phoneCode?: string;
   password: string;
   role?: "customer" | "seller";
   referralCode?: string;
@@ -58,11 +60,18 @@ export async function register(input: {
   if (input.role === "seller" && business?.activation?.vendorSystem === false) throw new ApiError(403, "Seller registration is disabled");
   const existing = await User.findOne({ email: input.email });
   if (existing) throw new ApiError(409, "An account with this email already exists");
+  if (input.phone && await User.exists({ phone: input.phone })) throw new ApiError(409, "This phone number is already registered");
+  const phoneOptions = await phoneAuthOptions();
+  if (phoneOptions.registrationRequired && (!input.phone || !input.phoneCode || !await checkPhoneOtp(input.phone, input.phoneCode, "registration"))) {
+    throw new ApiError(422, "Verify your phone number before registering");
+  }
 
   const passwordHash = await hashPassword(input.password);
   const user = await User.create({
     name: input.name,
     email: input.email,
+    phone: input.phone,
+    phoneVerifiedAt: phoneOptions.registrationRequired ? new Date() : null,
     passwordHash,
     role: input.role === "seller" ? "seller" : "customer",
   });
@@ -246,7 +255,8 @@ export async function loginWithPhone(phone: string, code: string) {
   const verified = await checkPhoneOtp(phone, code);
   if (!verified) throw new ApiError(401, "That code is not valid");
 
-  const user = await User.findOne({ phone });
+  const matches = await User.find({ phone, phoneVerifiedAt: { $ne: null } }).limit(2);
+  const user = matches.length === 1 ? matches[0] : null;
   if (!user) throw new ApiError(401, "That code is not valid");
   if (user.banned) throw new ApiError(403, "This account has been suspended");
 
@@ -257,11 +267,13 @@ export async function loginWithPhone(phone: string, code: string) {
 
 /** Password reset over SMS, for accounts that registered by phone. */
 export async function resetPasswordWithPhone(phone: string, code: string, newPassword: string): Promise<void> {
-  const verified = await checkPhoneOtp(phone, code);
+  const verified = await checkPhoneOtp(phone, code, "password_reset");
   if (!verified) throw new ApiError(401, "That code is not valid");
 
-  const user = await User.findOne({ phone });
+  const matches = await User.find({ phone, phoneVerifiedAt: { $ne: null } }).limit(2);
+  const user = matches.length === 1 ? matches[0] : null;
   if (!user) throw new ApiError(401, "That code is not valid");
+  if (user.banned) throw new ApiError(403, "This account has been suspended");
 
   user.passwordHash = await hashPassword(newPassword);
   await user.save();

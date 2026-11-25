@@ -12,6 +12,15 @@ export async function connectDb(): Promise<typeof mongoose> {
   await mongoose.connect(env.MONGODB_URI, {
     dbName: env.MONGODB_DB,
   });
+  try {
+    // Financial replay guards and phone ownership rely on unique indexes. Do
+    // not accept traffic while they are still building, or after a duplicate
+    // historical row caused index creation to fail.
+    await Promise.all(Object.values(mongoose.models).map((model) => model.init()));
+  } catch (error) {
+    await mongoose.disconnect();
+    throw error;
+  }
 
   connected = true;
   logger.info(`MongoDB connected: ${env.MONGODB_DB}`);

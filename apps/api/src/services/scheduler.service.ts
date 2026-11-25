@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { logger } from "../config/logger.js";
 import { expireAbandonedOrders, RESERVATION_TTL_MINUTES } from "./payment.service.js";
 import { unpublishExpiredSellerProducts } from "./package.service.js";
+import { processOrderSmsQueue } from "./order-sms.service.js";
 
 /**
  * Background maintenance.
@@ -98,7 +99,8 @@ export async function runMaintenanceOnce(options: MaintenanceOptions = {}) {
     logger.info(`Unpublished ${lapsed.unpublished} listing(s) for ${lapsed.sellers} seller(s) with a lapsed package`);
   }
 
-  return { abandoned, lapsed };
+  const sms = await processOrderSmsQueue();
+  return { abandoned, lapsed, sms };
 }
 
 /**

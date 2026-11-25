@@ -6,16 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useForgotPassword } from "@/lib/hooks/useAuth";
+import { useAuthOptions } from "@/lib/hooks/useAuthOptions";
+import { PhoneAuthForm } from "@/components/shared/phone-auth-form";
+import toast from "react-hot-toast";
 
 export default function ForgotPasswordPage() {
   const forgotPassword = useForgotPassword();
+  const { data: options } = useAuthOptions();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await forgotPassword.mutateAsync(email);
-    setSent(true);
+    try { await forgotPassword.mutateAsync(email); setSent(true); }
+    catch (error: any) { toast.error(error?.response?.data?.message ?? "Could not send a password reset link"); }
   }
 
   return (
@@ -40,6 +44,7 @@ export default function ForgotPasswordPage() {
               </Button>
             </form>
           )}
+          {options?.phone?.passwordReset && <PhoneAuthForm resetPassword />}
         </CardContent>
       </Card>
     </div>

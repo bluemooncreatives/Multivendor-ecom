@@ -11,6 +11,7 @@ import { restorePointsForOrder } from "./clubpoints.service.js";
 import { CouponUsage } from "../models/Coupon.js";
 import { releaseDealStock, dealLinesFromOrder } from "./flashdeal.service.js";
 import { shipmentTotal } from "./shipment-totals.js";
+import { queueOrderSms } from "./order-sms.service.js";
 
 // IDOR guard: customers only ever see their own orders; sellers only orders
 // containing at least one of their own items; staff/admin can see any.
@@ -153,6 +154,8 @@ export async function cancelOrder(orderId: string, requester: AuthenticatedUser)
       await restorePointsForOrder(String(order._id), session);
       await CouponUsage.deleteMany({ orderId: order._id }).session(session);
       await order.save({ session });
+      for (let index = 0; index < order.details.length; index++) await queueOrderSms(order, "delivery", session, index);
+      if (order.paymentStatus === "refunded") await queueOrderSms(order, "payment", session);
       result = order;
     });
 

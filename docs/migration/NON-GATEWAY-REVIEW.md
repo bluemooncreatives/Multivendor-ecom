@@ -27,6 +27,7 @@ inventory still contains 1,263 original files, 1,261 embedded reference files an
 | CMS/home content | Page/link/home controllers and views | Published CMS/policy HTML is sanitized, including imported pages. Storefront policy and shipping/delivery information pages read published policies; the editor includes return/support. Public branding, logos, contact information, navigation links and default metadata read a public settings projection. Script links are rejected. Inactive featured taxonomy is hidden. Prior homepage category deep-link editing remains present. |
 | Localization | Language/currency controllers | Zero exchange rates are rejected; malformed stored rates fall back to the source amount. Target precision is honored by server and browser conversion. Translation search treats input literally; copying preserves existing values. Runtime overrides merge into shipped message keys with prototype keys rejected. |
 | Runtime auth settings | Legacy social and reCAPTCHA settings | Public auth options expose provider names and CAPTCHA site key only. NextAuth loads active provider credentials over the internal authenticated API. Registration CAPTCHA is verified server-side and bound to the storefront hostname. Twitter matches the frontend provider list. |
+| SMS and phone authentication | `Helpers.php::sendSMS`, OTP add-on controllers | SMS selects Twilio, Nexmo/Vonage, SSL Wireless, Fast2SMS or MSG91. Credentials use encrypted partial updates; explicit audiences deduplicate verified active accounts. Storefront phone sign-in/reset and profile verification use five-minute, purpose-bound, single-use challenges, a one-minute resend deadline and five attempts. Registration verification is enforced before account creation when enabled. Password reset revokes refresh sessions. The existing env-only Twilio Verify setup remains a compatibility path until DB configuration is selected. Provider acceptance is mocked. |
 | Storage | Legacy upload/storage settings | Runtime-selected local/Cloudinary/S3 drivers. S3 object privacy is retained, public media is proxied, and paid downloads receive a short signed URL after entitlement verification. SDK calls are mocked in regression tests. |
 | Access/operations | Auth middleware, maintenance lifecycle | Every authenticated request uses current database role, grants and ban state. Missing accounts are rejected. Lease release checks its owner. Environment boolean strings parse correctly. Database readiness and bounded shutdown are provided. |
 
@@ -52,6 +53,9 @@ inventory still contains 1,263 original files, 1,261 embedded reference files an
   requests per order/seller and first-purchase earnings per buyer need duplicate
   cleanup if older deployments already contain conflicting records. Existing
   first-purchase rows without `buyerId` need a historical backfill/reconciliation.
+  The phone-authentication index also requires duplicate non-empty user phone
+  numbers to be reconciled before rollout. Phone numbers for these flows use
+  international `+` format; historical local-format numbers need normalization.
 - Refund policy still requires decisions for individual items in mixed
   refundable/non-refundable shipments, inspection/restocking, and tax/shipping
   reimbursement. This change does not invent those business rules.
@@ -61,9 +65,10 @@ inventory still contains 1,263 original files, 1,261 embedded reference files an
   keys. Adding a new fully translated frontend locale still requires a bundled
   message file and routing configuration.
 - Other operational work remains: deployment-specific queue workers, durable
-  newsletter delivery/retries, backups and observability. SMS/OTP provider parity
-  and analytics/pixel/chat script integration are not established by the
-  auth-setting and metadata work above.
+  newsletter delivery/retries, backups and observability. Order placement,
+  fulfillment and payment-status SMS notifications and analytics/pixel/chat
+  integration remain open. Phone-only account registration is not yet provided;
+  the current registration form still requires an email address.
 
 Removed the obsolete ignored `apps/api/affiliate-test.log`. Build output, browser
 traces, test logs and runtime uploads stay outside version control. Production

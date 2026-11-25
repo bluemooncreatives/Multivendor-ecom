@@ -34,6 +34,7 @@ const userSchema = new Schema(
 );
 
 userSchema.index({ role: 1, banned: 1 });
+userSchema.index({ phone: 1 }, { name: "phone_login_unique", unique: true, partialFilterExpression: { phone: { $type: "string", $gt: "" } } });
 withJsonId(userSchema);
 
 export type UserDoc = InferSchemaType<typeof userSchema>;
