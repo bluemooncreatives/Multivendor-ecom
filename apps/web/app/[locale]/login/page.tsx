@@ -20,14 +20,14 @@ import { Separator } from "@/components/ui/separator";
 const BRAND_ASIDE = (
   <div className="flex h-full flex-col justify-between">
     <div className="space-y-6">
-      <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white/20 backdrop-blur-sm">
+      <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-background/15 backdrop-blur-sm">
         <ShoppingBag className="h-8 w-8" />
       </div>
       <div className="space-y-3">
         <h2 className="text-3xl font-black leading-tight">
           Welcome back to your marketplace
         </h2>
-        <p className="text-primary-foreground/80">
+        <p className="text-background/80">
           Sign in to access your orders, wishlist, and personalized experience.
         </p>
       </div>
@@ -40,10 +40,10 @@ const BRAND_ASIDE = (
         { icon: Store, label: "Manage your seller dashboard" },
       ].map(({ icon: Icon, label }) => (
         <div key={label} className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-background/15">
             <Icon className="h-4 w-4" />
           </div>
-          <span className="text-sm font-medium text-primary-foreground/90">{label}</span>
+          <span className="text-sm font-medium text-background/90">{label}</span>
         </div>
       ))}
     </div>

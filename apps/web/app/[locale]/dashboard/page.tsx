@@ -33,30 +33,26 @@ export default function DashboardOverviewPage() {
   return (
     <div className="space-y-6">
       {/* Welcome hero */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-orange-600 p-6 text-white sm:p-8">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
-        <div className="pointer-events-none absolute bottom-0 left-1/4 h-24 w-24 rounded-full bg-black/10 blur-xl" />
+      <div className="relative overflow-hidden rounded-3xl bg-foreground p-6 text-background sm:p-8">
+        <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-background/5 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/4 h-24 w-24 rounded-full bg-background/5 blur-2xl" />
 
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 ring-2 ring-white/30">
-              <AvatarFallback className="bg-white/20 text-xl font-black text-white">
+            <Avatar className="h-16 w-16 ring-2 ring-background/25">
+              <AvatarFallback className="bg-background/15 text-xl font-black text-background">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-sm font-medium text-white/70">Welcome back,</p>
-              <h1 className="text-2xl font-black">{user?.name ?? "Account"}</h1>
-              <p className="text-sm text-white/70">{user?.email ?? user?.phone}</p>
+              <span className="eyebrow text-background/55">Welcome back</span>
+              <h1 className="text-display text-3xl font-bold leading-tight">{user?.name ?? "Account"}</h1>
+              <p className="text-sm text-background/65">{user?.email ?? user?.phone}</p>
             </div>
           </div>
-          <Button
-            asChild
-            variant="secondary"
-            className="shrink-0 rounded-xl font-bold"
-          >
+          <Button asChild variant="inverted" className="shrink-0">
             <Link href={`/${locale}/products`}>
-              Continue Shopping
+              Continue shopping
               <ArrowRight className="h-4 w-4 rtl:rotate-180" />
             </Link>
           </Button>

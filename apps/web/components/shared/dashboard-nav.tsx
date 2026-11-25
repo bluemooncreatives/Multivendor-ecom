@@ -62,7 +62,7 @@ export function DashboardNav({
                 className={cn(
                   "group flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   active
-                    ? "bg-primary/10 text-primary shadow-xs"
+                    ? "bg-foreground text-background shadow-sm"
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                 )}
               >
@@ -70,7 +70,7 @@ export function DashboardNav({
                   <Icon
                     className={cn(
                       "h-4 w-4 shrink-0 transition-colors",
-                      active ? "text-primary" : "text-muted-foreground/70 group-hover:text-foreground/80",
+                      active ? "text-background" : "text-muted-foreground/70 group-hover:text-foreground/80",
                     )}
                   />
                 )}
@@ -80,7 +80,7 @@ export function DashboardNav({
                     className={cn(
                       "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold",
                       active
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-background/20 text-background"
                         : "bg-muted text-muted-foreground",
                     )}
                   >

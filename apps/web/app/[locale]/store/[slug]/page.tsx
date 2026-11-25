@@ -135,10 +135,10 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
                 )}
               </div>
               <div className="mb-1 space-y-1">
-                <h1 className="flex flex-wrap items-center gap-2 text-2xl font-black">
+                <h1 className="flex flex-wrap items-center gap-2 text-display text-3xl font-bold leading-tight">
                   {shop.name}
                   {shop.verified && (
-                    <CheckCircle2 className="h-6 w-6 text-primary" />
+                    <CheckCircle2 className="h-6 w-6 text-foreground" />
                   )}
                 </h1>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -186,14 +186,14 @@ export default function PublicShopPage({ params }: { params: Promise<{ slug: str
       {/* Products section */}
       <div className="overflow-hidden rounded-3xl border bg-card shadow-xs">
         {/* Tabs */}
-        <div className="flex gap-1 overflow-x-auto border-b bg-muted/20 p-3">
+        <div className="flex gap-1.5 overflow-x-auto border-b bg-muted/20 p-3">
           {SHOP_TABS.map((shopTab) => (
             <Button
               key={shopTab.value}
               type="button"
               variant={tab === shopTab.value ? "default" : "ghost"}
               size="sm"
-              className="shrink-0 rounded-xl"
+              className="shrink-0"
               onClick={() => setTab(shopTab.value)}
             >
               {shopTab.label}

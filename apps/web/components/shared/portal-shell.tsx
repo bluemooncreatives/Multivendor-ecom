@@ -99,7 +99,7 @@ export function PortalShell({ title, basePath, links, children }: PortalShellPro
       {/* Mobile header */}
       <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border bg-card px-4 py-3 shadow-xs md:hidden">
         <div className="flex items-center gap-2">
-          <div className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${toneClass} text-white`}>
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-foreground text-background">
             <RoleIcon className="h-4 w-4" />
           </div>
           <span className="font-bold text-foreground">{title}</span>
