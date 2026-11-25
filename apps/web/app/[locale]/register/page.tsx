@@ -292,7 +292,7 @@ export default function RegisterPage() {
         </p>
       </form>
 
-      {options?.socialLogin && (
+      {(options?.providers?.length ?? 0) > 0 && (
         <>
           <div className="relative my-5">
             <Separator />

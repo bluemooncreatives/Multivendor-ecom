@@ -253,11 +253,6 @@ export default function ProductDetailPage({
             >
               {available > 0 ? `✓ In stock (${available})` : "× Out of stock"}
             </Badge>
-            {product.featured && (
-              <Badge className="gap-1 rounded-xl px-3 py-1 font-semibold">
-                <Star className="h-3 w-3" /> Featured
-              </Badge>
-            )}
           </div>
 
           {/* Title */}

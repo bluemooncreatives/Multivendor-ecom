@@ -24,33 +24,51 @@ export function PaginationBar({
   itemLabel = "items",
   className,
 }: PaginationBarProps) {
-  const totalPages = pageSize && total !== undefined ? Math.max(1, Math.ceil(total / pageSize)) : undefined;
+  const totalPages =
+    pageSize && total !== undefined ? Math.max(1, Math.ceil(total / pageSize)) : undefined;
   const canPrev = page > 1;
   const canNext = hasNext ?? (totalPages !== undefined ? page < totalPages : false);
 
   return (
-    <div className={cn("flex flex-wrap items-center justify-between gap-3 pt-2", className)}>
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card px-4 py-3 shadow-xs",
+        className,
+      )}
+    >
       <p className="text-sm text-muted-foreground">
-        Page <span className="font-medium text-foreground">{page}</span>
+        Page <span className="font-bold text-foreground">{page}</span>
         {totalPages !== undefined && (
           <>
             {" "}
-            of <span className="font-medium text-foreground">{totalPages}</span>
+            of <span className="font-bold text-foreground">{totalPages}</span>
           </>
         )}
         {total !== undefined && (
           <>
             {" "}
-            · {total} {itemLabel}
+            · <span className="font-medium">{total}</span> {itemLabel}
           </>
         )}
       </p>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" disabled={!canPrev} onClick={() => onPageChange(page - 1)}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl"
+          disabled={!canPrev}
+          onClick={() => onPageChange(page - 1)}
+        >
           <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
           Previous
         </Button>
-        <Button variant="outline" size="sm" disabled={!canNext} onClick={() => onPageChange(page + 1)}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl"
+          disabled={!canNext}
+          onClick={() => onPageChange(page + 1)}
+        >
           Next
           <ChevronRight className="h-4 w-4 rtl:rotate-180" />
         </Button>

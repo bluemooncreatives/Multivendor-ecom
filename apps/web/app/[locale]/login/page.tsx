@@ -122,7 +122,7 @@ export default function LoginPage() {
         </p>
       </form>
 
-      {(options?.phone?.login || options?.socialLogin) && (
+      {(options?.phone?.login || (options?.providers?.length ?? 0) > 0) && (
         <>
           <div className="relative my-5">
             <Separator />
