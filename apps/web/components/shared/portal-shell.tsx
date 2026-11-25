@@ -9,7 +9,6 @@ import { DashboardNav, type NavLinkItem } from "@/components/shared/dashboard-na
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 
@@ -35,8 +34,8 @@ export function PortalShell({ title, basePath, links, children }: PortalShellPro
     .toUpperCase();
 
   const sidebarContent = (onNavigate?: () => void) => (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+      <div className="flex shrink-0 items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
         <Avatar className="h-9 w-9">
           <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">{initials}</AvatarFallback>
         </Avatar>
@@ -49,17 +48,19 @@ export function PortalShell({ title, basePath, links, children }: PortalShellPro
         </div>
       </div>
 
-      <ScrollArea className="flex-1 pe-1">
+      <div className="min-h-0 flex-1 overflow-y-auto pe-1">
         <DashboardNav basePath={basePath} links={links} onNavigate={onNavigate} />
-      </ScrollArea>
+      </div>
 
-      <Separator />
-      <Button variant="ghost" size="sm" asChild className="justify-start text-muted-foreground">
-        <Link href={`/${locale}`} onClick={onNavigate}>
-          <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-          Back to storefront
-        </Link>
-      </Button>
+      <div className="shrink-0 space-y-2">
+        <Separator />
+        <Button variant="ghost" size="sm" asChild className="w-full justify-start text-muted-foreground">
+          <Link href={`/${locale}`} onClick={onNavigate}>
+            <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+            Back to storefront
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 
@@ -80,8 +81,8 @@ export function PortalShell({ title, basePath, links, children }: PortalShellPro
               Menu
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-72 p-4">
-            <SheetHeader className="pb-3">
+          <SheetContent side="left" className="flex h-full w-72 flex-col gap-3 overflow-hidden p-4">
+            <SheetHeader className="shrink-0 pb-1">
               <SheetTitle>{title}</SheetTitle>
             </SheetHeader>
             {sidebarContent(() => setOpen(false))}
@@ -91,7 +92,9 @@ export function PortalShell({ title, basePath, links, children }: PortalShellPro
 
       <div className="grid gap-8 md:grid-cols-[240px_1fr] lg:grid-cols-[260px_1fr]">
         <aside className="hidden md:block">
-          <div className="sticky top-24 max-h-[calc(100vh-7rem)]">{sidebarContent()}</div>
+          <div className="sticky top-28 flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden">
+            {sidebarContent()}
+          </div>
         </aside>
         <div className="min-w-0">{children}</div>
       </div>

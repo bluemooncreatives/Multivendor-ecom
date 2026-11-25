@@ -87,7 +87,7 @@ export function ConversationInbox() {
           </div>
               ) : (
                 <>
-                      <ScrollArea className="flex-1 p-4">
+                      <ScrollArea className="min-h-0 flex-1 p-4">
                         <div className="space-y-2.5">
                           {active.messages.map((msg, i) => {
                             const mine = msg.senderId === userId;

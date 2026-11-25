@@ -15,7 +15,7 @@ export interface OrderSummary {
   details: {
     sellerId: string;
     status: string;
-    items: { name: string; quantity: number; unitPrice: number }[];
+    items: { productId?: string; name: string; quantity: number; unitPrice: number }[];
   }[];
 }
 

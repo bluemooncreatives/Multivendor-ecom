@@ -27,7 +27,7 @@ export function SiteFooter() {
   const subscribe = useSubscribeNewsletter();
 
   return (
-          <footer className="border-t bg-card">
+          <footer className="relative z-10 border-t bg-card">
             {/* Policy & quick-trust bar */}
             <div className="border-b bg-muted/30">
               <div className="container grid grid-cols-2 gap-4 py-5 text-sm sm:grid-cols-4">

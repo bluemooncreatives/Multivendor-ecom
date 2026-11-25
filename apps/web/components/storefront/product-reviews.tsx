@@ -24,7 +24,11 @@ export function ProductReviews({ productId }: { productId: string }) {
   const [comment, setComment] = useState("");
 
   const eligibleOrder = myOrders?.find((order) =>
-    order.details.some((d) => d.status === "delivered" && d.items.some((i: { productId?: string }) => String(i.productId) === productId)),
+    order.details.some(
+      (d) =>
+        d.status === "delivered" &&
+        d.items.some((i) => Boolean(i.productId) && String(i.productId) === productId),
+    ),
   );
 
   async function handleSubmit(e: React.FormEvent) {
