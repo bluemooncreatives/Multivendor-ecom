@@ -97,7 +97,7 @@ export default function AdminRefundsPage() {
             <RefundCard
               key={request.id}
               request={request}
-              onResolve={(approve, note) => resolve.mutate({ id: request.id, approve, resolutionNote: note })}
+              onResolve={(approve, note, restock) => resolve.mutate({ id: request.id, approve, resolutionNote: note, restock })}
               busy={resolve.isPending}
             />
           ))}
@@ -129,10 +129,12 @@ function RefundCard({
   busy,
 }: {
   request: RefundRow;
-  onResolve: (approve: boolean, note?: string) => void;
+  onResolve: (approve: boolean, note?: string, restock?: boolean) => void;
   busy: boolean;
 }) {
   const [note, setNote] = useState("");
+  // Inspection outcome: returned items go back to sellable stock unless damaged.
+  const [restock, setRestock] = useState(true);
   const settled = request.status === "refunded" || request.status === "rejected";
 
   return (
@@ -161,7 +163,11 @@ function RefundCard({
       {!settled && (
         <div className="flex flex-wrap items-center gap-2">
           <Input placeholder="Resolution note (optional)" value={note} onChange={(e) => setNote(e.target.value)} className="max-w-sm" />
-          <Button size="sm" disabled={busy} onClick={() => onResolve(true, note || undefined)}>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} />
+            Return items to stock (sellable condition)
+          </label>
+          <Button size="sm" disabled={busy} onClick={() => onResolve(true, note || undefined, restock)}>
             Approve &amp; refund to wallet
           </Button>
           <Button size="sm" variant="outline" disabled={busy} onClick={() => onResolve(false, note || undefined)}>

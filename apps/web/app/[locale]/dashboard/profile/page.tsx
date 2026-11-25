@@ -94,8 +94,8 @@ export default function ProfilePage() {
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Phone</Label>
-            <Input type="tel" placeholder="+919000000001" value={phone} onChange={(e) => { setPhone(e.target.value); setPhoneCodeSent(false); setPhoneCode(""); }} />
+            <Label htmlFor="profile-phone">Phone</Label>
+            <Input id="profile-phone" type="tel" placeholder="+919000000001" value={phone} onChange={(e) => { setPhone(e.target.value); setPhoneCodeSent(false); setPhoneCode(""); }} />
           </div>
           <Button onClick={() => updateProfile.mutate()} disabled={updateProfile.isPending}>
             Save changes

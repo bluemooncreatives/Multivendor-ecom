@@ -222,6 +222,10 @@ export interface RefundEligibility {
   shipments: {
     sellerId: string;
     amount: number;
+    merchandise: number;
+    tax: number;
+    discount: number;
+    partial: boolean;
     eligible: boolean;
     windowClosesAt: string | null;
     alreadyRequested: boolean;

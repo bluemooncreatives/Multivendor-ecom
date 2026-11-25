@@ -84,6 +84,9 @@ const brand = await Brand.create({ name: "Browser brand", slug: "browser-brand",
 await Shop.create({ sellerId: seller!._id, name: "Browser shop", slug: "browser-shop", verified: true, verificationStatus: "approved" });
 const product = await Product.create({ name: "Browser product", slug: "browser-product", sellerId: seller!._id,
   addedBy: "seller", categoryId: category._id, brandId: brand._id, published: true, approvalStatus: "approved", basePrice: 100,
+  // Flagged so the storefront home's Featured / Today's-deal / Best-selling
+  // sections all render for browser acceptance of the catalogue listings.
+  featured: true, todaysDeal: true, numOfSale: 7,
   variants: [{ sku: "BROWSER-SKU", price: 100, stock: 100, reserved: 0 }], tax: 10, discount: 20, clubPoints: 5 });
 await Wallet.create({ userId: customer!._id, currency: "INR", balance: 10000 });
 await Page.create({ slug: "browser-page", title: "Browser page", body: "<h2>Browser CMS content</h2><script>window.cmsUnsafe=true</script><img src=x onerror='window.cmsUnsafe=true'>", published: true });

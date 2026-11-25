@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import { env } from "../config/env.js";
 import {
   registerHandler,
   loginHandler,
@@ -45,7 +46,7 @@ authRouter.get("/options", asyncHandler(getAuthOptionsHandler));
 authRouter.get("/social/config", requireInternalSecret, asyncHandler(getInternalSocialConfigHandler));
 
 // Tighter limit on credential/OTP endpoints specifically, on top of the global limiter.
-const authLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false });
+const authLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false, skip: () => env.NODE_ENV === "test" });
 
 authRouter.post("/register", authLimiter, validateBody(registerSchema), asyncHandler(registerHandler));
 authRouter.post("/login", authLimiter, validateBody(loginSchema), asyncHandler(loginHandler));

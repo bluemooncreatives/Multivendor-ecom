@@ -15,11 +15,19 @@ export default function ProductsPage() {
   const [brandId, setBrandId] = useState<string | undefined>(searchParams.get("brandId") ?? undefined);
   const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
-  const [sort, setSort] = useState<ProductSearchParams["sort"]>("newest");
+  const sortParam = searchParams.get("sort");
+  const allowedSorts = ["newest", "popular", "price_asc", "price_desc", "rating"] as const;
+  const [sort, setSort] = useState<ProductSearchParams["sort"]>(
+    allowedSorts.includes(sortParam as (typeof allowedSorts)[number]) ? (sortParam as ProductSearchParams["sort"]) : "newest",
+  );
+  // Landing from a homepage section ("Featured", "Today's deals"): a read-only
+  // scope kept out of the editable filter controls.
+  const featured = searchParams.get("featured") === "true" ? true : undefined;
+  const todaysDeal = searchParams.get("todaysDeal") === "true" ? true : undefined;
 
   const { data: categories } = useCategories();
   const { data: brands } = useBrands();
-  const { data, isLoading } = useProducts({ q, categoryId, brandId, minPrice, maxPrice, sort });
+  const { data, isLoading } = useProducts({ q, categoryId, brandId, minPrice, maxPrice, sort, featured, todaysDeal });
 
   return (
     <div className="container space-y-6 py-6">
@@ -52,6 +60,7 @@ export default function ProductsPage() {
               className="rounded-md border bg-background px-3 py-1.5 text-sm"
             >
               <option value="newest">Newest</option>
+              <option value="popular">Best Selling</option>
               <option value="price_asc">Price: Low to High</option>
               <option value="price_desc">Price: High to Low</option>
               <option value="rating">Top Rated</option>

@@ -9,12 +9,17 @@ import { usePhoneLogin, useSendPhoneCode } from "@/lib/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { useAuthOptions } from "@/lib/hooks/useAuthOptions";
+import { RegistrationCaptcha } from "./registration-captcha";
 
 export function PhoneAuthForm({ resetPassword = false }: { resetPassword?: boolean }) {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [sent, setSent] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState("");
+  const [captchaAttempt, setCaptchaAttempt] = useState(0);
+  const { data: options } = useAuthOptions();
   const router = useRouter();
   const locale = useLocale();
   const login = usePhoneLogin();
@@ -33,9 +38,11 @@ export function PhoneAuthForm({ resetPassword = false }: { resetPassword?: boole
     <div className="space-y-2"><Label htmlFor="auth-phone">Phone number</Label>
       <Input id="auth-phone" type="tel" autoComplete="tel" placeholder="+919000000001" required pattern="\+[1-9][0-9]{7,14}" value={phone}
         onChange={(event) => { setPhone(event.target.value); setCode(""); setSent(false); }} /></div>
-    <Button type="button" variant="outline" disabled={send.isPending || !/^\+[1-9]\d{7,14}$/.test(phone)} onClick={async () => {
-      try { await send.mutateAsync(phone); setSent(true); toast.success("If this verified number has an active account, a code has been sent."); }
+    {options?.recaptcha.enabled && <RegistrationCaptcha key={captchaAttempt} siteKey={options.recaptcha.siteKey} onChange={setRecaptchaToken} />}
+    <Button type="button" variant="outline" disabled={send.isPending || !/^\+[1-9]\d{7,14}$/.test(phone) || (options?.recaptcha.enabled && !recaptchaToken)} onClick={async () => {
+      try { await send.mutateAsync({ phone, recaptchaToken: recaptchaToken || undefined }); setSent(true); toast.success("If this number has an active phone account, a code has been sent."); }
       catch (error: any) { toast.error(error?.response?.data?.message ?? "Could not send a code"); }
+      finally { setRecaptchaToken(""); setCaptchaAttempt((value) => value + 1); }
     }}>Send phone code</Button>
     {sent && <>
       <div className="space-y-2"><Label htmlFor="auth-phone-code">Phone verification code</Label>

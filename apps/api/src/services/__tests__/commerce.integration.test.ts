@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 
 vi.mock("../../config/env.js", () => ({ env: {
+  NODE_ENV: "test",
   EMAIL_VERIFY_SECRET: "integration-email-secret-only", JWT_ACCESS_SECRET: "integration-access-secret-only", JWT_ACCESS_EXPIRES: "15m",
   JWT_REFRESH_SECRET: "integration-refresh-secret-only", JWT_REFRESH_EXPIRES: "7d", STRIPE_SECRET_KEY: "sk_test_integration_only",
   API_PUBLIC_URL: "http://localhost:4000", NEXT_PUBLIC_APP_URL: "http://localhost:3000", UPLOAD_DRIVER: "local",
@@ -12,6 +13,7 @@ vi.mock("../email.service.js", () => ({ sendOrderConfirmationEmail: vi.fn() }));
 vi.mock("../invoice.service.js", () => ({ renderInvoiceBuffer: vi.fn() }));
 
 import { createOrder } from "../checkout.service.js";
+import { searchProducts } from "../product.service.js";
 import { cancelOrder } from "../order.service.js";
 import { settleOrderPayment, failOrderPayment, recordPaymentEventOnce, completePaymentEvent, expireAbandonedOrders, listLateCaptures } from "../payment.service.js";
 import { createPosSale } from "../pos.service.js";
@@ -110,6 +112,8 @@ describe("checkout and settlement with real transactions", () => {
     const { product, input } = await fixture({ sellerId, addedBy: "seller" });
     const order = await createOrder(input);
     expect((await stock(product._id)).stock).toBe(8);
+    // Best-seller counter advances by units sold when the COD sale is realised.
+    expect((await Product.findById(product._id))!.numOfSale).toBe(2);
     expect(await SellerLedger.countDocuments({ orderId: order._id })).toBe(0);
     await Order.updateOne({ _id: order._id }, { status: "delivered", "details.0.status": "delivered" });
     await settleOrderPayment(String(order._id), "cod");
@@ -141,8 +145,27 @@ describe("checkout and settlement with real transactions", () => {
     await failOrderPayment(String(order._id), "stripe");
     expect((await stock(product._id)).stock).toBe(10);
     expect((await stock(product._id)).reserved).toBe(0);
+    // A hold that was released (never confirmed) must not count as a sale.
+    expect((await Product.findById(product._id))!.numOfSale).toBe(0);
     await expect(settleOrderPayment(String(order._id), "stripe")).rejects.toThrow(/closed/);
     expect((await stock(product._id)).stock).toBe(10);
+  });
+
+  it("orders catalogue results by units sold and filters the legacy featured/today's-deal listings", async () => {
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const make = async (name: string, extra: Record<string, unknown>) => Product.create({ name, slug: `product-${id()}`, addedBy: "admin",
+      sellerId: null, categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved",
+      variants: [{ sku: "sku", price: 100, stock: 10, reserved: 0 }], ...extra });
+    await Promise.all([
+      make("Rarely bought", { numOfSale: 3 }),
+      make("Best seller", { numOfSale: 42, featured: true }),
+      make("Daily pick", { numOfSale: 10, todaysDeal: true }),
+    ]);
+    const popular = await searchProducts({ sort: "popular", categoryId: String(category._id) });
+    expect(popular.items.map((p) => p.name)).toEqual(["Best seller", "Daily pick", "Rarely bought"]);
+    expect(popular.items[0]!.numOfSale).toBe(42);
+    expect((await searchProducts({ featured: true })).items.map((p) => p.name)).toEqual(["Best seller"]);
+    expect((await searchProducts({ todaysDeal: true })).items.map((p) => p.name)).toEqual(["Daily pick"]);
   });
 
   it("returns one order for concurrent retries of a checkout", async () => {
@@ -386,6 +409,53 @@ describe("checkout and settlement with real transactions", () => {
     expect((await approve()).status).toBe(409);
     expect((await Wallet.findOne({ userId }))!.balance).toBe(500);
     expect((await Order.findById(order._id))!.details[0]!.status).toBe("refunded");
+  });
+
+  it("refunds only the refundable items of a mixed shipment, with proportional tax and inspection restock", async () => {
+    const sellerId = id();
+    await verifiedVendor(sellerId);
+    const category = await Category.create({ name: "Mixed", slug: `cat-${id()}`, level: 0 });
+    const keep = await Product.create({ name: "Refundable", slug: `ref-${id()}`, addedBy: "seller", sellerId, categoryId: category._id,
+      basePrice: 100, published: true, approvalStatus: "approved", refundable: true, variants: [{ sku: "R", price: 100, stock: 4, reserved: 0 }] });
+    const noReturn = await Product.create({ name: "Final sale", slug: `nr-${id()}`, addedBy: "seller", sellerId, categoryId: category._id,
+      basePrice: 100, published: true, approvalStatus: "approved", refundable: false, variants: [{ sku: "N", price: 100, stock: 9, reserved: 0 }] });
+    const userId = id();
+    const order = await Order.create({ code: `order-${id()}`, userId, addressSnapshot: { city: "Pune" }, currency: "INR",
+      paymentMethod: "wallet", paymentStatus: "paid", status: "delivered", discount: 40, tax: 20, grandTotal: 180,
+      idempotencyKey: `mix-${id()}`,
+      details: [{ sellerId, status: "delivered", deliveredAt: new Date(), subtotal: 200, tax: 20, discount: 40,
+        commissionRate: 10, commissionAmount: 20, clubPointsSpent: 0,
+        items: [
+          { productId: keep._id, variantSku: "R", name: "Refundable", quantity: 1, unitPrice: 100, refundable: true },
+          { productId: noReturn._id, variantSku: "N", name: "Final sale", quantity: 1, unitPrice: 100, refundable: false },
+        ] }] });
+
+    const token = await testAccessToken({ sub: String(userId), role: "customer" });
+    const post = () => fetch(`${base}/api/v1/addons/refunds`, { method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: String(order._id), sellerId: String(sellerId), reason: "Return the refundable one" }) });
+    const created = await post();
+    expect(created.status).toBe(201);
+    // fraction = 100/200 = 0.5 → discount 40*0.5=20, tax 20*0.5=10, amount 100-20+10=90.
+    const refund = await created.json() as { id: string; amount: number; merchandise: number; tax: number; discount: number };
+    expect(refund).toMatchObject({ amount: 90, merchandise: 100, tax: 10, discount: 20 });
+    // The unique (order, seller) guard blocks a duplicate open request.
+    expect((await post()).status).toBe(409);
+
+    const admin = await testAccessToken({ sub: String(id()), role: "admin" });
+    const resolve = await fetch(`${base}/api/v1/addons/refunds/${refund.id}/resolve`, { method: "POST",
+      headers: { Authorization: `Bearer ${admin}`, "Content-Type": "application/json" }, body: JSON.stringify({ approve: true, restock: true }) });
+    expect(resolve.status).toBe(200);
+    expect((await Wallet.findOne({ userId }))!.balance).toBe(90);
+    // Inspection restock returns only the refundable unit to sellable stock.
+    expect((await Product.findById(keep._id))!.variants[0]!.stock).toBe(5);
+    expect((await Product.findById(noReturn._id))!.variants[0]!.stock).toBe(9);
+    // Seller ledger reverses the refunded merchandise and half the commission.
+    const ledger = await SellerLedger.find({ orderId: order._id }).sort({ type: 1 });
+    expect(ledger.find((e) => e.type === "refund")!.amount).toBe(-100);
+    expect(ledger.find((e) => e.type === "commission")!.amount).toBe(10);
+    // A partially refunded shipment keeps its delivered status and remaining item.
+    expect((await Order.findById(order._id))!.details[0]!.status).toBe("delivered");
   });
 
   it("allocates a product coupon only to its seller's shipment", async () => {

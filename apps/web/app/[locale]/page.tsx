@@ -14,6 +14,9 @@ export default function HomePage() {
   const t = useTranslations("home");
   const locale = useLocale();
   const { data: products, isLoading } = useProducts({ sort: "newest" });
+  const { data: featured } = useProducts({ featured: true });
+  const { data: bestSelling } = useProducts({ sort: "popular" });
+  const { data: todaysDeals } = useProducts({ todaysDeal: true });
   const { data: categories } = useCategories();
   const { data: flashDeals } = useActiveFlashDeals();
 
@@ -98,8 +101,41 @@ export default function HomePage() {
         </StorefrontSection>
       )}
 
-      {/* Featured products */}
-      <StorefrontSection title={t("featured")} href={`/${locale}/products`}>
+      {/* Today's deals — admin-flagged daily picks (legacy todays_deal). */}
+      {(todaysDeals?.items.length ?? 0) > 0 && (
+        <StorefrontSection title={t("todaysDeal")} href={`/${locale}/products?todaysDeal=true`}>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {todaysDeals!.items.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </StorefrontSection>
+      )}
+
+      {/* Featured products (legacy featured flag). */}
+      {(featured?.items.length ?? 0) > 0 && (
+        <StorefrontSection title={t("featured")} href={`/${locale}/products?featured=true`}>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {featured!.items.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </StorefrontSection>
+      )}
+
+      {/* Best selling — ranked by units sold (legacy num_of_sale). */}
+      {(bestSelling?.items.length ?? 0) > 0 && (
+        <StorefrontSection title={t("bestSelling")} href={`/${locale}/products?sort=popular`}>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {bestSelling!.items.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </StorefrontSection>
+      )}
+
+      {/* New arrivals — the most recently added products. */}
+      <StorefrontSection title={t("newArrivals")} href={`/${locale}/products`}>
         {isLoading ? (
           <p className="text-muted-foreground">Loading…</p>
         ) : (

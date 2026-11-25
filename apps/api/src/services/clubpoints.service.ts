@@ -54,12 +54,16 @@ export async function awardClubPointsForOrder(orderId: string, session?: mongoos
 }
 
 /** Claw back only points earned by the returned shipment, in the refund transaction. */
-export async function reverseEarnedPointsForShipment(order: InstanceType<typeof Order>, index: number, session: mongoose.ClientSession) {
+// `fraction` (0..1) reverses only the part of a shipment's earned reward that
+// corresponds to the refunded merchandise, so a mixed shipment that refunds some
+// of its items claws back rewards proportionally. A full-shipment refund passes 1.
+export async function reverseEarnedPointsForShipment(order: InstanceType<typeof Order>, index: number, session: mongoose.ClientSession, fraction = 1) {
   const detail = order.details[index]!;
   const key = `order-award:${order._id}:${detail.sellerId ?? "__admin__"}`;
   const award = await ClubPointTransaction.findOne({ idempotencyKey: key }).session(session);
   const legacy = award ? null : await ClubPointTransaction.findOne({ idempotencyKey: `order-award:${order._id}` }).session(session);
-  const points = award?.points ?? (legacy ? allocateUnits(legacy.points, order.details.map((d) => d.subtotal))[index]! : 0);
+  const base = award?.points ?? (legacy ? allocateUnits(legacy.points, order.details.map((d) => d.subtotal))[index]! : 0);
+  const points = Math.round(base * Math.min(1, Math.max(0, fraction)));
   if (points <= 0 || !order.userId) return;
   await creditPoints(String(order.userId), -points, "Returned order rewards reversed", `${key}:reversal`, String(order._id), session);
 }

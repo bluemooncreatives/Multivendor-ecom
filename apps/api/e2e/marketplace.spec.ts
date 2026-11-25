@@ -23,7 +23,7 @@ async function session(context: BrowserContext, role: string) {
 
 test("customer can sign in through the browser", async ({ page }) => {
   await page.goto("/en/login");
-  await page.getByLabel("Email address", { exact: true }).fill("customer@browser.test");
+  await page.getByLabel("Email address or phone number", { exact: true }).fill("customer@browser.test");
   await page.getByLabel("Password", { exact: true }).fill("Browser-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/dashboard/);
@@ -51,7 +51,7 @@ test("phone password reset works through the storefront", async ({ page, context
   await page.getByLabel("New password", { exact: true }).fill("Browser-new-password-123");
   await page.getByRole("button", { name: "Reset password by phone", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/login/);
-  await page.getByLabel("Email address", { exact: true }).fill("phone-reset@browser.test");
+  await page.getByLabel("Email address or phone number", { exact: true }).fill("phone-reset@browser.test");
   await page.getByLabel("Password", { exact: true }).fill("Browser-new-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/dashboard/);
@@ -69,6 +69,31 @@ test("registration enforces and accepts phone verification", async ({ page, cont
   await page.getByLabel("Phone verification code", { exact: true }).fill(sms.code);
   await page.getByRole("button", { name: "Create account", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/dashboard/);
+});
+
+test("registers a phone-only account without an email address", async ({ page, context }) => {
+  await page.goto("/en/register");
+  await page.getByText("Register using a phone number", { exact: true }).click();
+  // The email field is replaced by phone verification in phone-only mode.
+  await expect(page.getByLabel("Email address", { exact: true })).toBeHidden();
+  await page.getByLabel("Full name", { exact: true }).fill("Phone only buyer");
+  await page.getByLabel("Password", { exact: true }).fill("Browser-password-123");
+  await page.getByLabel("Phone number", { exact: true }).fill("+919123450009");
+  await page.getByRole("button", { name: "Send registration code", exact: true }).click();
+  await expect.poll(async () => (await (await context.request.get("http://127.0.0.1:4001?phone=919123450009")).json()).code).toMatch(/^\d{6}$/);
+  const sms = await (await context.request.get("http://127.0.0.1:4001?phone=919123450009")).json();
+  await page.getByLabel("Phone verification code", { exact: true }).fill(sms.code);
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard/);
+});
+
+test("storefront home renders the featured, today's-deal and best-selling listings", async ({ page }) => {
+  await page.goto("/en");
+  for (const heading of ["Today's deals", "Featured products", "Best selling", "New arrivals"]) {
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+  }
+  // The seeded flagged product appears in a listing section.
+  await expect(page.getByRole("link", { name: /Browser product/ }).first()).toBeVisible();
 });
 
 test("review pagination and sanitized CMS content work after hydration", async ({ page }) => {

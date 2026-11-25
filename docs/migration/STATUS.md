@@ -15,21 +15,20 @@ production certified based on the checks recorded here.
 
 ## Source comparison
 
-`npm run audit:migration` reads application files in the original
-`../Ecommerce-Multivendor` and embedded `legacy-ecommercemultivendor`, including
-their application/view/route backups and extracted add-ons. It records hashes,
-functions, controller actions, and target API call references in `inventory.json`.
-Third-party dependencies, generated builds, uploaded media, environment secrets,
-and database row contents are not exported into the report.
+The embedded `legacy-ecommercemultivendor` PHP reference tree and the
+`audit:migration` inventory tool were removed after parity was implemented and
+verified feature by feature (see the tables below and `VALIDATION.md`). During
+the migration that tool compared the original `../Ecommerce-Multivendor` and the
+embedded `legacy-ecommercemultivendor` file for file — 1,263 original files and
+1,261 legacy files, whose only differences were line endings and trailing
+whitespace — against the 90 Next.js page components. The historical counts are
+inventory figures, not completed-feature acceptance.
 
-`npm run migrate:legacy -- --dump <file> --dry-run` additionally reads the legacy
-MySQL dump itself and reports, table by table, what it would write. The selected
-source directories contain 1,263 original files and 1,261 legacy
-files. There are 185 byte-level differences in common files; all disappear when
-line endings and trailing whitespace are normalized. The original additionally
-contains `resources/lang/en.json` and `Backup/resources/lang/en.json`. The target
-has 90 Next.js page components. These are inventory counts, not completed
-feature acceptance counts. PHP code has not been executed.
+`npm run migrate:legacy -- --dump <file> --dry-run` reads a legacy MySQL dump and
+reports, table by table, what it would write. The real legacy mysqldump is
+retained as the importer's test fixture at
+`apps/api/src/scripts/legacy/__tests__/fixtures/software_ecommercemvendor22.sql`,
+so the cut-over tooling stays exercised against genuine data.
 
 ## Implemented and exercised paths
 
@@ -89,12 +88,12 @@ been run.
 | Excluded | Gateway acceptance | Outside the current request. Historical provider acceptance remains unverified; no gateway completion claim is made. |
 | P0 | Data import rehearsal on real data | The importer is exercised against the vendored dump, which contains 794 importable rows. A production cut-over still needs: a rehearsal against a copy of the live database, a copy of the `public/uploads` tree to the new storage root (the importer rewrites paths but moves no files), and sign-off on the skipped rows and warnings the report lists. Payment-gateway credentials, Laravel Passport tokens and positional staff role permissions are deliberately not imported. |
 | P1 | Historical accounting | Imported orders carry commission recomputed from current rates, because the legacy schema stored none per order; the per-seller running total (`sellers.admin_to_pay`) is imported as one opening ledger adjustment, and legacy wallet recharges carry no running balance. Reconciling those opening positions against the legacy reports is an operator task. Old orders without per-shipment discount snapshots still use proportional refund allocation. |
-| P1 | Refund return lifecycle | Earned-point and affiliate clawbacks are now implemented transactionally. Per-item returns in mixed refundable/non-refundable shipments, returned-stock inspection, and explicit tax/shipping refund policy still need decisions and acceptance. Current merchandise refund does not automatically restock a delivered return. |
-| P1 | Storefront catalogue | Vendor verification/ban/activation checks now share a tested rule across catalogue, cart and checkout. Category/variant facet UI, sale counters and every legacy listing filter still need complete acceptance. Displayed prices exclude tax and show it separately, where the legacy templates folded tax into the displayed price. |
+| P1 | Refund return lifecycle | Implemented to market standards (Amazon/Walmart/eBay seller policies). A delivered shipment's refund now covers only its **refundable** items — a mixed shipment refunds those and excludes final-sale items instead of being blocked outright. The refund credits merchandise **plus the sales tax proportional to it**, minus the proportional order discount; **outbound shipping is never refunded** on a return (return shipping is the buyer's cost). Approval is inspection-gated: the resolver confirms sellable condition to **restock** the returned units (damaged returns are not restocked). Every downstream reversal — seller merchandise ledger, commission, redeemed and earned club points, and affiliate share/first-purchase earnings — is scaled by the refunded fraction, so a partial (mixed-shipment) refund claws back exactly its portion; a fully refundable shipment behaves exactly as before (fraction = 1). Open: multiple sequential partial-quantity returns of the same item, and non-wallet gateway refund disbursement, still need acceptance. |
+| P1 | Storefront catalogue | Vendor verification/ban/activation checks now share a tested rule across catalogue, cart and checkout. The best-seller counter (`numOfSale`, legacy `num_of_sale`) now advances by units sold inside the atomic stock-confirmation write for customer orders and POS alike — once when a sale is realised (COD placement / gateway payment), never on a mere reservation or a released hold. The catalogue search gained the legacy `popular` (best-seller) sort and `featured` / `todaysDeal` listing filters, and the storefront home renders distinct Today's-deal, Featured, Best-selling and New-arrivals sections wired to them. Remaining: full category/variant facet UI acceptance. Displayed prices exclude tax and show it separately, where the legacy templates folded tax into the displayed price. |
 | P1 | Settings/storage/auth | Runtime S3 and database storage/social/reCAPTCHA integration are implemented with local contract tests. Actual provider delivery and complete feature activation enforcement still require acceptance. Gateway callback processing is excluded from this continuation. |
 | P1 | Localization | Overrides now merge into bundled `en/hi/ar` messages; target currency precision and zero-rate handling are covered locally. New frontend locales still require message files and routing configuration. An imported non-ISO currency code is reported but not rewritten. |
 | P1 | POS UI | Registered customer lookup/wallet selection, authoritative tax/discount totals, receipt action and per-account draft recovery are implemented. Browser results are recorded in `VALIDATION.md`; complete till/operator acceptance remains broader than the smoke checks. |
-| P1 | SMS/phone authentication | Five-provider SMS dispatch, encrypted credential patches, explicit verified audiences and registration/login/reset/profile phone verification are implemented; 215 automated tests pass. Phone-only registration, order/status SMS notifications and real provider acceptance remain open. Browser coverage is pending; see `VALIDATION.md`. |
+| P1 | SMS/phone authentication | Five-provider SMS dispatch, encrypted credential patches, explicit verified audiences and registration/login/reset/profile phone verification are implemented. Phone-only accounts are restored end to end: registration without an email (consuming a verified registration OTP), phone sign-in and password reset through the single-owner identity resolver, profile phone management, and the legacy importer carrying phone-only users. A read-only-by-default auth-index migration (`npm run migrate:auth-indexes`) replaces the obsolete unique email/phone indexes with partial unique indexes (email present; phone present and verified), normalizes contacts and refuses collisions before writing. The legacy registration CAPTCHA is verified once when sending the registration OTP and reused only alongside that single-use code. 238 automated tests pass. Real provider acceptance remains open. Browser coverage of the phone-only flows is pending; see `VALIDATION.md`. |
 | P1 | Other modules | The current feature review adds source comparisons and regressions for these modules; see `NON-GATEWAY-REVIEW.md`. Complete control-by-control and role/locale acceptance and durable newsletter delivery remain open. |
 | P2 | Scheduling | The API now runs the maintenance sweeps every 15 minutes by default, with database leases and owner-checked release. `RUN_MAINTENANCE_JOBS=false` leaves scheduling to an external operator. Deployment operation still needs acceptance. |
 | P2 | Production operations | Deployment configuration, readiness/shutdown, queue jobs, backups, observability and complete browser/role acceptance remain open. |
@@ -103,9 +102,13 @@ been run.
 
 The static `public` tree was relocated, not discarded. Runtime uploads now belong
 under ignored `data/uploads` and `data/private-uploads`; the former public upload
-root remains a guarded compatibility fallback. Source PHP/backups/SQL references
-are retained until migration and data reconciliation are proven complete. No
-legacy deletion is represented as safe or finished.
+root remains a guarded compatibility fallback. The legacy PHP reference
+application (`legacy-ecommercemultivendor/`) and the `audit:migration` inventory
+tool were removed once parity was implemented and verified — 240 API tests, 102
+browser checks, API/web typecheck and build all green. The real legacy mysqldump
+was preserved as the importer's test fixture so the cut-over tooling and its
+reconciliation rehearsal remain available; an operator still points
+`migrate:legacy` at a copy of their live database for the production cut-over.
 
 Provider contracts consulted for corrections:
 

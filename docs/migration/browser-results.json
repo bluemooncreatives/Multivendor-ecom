@@ -116,12 +116,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3818,
+                  "duration": 3652,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:27.742Z",
+                  "startTime": "2026-11-25T09:26:23.552Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -150,12 +150,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1880,
+                  "duration": 1905,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:32.246Z",
+                  "startTime": "2026-11-25T09:26:27.796Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -184,12 +184,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3175,
+                  "duration": 3140,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:34.178Z",
+                  "startTime": "2026-11-25T09:26:29.750Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -218,12 +218,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3237,
+                  "duration": 3468,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:37.383Z",
+                  "startTime": "2026-11-25T09:26:32.918Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -234,6 +234,74 @@
           "id": "170e8a9d719db4caeb1d-8bd7d5ac6fb2cd805416",
           "file": "marketplace.spec.ts",
           "line": 60,
+          "column": 1
+        },
+        {
+          "title": "registers a phone-only account without an email address",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2780,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:26:36.412Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-667a5d3db6999777e023",
+          "file": "marketplace.spec.ts",
+          "line": 74,
+          "column": 1
+        },
+        {
+          "title": "storefront home renders the featured, today's-deal and best-selling listings",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1047,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:26:39.220Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-9d444a7b930c0137b12e",
+          "file": "marketplace.spec.ts",
+          "line": 90,
           "column": 1
         },
         {
@@ -252,12 +320,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3320,
+                  "duration": 1834,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:40.663Z",
+                  "startTime": "2026-11-25T09:26:40.288Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -267,7 +335,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-7c3aee64d757303daf0f",
           "file": "marketplace.spec.ts",
-          "line": 74,
+          "line": 99,
           "column": 1
         },
         {
@@ -286,12 +354,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3340,
+                  "duration": 1963,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:44.024Z",
+                  "startTime": "2026-11-25T09:26:42.158Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -301,7 +369,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-41a7c51aa29ce41fb5c2",
           "file": "marketplace.spec.ts",
-          "line": 93,
+          "line": 118,
           "column": 1
         },
         {
@@ -320,12 +388,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2111,
+                  "duration": 1652,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:47.415Z",
+                  "startTime": "2026-11-25T09:26:44.147Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -335,7 +403,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-ec4d5415d941f7ef3d89",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -354,12 +422,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1212,
+                  "duration": 1496,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:49.563Z",
+                  "startTime": "2026-11-25T09:26:45.817Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -369,7 +437,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-6c5786028059f0430c41",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -388,12 +456,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2301,
+                  "duration": 1413,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:50.803Z",
+                  "startTime": "2026-11-25T09:26:47.335Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -403,7 +471,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-1dc0f687e65d94884958",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -422,12 +490,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2195,
+                  "duration": 1437,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:53.154Z",
+                  "startTime": "2026-11-25T09:26:48.767Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -437,7 +505,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-929e20bb78726ed87bde",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -456,12 +524,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1867,
+                  "duration": 1719,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:55.387Z",
+                  "startTime": "2026-11-25T09:26:50.219Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -471,7 +539,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-95e4018f84991fcf5619",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -490,12 +558,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1447,
+                  "duration": 1726,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:57.295Z",
+                  "startTime": "2026-11-25T09:26:51.959Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -505,7 +573,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-a8b72cc77c3e54e888ed",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -524,12 +592,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1751,
+                  "duration": 1501,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:41:58.771Z",
+                  "startTime": "2026-11-25T09:26:53.711Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -539,7 +607,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-307c1f188cd033749d02",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -558,12 +626,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2035,
+                  "duration": 1677,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:00.542Z",
+                  "startTime": "2026-11-25T09:26:55.230Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -573,7 +641,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-3ca3c290c214a438f91f",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -592,12 +660,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1698,
+                  "duration": 2372,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:02.600Z",
+                  "startTime": "2026-11-25T09:26:56.935Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -607,7 +675,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-c6d7dee1ce1a1c628612",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -626,12 +694,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1620,
+                  "duration": 8625,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:04.320Z",
+                  "startTime": "2026-11-25T09:26:59.347Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -641,7 +709,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-ef03d5696d9efabeb3f1",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -660,12 +728,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1416,
+                  "duration": 2626,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:05.959Z",
+                  "startTime": "2026-11-25T09:27:08.126Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -675,7 +743,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-39ab8324348158626fbc",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -694,12 +762,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1423,
+                  "duration": 4019,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:07.391Z",
+                  "startTime": "2026-11-25T09:27:11.001Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -709,7 +777,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-820a463a40e6859c0cf8",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -728,12 +796,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1640,
+                  "duration": 3834,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:08.830Z",
+                  "startTime": "2026-11-25T09:27:15.551Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -743,7 +811,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-777d9d16ebd051319425",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -762,12 +830,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1603,
+                  "duration": 2654,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:10.493Z",
+                  "startTime": "2026-11-25T09:27:19.533Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -777,7 +845,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-58a6f227d9acb5c83457",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -796,12 +864,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1329,
+                  "duration": 2453,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:12.116Z",
+                  "startTime": "2026-11-25T09:27:22.243Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -811,7 +879,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-883b371c14c1b215949c",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -830,12 +898,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1806,
+                  "duration": 2592,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:13.465Z",
+                  "startTime": "2026-11-25T09:27:24.746Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -845,7 +913,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-d811b40c7117891b244b",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -864,12 +932,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1530,
+                  "duration": 2091,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:15.292Z",
+                  "startTime": "2026-11-25T09:27:27.380Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -879,7 +947,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-bf295aee3cf058951b09",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -898,12 +966,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1517,
+                  "duration": 3682,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:16.842Z",
+                  "startTime": "2026-11-25T09:27:29.494Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -913,7 +981,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-460b042e8314eca6eb3d",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -932,12 +1000,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1712,
+                  "duration": 4063,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:18.380Z",
+                  "startTime": "2026-11-25T09:27:33.232Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -947,7 +1015,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-9d263f77000f98003bd8",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -966,12 +1034,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1257,
+                  "duration": 5951,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:20.117Z",
+                  "startTime": "2026-11-25T09:27:37.395Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -981,7 +1049,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-38af53f8cfdd5b76e70b",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1000,12 +1068,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1256,
+                  "duration": 3052,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:21.388Z",
+                  "startTime": "2026-11-25T09:27:43.459Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1015,7 +1083,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-7adf0f39b79b0f2c35cd",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1034,12 +1102,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1873,
+                  "duration": 3143,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:22.667Z",
+                  "startTime": "2026-11-25T09:27:46.677Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1049,7 +1117,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-3c407dd1348a7e690353",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1068,12 +1136,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1661,
+                  "duration": 2419,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:24.564Z",
+                  "startTime": "2026-11-25T09:27:49.887Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1083,7 +1151,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-95acdf2d587ab576145d",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1102,12 +1170,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1551,
+                  "duration": 2556,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:26.247Z",
+                  "startTime": "2026-11-25T09:27:52.340Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1117,7 +1185,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-3e46b93a061f4d24d4c4",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1136,12 +1204,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1558,
+                  "duration": 2168,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:27.823Z",
+                  "startTime": "2026-11-25T09:27:54.948Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1151,7 +1219,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-c9a09a69c882f1e3e03c",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1170,12 +1238,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1597,
+                  "duration": 1945,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:29.399Z",
+                  "startTime": "2026-11-25T09:27:57.169Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1185,11 +1253,351 @@
           ],
           "id": "170e8a9d719db4caeb1d-f1403cece6aa06de63a1",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
           "title": "page hydration: /en/admin/staff",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1521,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:27:59.147Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-2a65b4e51cfa16998998",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/admin/taxonomy",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2194,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:00.693Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-88585b09bb3589692019",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/admin/tickets",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2421,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:02.991Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-69ce37317a452ec449e3",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/admin/users",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1469,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:05.518Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-b64f80fab09bfd574328",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/admin/wallet-recharges",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1632,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:07.004Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-5ae0940bef8a0264bcc3",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/admin/withdrawals",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1795,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:08.670Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-9840d0081f20e0df5a60",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/become-seller",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1719,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:10.494Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-f0db59cbb8e030304839",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/brands",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1496,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:12.236Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-171c09cf21a028a60dba",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/cart",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1327,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:13.750Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-08d5da81c816164abc60",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/categories",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1418,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:15.099Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-bd466abcb2a2e156e051",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/category/[slug]",
           "ok": true,
           "tags": [],
           "tests": [
@@ -1209,347 +1617,7 @@
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:31.014Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-2a65b4e51cfa16998998",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/admin/taxonomy",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1644,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:32.657Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-88585b09bb3589692019",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/admin/tickets",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1427,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:34.320Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-69ce37317a452ec449e3",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/admin/users",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1257,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:35.767Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-b64f80fab09bfd574328",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/admin/wallet-recharges",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1481,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:37.043Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-5ae0940bef8a0264bcc3",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/admin/withdrawals",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1412,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:38.542Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-9840d0081f20e0df5a60",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/become-seller",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1132,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:39.970Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-f0db59cbb8e030304839",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/brands",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1105,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:41.115Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-171c09cf21a028a60dba",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/cart",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1271,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:42.234Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-08d5da81c816164abc60",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/categories",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1234,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:43.524Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-bd466abcb2a2e156e051",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/category/[slug]",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1311,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:42:44.774Z",
+                  "startTime": "2026-11-25T09:28:16.559Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1559,7 +1627,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-35a5bf24f34c59ff600f",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1578,12 +1646,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1149,
+                  "duration": 1579,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:46.102Z",
+                  "startTime": "2026-11-25T09:28:18.208Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1593,7 +1661,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-10fd6030c8388af7f438",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1612,12 +1680,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1465,
+                  "duration": 1630,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:47.269Z",
+                  "startTime": "2026-11-25T09:28:19.811Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1627,7 +1695,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-0d8f5ad323668062fc43",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1646,12 +1714,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1853,
+                  "duration": 1438,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:48.769Z",
+                  "startTime": "2026-11-25T09:28:21.464Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1661,7 +1729,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-6c68520473ab85e93b1e",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1680,12 +1748,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1502,
+                  "duration": 1549,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:50.665Z",
+                  "startTime": "2026-11-25T09:28:22.933Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1695,7 +1763,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-156634ce36a52c92aa95",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1714,12 +1782,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1479,
+                  "duration": 1795,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:52.191Z",
+                  "startTime": "2026-11-25T09:28:24.539Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1729,7 +1797,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-b298c7d6bf31a651e271",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1748,12 +1816,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1738,
+                  "duration": 2055,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:53.689Z",
+                  "startTime": "2026-11-25T09:28:26.364Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1763,7 +1831,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-f1111c730805e09729ff",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1782,12 +1850,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2203,
+                  "duration": 2639,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:55.459Z",
+                  "startTime": "2026-11-25T09:28:28.456Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1797,7 +1865,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-8e1e815c46bb86cb9116",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1816,12 +1884,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1722,
+                  "duration": 1800,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:57.682Z",
+                  "startTime": "2026-11-25T09:28:31.119Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1831,7 +1899,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-a17119fdcdce3362f3ee",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1850,12 +1918,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2079,
+                  "duration": 1529,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:42:59.432Z",
+                  "startTime": "2026-11-25T09:28:32.942Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1865,7 +1933,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-38c81574ef6e79e57e18",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1884,12 +1952,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1663,
+                  "duration": 1627,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:01.540Z",
+                  "startTime": "2026-11-25T09:28:34.490Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1899,7 +1967,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-3b498219d0852fe5ad25",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1918,12 +1986,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1495,
+                  "duration": 1759,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:03.222Z",
+                  "startTime": "2026-11-25T09:28:36.142Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1933,7 +2001,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-ee45108420f9e30bf80b",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1952,12 +2020,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1873,
+                  "duration": 1594,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:04.736Z",
+                  "startTime": "2026-11-25T09:28:37.922Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1967,7 +2035,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-dc97eadaf6ef86bd05de",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -1986,12 +2054,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 5374,
+                  "duration": 1422,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:06.634Z",
+                  "startTime": "2026-11-25T09:28:39.533Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2001,7 +2069,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-029bc994fd65362bb7bd",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2020,12 +2088,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2480,
+                  "duration": 1504,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:12.048Z",
+                  "startTime": "2026-11-25T09:28:40.973Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2035,7 +2103,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-912291fd0b706d970c99",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2054,12 +2122,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1653,
+                  "duration": 1826,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:14.574Z",
+                  "startTime": "2026-11-25T09:28:42.500Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2069,7 +2137,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-3d179feea8d00d154d8b",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2088,12 +2156,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1775,
+                  "duration": 1666,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:16.251Z",
+                  "startTime": "2026-11-25T09:28:44.352Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2103,249 +2171,11 @@
           ],
           "id": "170e8a9d719db4caeb1d-3f64a3d56b218d4049c6",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
           "title": "page hydration: /en/dashboard/tickets",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1576,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:43:18.048Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-eddfe3b977bf3cfe5940",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/dashboard/wallet",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1575,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:43:19.645Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-6322d7470ea46a7d0b75",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/dashboard/wishlist",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1735,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:43:21.244Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-a4b75158ef752980e230",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/delivery-info",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1338,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:43:23.011Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-e4f52ac11b841c45c740",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/flash-deal/[slug]",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1389,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:43:24.369Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-3a7bc1ea616adbf45d17",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/forgot-password",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1313,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:43:25.778Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-9e6032c51857d04724bc",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/login",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1273,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-25T05:43:27.108Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "170e8a9d719db4caeb1d-f9aa49358676e42c2fbd",
-          "file": "marketplace.spec.ts",
-          "line": 115,
-          "column": 3
-        },
-        {
-          "title": "page hydration: /en/",
           "ok": true,
           "tags": [],
           "tests": [
@@ -2365,7 +2195,245 @@
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:28.401Z",
+                  "startTime": "2026-11-25T09:28:46.042Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-eddfe3b977bf3cfe5940",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/dashboard/wallet",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1469,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:47.616Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-6322d7470ea46a7d0b75",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/dashboard/wishlist",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1562,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:49.106Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-a4b75158ef752980e230",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/delivery-info",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1463,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:50.688Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-e4f52ac11b841c45c740",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/flash-deal/[slug]",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1666,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:52.178Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-3a7bc1ea616adbf45d17",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/forgot-password",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1511,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:53.866Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-9e6032c51857d04724bc",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/login",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1406,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:55.398Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "170e8a9d719db4caeb1d-f9aa49358676e42c2fbd",
+          "file": "marketplace.spec.ts",
+          "line": 140,
+          "column": 3
+        },
+        {
+          "title": "page hydration: /en/",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1490,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T09:28:56.819Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2375,7 +2443,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-af6bbdd00a88b819f385",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2394,12 +2462,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2200,
+                  "duration": 1495,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:29.984Z",
+                  "startTime": "2026-11-25T09:28:58.328Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2409,7 +2477,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-5fbf50a5eb2251f75bff",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2428,12 +2496,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1350,
+                  "duration": 1606,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:32.211Z",
+                  "startTime": "2026-11-25T09:28:59.859Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2443,7 +2511,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-9ddd990d4093faeb207e",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2462,12 +2530,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1976,
+                  "duration": 1390,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:33.580Z",
+                  "startTime": "2026-11-25T09:29:01.487Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2477,7 +2545,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-6300397a4923505a7b51",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2496,12 +2564,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1292,
+                  "duration": 1283,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:35.572Z",
+                  "startTime": "2026-11-25T09:29:02.893Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2511,7 +2579,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-6b434f4ece127b846870",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2530,12 +2598,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1206,
+                  "duration": 1492,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:36.881Z",
+                  "startTime": "2026-11-25T09:29:04.193Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2545,7 +2613,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-7becc728a36f01dfc6ad",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2564,12 +2632,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1237,
+                  "duration": 1574,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:38.102Z",
+                  "startTime": "2026-11-25T09:29:05.709Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2579,7 +2647,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-1602ede05b76e4d60339",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2598,12 +2666,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1404,
+                  "duration": 1620,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:39.352Z",
+                  "startTime": "2026-11-25T09:29:07.307Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2613,7 +2681,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-8ba5eb5d69dce1573731",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2632,12 +2700,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1357,
+                  "duration": 1442,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:40.776Z",
+                  "startTime": "2026-11-25T09:29:08.949Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2647,7 +2715,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-6218dcb3a03f2947be10",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2666,12 +2734,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1430,
+                  "duration": 1291,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:42.156Z",
+                  "startTime": "2026-11-25T09:29:10.412Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2681,7 +2749,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-ac950bed8629d2635fc2",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2700,12 +2768,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1853,
+                  "duration": 2887,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:43.605Z",
+                  "startTime": "2026-11-25T09:29:11.722Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2715,7 +2783,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-e94da7f8b3ef8a4caba7",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2734,12 +2802,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1831,
+                  "duration": 1962,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:45.473Z",
+                  "startTime": "2026-11-25T09:29:14.626Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2749,7 +2817,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-c71841abc9acc6172d71",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2768,12 +2836,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2068,
+                  "duration": 1716,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:47.321Z",
+                  "startTime": "2026-11-25T09:29:16.611Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2783,7 +2851,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-5920ccb70979c4fdeca5",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2802,12 +2870,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1793,
+                  "duration": 1451,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:49.406Z",
+                  "startTime": "2026-11-25T09:29:18.349Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2817,7 +2885,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-b45a31a1cd541aa43343",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2836,12 +2904,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4602,
+                  "duration": 1417,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:51.213Z",
+                  "startTime": "2026-11-25T09:29:19.823Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2851,7 +2919,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-387c4c48349565a14f02",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2870,12 +2938,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2881,
+                  "duration": 1462,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:55.827Z",
+                  "startTime": "2026-11-25T09:29:21.257Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2885,7 +2953,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-394e7ae41d9a4491ec96",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2904,12 +2972,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2897,
+                  "duration": 1259,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:43:58.722Z",
+                  "startTime": "2026-11-25T09:29:22.731Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2919,7 +2987,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-2d9c5c5831179dcc352f",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2938,12 +3006,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2044,
+                  "duration": 1746,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:01.635Z",
+                  "startTime": "2026-11-25T09:29:24.007Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2953,7 +3021,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-a7673e61714c93d7afe4",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -2972,12 +3040,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1639,
+                  "duration": 1528,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:03.703Z",
+                  "startTime": "2026-11-25T09:29:25.774Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -2987,7 +3055,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-3766b665e6201512e85e",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3006,12 +3074,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1471,
+                  "duration": 1295,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:05.362Z",
+                  "startTime": "2026-11-25T09:29:27.321Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3021,7 +3089,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-4a4483b906496933585f",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3040,12 +3108,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1450,
+                  "duration": 1251,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:06.854Z",
+                  "startTime": "2026-11-25T09:29:28.626Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3055,7 +3123,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-00b808830de403ee899e",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3074,12 +3142,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1269,
+                  "duration": 1263,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:08.321Z",
+                  "startTime": "2026-11-25T09:29:29.888Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3089,7 +3157,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-70a679572f9c15b08b8e",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3108,12 +3176,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1352,
+                  "duration": 1379,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:09.606Z",
+                  "startTime": "2026-11-25T09:29:31.166Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3123,7 +3191,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-ebfdbd928698017f8262",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3142,12 +3210,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1477,
+                  "duration": 1320,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:10.974Z",
+                  "startTime": "2026-11-25T09:29:32.564Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3157,7 +3225,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-6c3532bb55fb581b300a",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3176,12 +3244,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1704,
+                  "duration": 1276,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:12.470Z",
+                  "startTime": "2026-11-25T09:29:33.899Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3191,7 +3259,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-3f7f624651c1bd4335b4",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3210,12 +3278,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1926,
+                  "duration": 1153,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:14.200Z",
+                  "startTime": "2026-11-25T09:29:35.188Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3225,7 +3293,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-5f7f55ca1bdc04c6152f",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3244,12 +3312,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1743,
+                  "duration": 1244,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:16.208Z",
+                  "startTime": "2026-11-25T09:29:36.356Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3259,7 +3327,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-a4b5d053ac775babda18",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3278,12 +3346,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1355,
+                  "duration": 1323,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:17.987Z",
+                  "startTime": "2026-11-25T09:29:37.616Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3293,7 +3361,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-7f679858edefd631ce6d",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3312,12 +3380,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1917,
+                  "duration": 1566,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:19.367Z",
+                  "startTime": "2026-11-25T09:29:38.960Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3327,7 +3395,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-595a9785e54673519183",
           "file": "marketplace.spec.ts",
-          "line": 115,
+          "line": 140,
           "column": 3
         },
         {
@@ -3346,12 +3414,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1390,
+                  "duration": 943,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:21.328Z",
+                  "startTime": "2026-11-25T09:29:40.557Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3361,7 +3429,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-a6c9a9da6122211c08cb",
           "file": "marketplace.spec.ts",
-          "line": 131,
+          "line": 156,
           "column": 1
         },
         {
@@ -3380,12 +3448,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1119,
+                  "duration": 1110,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:22.748Z",
+                  "startTime": "2026-11-25T09:29:41.527Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3395,7 +3463,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-ca9d6151b12f7d10b07b",
           "file": "marketplace.spec.ts",
-          "line": 145,
+          "line": 170,
           "column": 3
         },
         {
@@ -3414,12 +3482,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1154,
+                  "duration": 1086,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:23.894Z",
+                  "startTime": "2026-11-25T09:29:42.658Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3429,7 +3497,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-b415f0cf97fb369a9eb7",
           "file": "marketplace.spec.ts",
-          "line": 145,
+          "line": 170,
           "column": 3
         },
         {
@@ -3448,12 +3516,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4012,
+                  "duration": 2164,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:25.076Z",
+                  "startTime": "2026-11-25T09:29:43.773Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3463,7 +3531,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-05ff362fac327303f77f",
           "file": "marketplace.spec.ts",
-          "line": 157,
+          "line": 182,
           "column": 1
         },
         {
@@ -3482,12 +3550,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 13667,
+                  "duration": 5680,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-25T05:44:29.112Z",
+                  "startTime": "2026-11-25T09:29:45.965Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -3497,7 +3565,7 @@
           ],
           "id": "170e8a9d719db4caeb1d-2b9067a4b860fdb2cd2d",
           "file": "marketplace.spec.ts",
-          "line": 182,
+          "line": 207,
           "column": 1
         }
       ]
@@ -3505,9 +3573,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-25T05:40:11.865Z",
-    "duration": 277358.491,
-    "expected": 100,
+    "startTime": "2026-11-25T09:26:00.762Z",
+    "duration": 233524.73799999998,
+    "expected": 102,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

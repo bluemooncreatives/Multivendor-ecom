@@ -12,7 +12,7 @@ import needs no database server, no MySQL driver, and can be run from a backup.
 
 ```powershell
 # Rehearse: reads and maps everything, writes nothing.
-npm run migrate:legacy -- --dump ../legacy-ecommercemultivendor/software_ecommercemvendor22.sql --dry-run --report ./import-report.json
+npm run migrate:legacy -- --dump ./your-legacy-database.sql --dry-run --report ./import-report.json
 
 # Write. --yes is required; without it the run is forced back to a dry run.
 npm run migrate:legacy -- --dump ./dump.sql --uploads-base /legacy --yes --report ./import-report.json

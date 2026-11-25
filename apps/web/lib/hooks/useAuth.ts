@@ -46,7 +46,8 @@ export function usePhoneLogin() {
 }
 
 export function useSendPhoneCode(purpose: "login" | "password_reset" | "registration") {
-  return useMutation({ mutationFn: async (phone: string) => api.post("/auth/phone/otp", { phone, purpose }) });
+  return useMutation({ mutationFn: async (input: string | { phone: string; recaptchaToken?: string }) =>
+    api.post("/auth/phone/otp", { ...(typeof input === "string" ? { phone: input } : input), purpose }) });
 }
 
 export function useRegister() {

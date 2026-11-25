@@ -34,7 +34,7 @@ function hashCode(phone: string, nonce: string, purpose: string, code: string) {
   return createHmac("sha256", env.JWT_ACCESS_SECRET).update(`${phone}\0${nonce}\0${purpose}\0${code}`).digest("hex");
 }
 
-export async function sendPhoneOtp(phone: string, purpose: OtpPurpose = "login", userId?: string): Promise<void> {
+export async function sendPhoneOtp(phone: string, purpose: OtpPurpose = "login", userId?: string, captchaVerified = false): Promise<void> {
   if (!/^\+[1-9]\d{7,14}$/.test(phone)) throw new ApiError(422, "Use an international phone number beginning with +");
   await assertPurpose(purpose);
   const settings = await OtpSetting.findOne({ key: "otp" });
@@ -46,7 +46,7 @@ export async function sendPhoneOtp(phone: string, purpose: OtpPurpose = "login",
   try {
     await PhoneChallenge.findOneAndUpdate({ _id: phone, resendAfter: { $lte: now } }, { $set: {
       nonce, purpose, userId: userId ?? null, transport, codeHash: transport === "sms" ? hashCode(phone, nonce, purpose, code) : null,
-      status: "pending", attempts: 0, consumedAt: null, resendAfter: new Date(now.getTime() + 60000), expiresAt: new Date(now.getTime() + 300000),
+      status: "pending", attempts: 0, captchaVerified, consumedAt: null, resendAfter: new Date(now.getTime() + 60000), expiresAt: new Date(now.getTime() + 300000),
     } }, { upsert: true, new: true });
   } catch (error) {
     if ((error as { code?: number }).code === 11000) throw new ApiError(429, "Wait a minute before requesting another code");
@@ -82,4 +82,9 @@ export async function checkPhoneOtp(phone: string, code: string, purpose: OtpPur
   if (!correct) return false;
   const consumed = await PhoneChallenge.updateOne({ _id: phone, nonce: challenge.nonce, consumedAt: null, expiresAt: { $gt: new Date() } }, { consumedAt: new Date() });
   return consumed.modifiedCount === 1;
+}
+
+export async function hasRegistrationCaptchaProof(phone: string) {
+  return Boolean(await PhoneChallenge.exists({ _id: phone, purpose: "registration", userId: null, status: "sent",
+    captchaVerified: true, consumedAt: null, attempts: { $lt: 5 }, expiresAt: { $gt: new Date() } }));
 }
