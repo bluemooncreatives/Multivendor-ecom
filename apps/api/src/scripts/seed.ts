@@ -32,9 +32,9 @@ async function seed() {
 
   await Currency.deleteMany({});
   await Currency.insertMany([
-    { code: "INR", symbol: "₹", rateToBase: 1 },
-    { code: "USD", symbol: "$", rateToBase: 83 },
-    { code: "AED", symbol: "د.إ", rateToBase: 22.6 },
+    { code: "INR", name: "Indian Rupee", symbol: "₹", rateToBase: 1 },
+    { code: "USD", name: "US Dollar", symbol: "$", rateToBase: 83 },
+    { code: "AED", name: "UAE Dirham", symbol: "د.إ", rateToBase: 22.6 },
   ]);
 
   await Country.deleteMany({});
