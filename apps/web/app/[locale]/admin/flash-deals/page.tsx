@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { Trash2 } from "lucide-react";
+import { Trash2, Zap } from "lucide-react";
 import { useProducts } from "@/lib/hooks/useProducts";
 import {
   useAdminFlashDeals,
@@ -13,17 +13,16 @@ import {
 } from "@/lib/hooks/useAdminCatalogExtras";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { FormField } from "@/components/shared/form-field";
+import { CardGridSkeleton } from "@/components/shared/loading-state";
+import { getApiErrorMessage } from "@/lib/utils";
 
-/**
- * Campaign editor. The legacy admin (`flash_deals/create.blade.php` plus the
- * `product_discount` partial) let one campaign hold many products, each with its
- * own percentage *or* fixed-amount discount — this page previously accepted a
- * single product at a single percentage, and posted no slug, which the API
- * rejected outright.
- */
 export default function AdminFlashDealsPage() {
   const { data: deals, isLoading } = useAdminFlashDeals();
   const { data: products } = useProducts({ sort: "newest" });
@@ -40,7 +39,6 @@ export default function AdminFlashDealsPage() {
   const [endsAt, setEndsAt] = useState("");
   const [lines, setLines] = useState<FlashDealLineInput[]>([]);
 
-  // Line being composed before it is added to the campaign.
   const [productId, setProductId] = useState("");
   const [variantSku, setVariantSku] = useState("");
   const [discountType, setDiscountType] = useState<"percent" | "flat">("percent");
@@ -80,8 +78,6 @@ export default function AdminFlashDealsPage() {
         variantSku: variant.sku,
         discountType,
         discount,
-        // Blank means "no campaign cap", matching the legacy behaviour of limiting
-        // a deal only by the product's own stock.
         dealStock: dealStock.trim() === "" ? null : Math.max(0, Number(dealStock)),
       },
     ]);
@@ -116,9 +112,8 @@ export default function AdminFlashDealsPage() {
       setFeatured(false);
       setLines([]);
       toast.success("Flash deal created");
-    } catch (err: unknown) {
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      toast.error(message ?? "Could not create flash deal");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Could not create flash deal"));
     }
   }
 
@@ -133,51 +128,46 @@ export default function AdminFlashDealsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Flash deals</h1>
+      <PageHeader title="Flash deals" description="Schedule limited-time promotional campaigns with per-variant discounts." />
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">New flash deal</CardTitle>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="h-4 w-4 text-primary" />
+            New flash deal
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="deal-title">Title</Label>
+            <FormField label="Title" htmlFor="deal-title" required className="sm:col-span-2">
               <Input id="deal-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="deal-starts">Starts at</Label>
+            </FormField>
+            <FormField label="Starts at" htmlFor="deal-starts" required>
               <Input id="deal-starts" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="deal-ends">Ends at</Label>
+            </FormField>
+            <FormField label="Ends at" htmlFor="deal-ends" required>
               <Input id="deal-ends" type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} required />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="deal-banner">Banner image URL (optional)</Label>
+            </FormField>
+            <FormField label="Banner image URL (optional)" htmlFor="deal-banner" className="sm:col-span-2">
               <Input id="deal-banner" value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} placeholder="https://…" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="deal-text-color">Text colour (optional)</Label>
+            </FormField>
+            <FormField label="Text colour (optional)" htmlFor="deal-text-color">
               <Input id="deal-text-color" value={textColor} onChange={(e) => setTextColor(e.target.value)} placeholder="#ffffff" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="deal-bg-color">Background colour (optional)</Label>
+            </FormField>
+            <FormField label="Background colour (optional)" htmlFor="deal-bg-color">
               <Input id="deal-bg-color" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} placeholder="#111111" />
-            </div>
-            <label className="flex items-center gap-2 text-sm sm:col-span-2">
-              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
-              Promote on the home page (only one campaign can be promoted)
+            </FormField>
+            <label className="flex cursor-pointer items-center gap-2 text-sm sm:col-span-2">
+              <Checkbox checked={featured} onCheckedChange={(checked) => setFeatured(checked === true)} />
+              <span>Promote on the home page (only one campaign can be promoted)</span>
             </label>
 
-            <div className="space-y-3 rounded-md border p-3 sm:col-span-2">
-              <p className="text-sm font-medium">Campaign products</p>
+            <div className="space-y-4 rounded-lg border bg-muted/20 p-4 sm:col-span-2">
+              <p className="text-sm font-semibold">Campaign products</p>
               <div className="grid gap-3 sm:grid-cols-5">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="deal-product">Product</Label>
-                  <select
+                <FormField label="Product" htmlFor="deal-product" className="sm:col-span-2">
+                  <NativeSelect
                     id="deal-product"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                     value={productId}
                     onChange={(e) => {
                       setProductId(e.target.value);
@@ -190,13 +180,11 @@ export default function AdminFlashDealsPage() {
                         {p.name}
                       </option>
                     ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="deal-variant">Variant</Label>
-                  <select
+                  </NativeSelect>
+                </FormField>
+                <FormField label="Variant" htmlFor="deal-variant">
+                  <NativeSelect
                     id="deal-variant"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                     value={variantSku}
                     onChange={(e) => setVariantSku(e.target.value)}
                     disabled={!selectedProduct}
@@ -206,22 +194,19 @@ export default function AdminFlashDealsPage() {
                         {variant.sku} · {variant.price}
                       </option>
                     ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="deal-discount-type">Discount type</Label>
-                  <select
+                  </NativeSelect>
+                </FormField>
+                <FormField label="Discount type" htmlFor="deal-discount-type">
+                  <NativeSelect
                     id="deal-discount-type"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                     value={discountType}
                     onChange={(e) => setDiscountType(e.target.value as "percent" | "flat")}
                   >
                     <option value="percent">Percent</option>
                     <option value="flat">Fixed amount</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="deal-discount">Discount</Label>
+                  </NativeSelect>
+                </FormField>
+                <FormField label="Discount" htmlFor="deal-discount">
                   <Input
                     id="deal-discount"
                     type="number"
@@ -230,11 +215,10 @@ export default function AdminFlashDealsPage() {
                     value={discount}
                     onChange={(e) => setDiscount(Number(e.target.value))}
                   />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="deal-stock">Units at this price (blank = unlimited)</Label>
+                </FormField>
+                <FormField label="Units at this price (blank = unlimited)" htmlFor="deal-stock" className="sm:col-span-2">
                   <Input id="deal-stock" type="number" min={0} value={dealStock} onChange={(e) => setDealStock(e.target.value)} />
-                </div>
+                </FormField>
                 <div className="flex items-end sm:col-span-3">
                   <Button type="button" variant="secondary" onClick={addLine}>
                     Add product
@@ -243,9 +227,9 @@ export default function AdminFlashDealsPage() {
               </div>
 
               {lines.length > 0 && (
-                <ul className="divide-y rounded-md border text-sm">
+                <ul className="divide-y rounded-lg border bg-background text-sm">
                   {lines.map((line, index) => (
-                    <li key={`${line.productId}-${line.variantSku}`} className="flex items-center justify-between gap-3 p-2">
+                    <li key={`${line.productId}-${line.variantSku}`} className="flex items-center justify-between gap-3 px-3 py-2.5">
                       <span>
                         {productById(line.productId)?.name ?? line.productId} · {line.variantSku} ·{" "}
                         {line.discountType === "percent" ? `${line.discount}% off` : `-${line.discount}`} ·{" "}
@@ -254,7 +238,8 @@ export default function AdminFlashDealsPage() {
                       <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
                         aria-label="Remove product from campaign"
                         onClick={() => setLines((current) => current.filter((_, i) => i !== index))}
                       >
@@ -274,36 +259,36 @@ export default function AdminFlashDealsPage() {
       </Card>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <CardGridSkeleton count={2} columns="sm:grid-cols-2" />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {deals?.map((deal) => (
             <Card key={deal.id}>
-              <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardHeader className="flex-row items-center justify-between space-y-0 border-b bg-muted/20 py-3.5">
                 <CardTitle className="text-base">{deal.title}</CardTitle>
                 <div className="flex items-center gap-2">
                   {deal.featured && <Badge>Promoted</Badge>}
-                  <Badge variant={deal.active ? "secondary" : "outline"}>{deal.active ? "Active" : "Inactive"}</Badge>
+                  <StatusBadge status={deal.active ? "active" : "inactive"} />
                 </div>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <p>
+              <CardContent className="space-y-3 pt-4 text-sm text-muted-foreground">
+                <p className="text-xs">
                   {new Date(deal.startsAt).toLocaleString()} → {new Date(deal.endsAt).toLocaleString()}
                 </p>
                 <ul className="space-y-1">
                   {deal.products.map((line) => (
                     <li key={`${line.productId}-${line.variantSku}`}>
                       {line.variantSku}: {line.listPrice ?? "—"} → {line.dealPrice ?? "—"} ({line.discountPercent}% off)
-                      {line.dealStock !== null && ` · ${line.dealSold}/${line.dealStock} sold`}
+                      {line.dealStock !== null && ` · ${line.dealStock > 0 ? `${line.dealSold}/${line.dealStock} sold` : ""}`}
                       {line.soldOut && " · sold out"}
                     </li>
                   ))}
                 </ul>
-                <div className="flex gap-2">
+                <div className="flex gap-2 border-t pt-2">
                   <Button variant="ghost" size="sm" onClick={() => toggleFeatured(deal.id, !deal.featured)}>
                     {deal.featured ? "Unpromote" : "Promote"}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => deleteDeal.mutate(deal.id)}>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteDeal.mutate(deal.id)}>
                     Deactivate
                   </Button>
                 </div>

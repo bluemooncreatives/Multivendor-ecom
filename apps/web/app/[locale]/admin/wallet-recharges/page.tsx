@@ -1,8 +1,13 @@
 "use client";
 
+import { Wallet } from "lucide-react";
 import { useAdminWalletRecharges, useResolveWalletRecharge } from "@/lib/hooks/useAdmin";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { TableSkeleton } from "@/components/shared/loading-state";
 import { formatPrice } from "@/lib/format";
 
 export default function AdminWalletRechargesPage() {
@@ -10,21 +15,22 @@ export default function AdminWalletRechargesPage() {
   const resolve = useResolveWalletRecharge();
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Wallet recharge requests</h1>
+    <div className="space-y-6">
+      <PageHeader title="Wallet recharge requests" description="Verify bank transfer proofs and credit customer wallets." />
+
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <TableSkeleton rows={5} />
       ) : !requests || requests.length === 0 ? (
-        <p className="text-muted-foreground">No recharge requests.</p>
+        <EmptyState icon={Wallet} title="No recharge requests" description="Submitted customer wallet recharges appear here." />
       ) : (
-        <div className="divide-y rounded-md border">
-          {requests.map((r: any) => (
-            <div key={r.id} className="flex items-center justify-between p-3 text-sm">
+        <Card className="divide-y overflow-hidden">
+          {requests.map((r: { id: string; amount: number; status: string; userId?: { name?: string } }) => (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm">
               <div>
-                <p className="font-medium">{r.userId?.name ?? "Customer"}</p>
+                <p className="font-semibold">{r.userId?.name ?? "Customer"}</p>
                 <p className="text-muted-foreground">{formatPrice(r.amount)}</p>
               </div>
-              <Badge variant="secondary">{r.status}</Badge>
+              <StatusBadge status={r.status} />
               {r.status === "pending" && (
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => resolve.mutate({ id: r.id, approve: true })}>
@@ -37,7 +43,7 @@ export default function AdminWalletRechargesPage() {
               )}
             </div>
           ))}
-        </div>
+        </Card>
       )}
     </div>
   );

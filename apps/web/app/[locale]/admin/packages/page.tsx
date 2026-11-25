@@ -16,26 +16,32 @@ import {
 } from "@/lib/hooks/useAdminAddons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { FormField } from "@/components/shared/form-field";
 
 export default function AdminPackagesPage() {
   const enforceLimits = useEnforceProductLimits();
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">Subscription packages</h1>
-        <div className="text-end">
-          <Button variant="outline" size="sm" disabled={enforceLimits.isPending} onClick={() => enforceLimits.mutate()}>
-            Enforce product limits now
-          </Button>
-          {enforceLimits.data && (
-            <p className="mt-1 text-xs text-muted-foreground">Unpublished {enforceLimits.data.unpublished} over-limit product(s).</p>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Subscription packages"
+        description="Manage seller and customer listing tiers, limits, and offline package approvals."
+        actions={
+          <div className="text-end">
+            <Button variant="outline" size="sm" disabled={enforceLimits.isPending} onClick={() => enforceLimits.mutate()}>
+              Enforce product limits now
+            </Button>
+            {enforceLimits.data && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Unpublished {enforceLimits.data.unpublished} over-limit product(s).
+              </p>
+            )}
+          </div>
+        }
+      />
 
       <SellerPackages />
       <CustomerPackages />
@@ -55,10 +61,10 @@ function SellerPackages() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="border-b bg-muted/20 pb-3.5">
         <CardTitle className="text-base">Seller packages</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5 pt-5">
         <form
           className="grid gap-4 md:grid-cols-6"
           onSubmit={(e) => {
@@ -66,12 +72,10 @@ function SellerPackages() {
             save.mutate(form, { onSuccess: () => setForm(BLANK_SELLER) });
           }}
         >
-          <div className="space-y-1">
-            <Label htmlFor="sp-name">Name</Label>
+          <FormField label="Name" htmlFor="sp-name" required>
             <Input id="sp-name" value={form.name ?? ""} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="sp-price">Price</Label>
+          </FormField>
+          <FormField label="Price" htmlFor="sp-price">
             <Input
               id="sp-price"
               type="number"
@@ -79,9 +83,8 @@ function SellerPackages() {
               value={form.price ?? 0}
               onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="sp-days">Days</Label>
+          </FormField>
+          <FormField label="Days" htmlFor="sp-days">
             <Input
               id="sp-days"
               type="number"
@@ -89,11 +92,8 @@ function SellerPackages() {
               value={form.durationDays ?? 30}
               onChange={(e) => setForm({ ...form, durationDays: Number(e.target.value) })}
             />
-          </div>
-          <div className="space-y-1">
-            {/* An allowance of uploads granted by the plan, not a cap on how many
-                listings may exist — a deleted listing does not return an upload. */}
-            <Label htmlFor="sp-limit">Product uploads</Label>
+          </FormField>
+          <FormField label="Product uploads" htmlFor="sp-limit">
             <Input
               id="sp-limit"
               type="number"
@@ -101,9 +101,8 @@ function SellerPackages() {
               value={form.productLimit ?? 0}
               onChange={(e) => setForm({ ...form, productLimit: Number(e.target.value) })}
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="sp-digital-limit">Digital uploads</Label>
+          </FormField>
+          <FormField label="Digital uploads" htmlFor="sp-digital-limit">
             <Input
               id="sp-digital-limit"
               type="number"
@@ -111,9 +110,8 @@ function SellerPackages() {
               value={form.digitalProductLimit ?? 0}
               onChange={(e) => setForm({ ...form, digitalProductLimit: Number(e.target.value) })}
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="sp-commission">Commission % override</Label>
+          </FormField>
+          <FormField label="Commission % override" htmlFor="sp-commission">
             <Input
               id="sp-commission"
               type="number"
@@ -124,7 +122,7 @@ function SellerPackages() {
               value={form.commissionRateOverride ?? ""}
               onChange={(e) => setForm({ ...form, commissionRateOverride: e.target.value ? Number(e.target.value) : null })}
             />
-          </div>
+          </FormField>
           <div className="flex items-end gap-2 md:col-span-6">
             <Button type="submit" disabled={save.isPending}>
               {form.id ? "Save changes" : "Add package"}
@@ -137,11 +135,11 @@ function SellerPackages() {
           </div>
         </form>
 
-        <div className="space-y-2">
+        <div className="space-y-2 border-t pt-4">
           {packages?.map((pkg) => (
-            <div key={pkg.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+            <div key={pkg.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3.5 text-sm">
               <div>
-                <span className="font-medium">{pkg.name}</span>{" "}
+                <span className="font-semibold">{pkg.name}</span>{" "}
                 <span className="text-muted-foreground">
                   {pkg.price} / {pkg.durationDays} days · {pkg.productLimit} product upload(s)
                   {!!pkg.digitalProductLimit && ` · ${pkg.digitalProductLimit} digital upload(s)`}
@@ -149,11 +147,11 @@ function SellerPackages() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={pkg.active ? "default" : "outline"}>{pkg.active ? "Active" : "Retired"}</Badge>
+                <StatusBadge status={pkg.active ? "active" : "retired"} />
                 <Button variant="ghost" size="sm" onClick={() => setForm(pkg)}>
                   Edit
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => remove.mutate(pkg.id)}>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove.mutate(pkg.id)}>
                   Retire
                 </Button>
               </div>
@@ -175,10 +173,10 @@ function CustomerPackages() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="border-b bg-muted/20 pb-3.5">
         <CardTitle className="text-base">Customer packages (classified listings)</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5 pt-5">
         <form
           className="grid gap-4 md:grid-cols-4"
           onSubmit={(e) => {
@@ -186,12 +184,10 @@ function CustomerPackages() {
             save.mutate(form, { onSuccess: () => setForm(BLANK_CUSTOMER) });
           }}
         >
-          <div className="space-y-1">
-            <Label htmlFor="cp-name">Name</Label>
+          <FormField label="Name" htmlFor="cp-name" required>
             <Input id="cp-name" value={form.name ?? ""} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="cp-price">Price</Label>
+          </FormField>
+          <FormField label="Price" htmlFor="cp-price">
             <Input
               id="cp-price"
               type="number"
@@ -199,9 +195,8 @@ function CustomerPackages() {
               value={form.price ?? 0}
               onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="cp-days">Days</Label>
+          </FormField>
+          <FormField label="Days" htmlFor="cp-days">
             <Input
               id="cp-days"
               type="number"
@@ -209,9 +204,8 @@ function CustomerPackages() {
               value={form.durationDays ?? 30}
               onChange={(e) => setForm({ ...form, durationDays: Number(e.target.value) })}
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="cp-limit">Listing limit</Label>
+          </FormField>
+          <FormField label="Listing limit" htmlFor="cp-limit">
             <Input
               id="cp-limit"
               type="number"
@@ -219,7 +213,7 @@ function CustomerPackages() {
               value={form.classifiedListingLimit ?? 0}
               onChange={(e) => setForm({ ...form, classifiedListingLimit: Number(e.target.value) })}
             />
-          </div>
+          </FormField>
           <div className="flex items-end gap-2 md:col-span-4">
             <Button type="submit" disabled={save.isPending}>
               {form.id ? "Save changes" : "Add package"}
@@ -232,21 +226,21 @@ function CustomerPackages() {
           </div>
         </form>
 
-        <div className="space-y-2">
+        <div className="space-y-2 border-t pt-4">
           {packages?.map((pkg) => (
-            <div key={pkg.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+            <div key={pkg.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3.5 text-sm">
               <div>
-                <span className="font-medium">{pkg.name}</span>{" "}
+                <span className="font-semibold">{pkg.name}</span>{" "}
                 <span className="text-muted-foreground">
                   {pkg.price} / {pkg.durationDays} days · up to {pkg.classifiedListingLimit} listings
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={pkg.active ? "default" : "outline"}>{pkg.active ? "Active" : "Retired"}</Badge>
+                <StatusBadge status={pkg.active ? "active" : "retired"} />
                 <Button variant="ghost" size="sm" onClick={() => setForm(pkg)}>
                   Edit
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => remove.mutate(pkg.id)}>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove.mutate(pkg.id)}>
                   Retire
                 </Button>
               </div>
@@ -264,10 +258,10 @@ function PaymentQueue({ kind }: { kind: "seller" | "customer" }) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="border-b bg-muted/20 pb-3.5">
         <CardTitle className="text-base">Offline {kind} package payments awaiting approval</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-2 pt-4">
         {payments?.length === 0 && <p className="text-sm text-muted-foreground">Nothing awaiting approval.</p>}
         {payments?.map(
           (payment: {
@@ -280,12 +274,12 @@ function PaymentQueue({ kind }: { kind: "seller" | "customer" }) {
           }) => {
             const buyer = payment.sellerId ?? payment.userId;
             return (
-              <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+              <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3.5 text-sm">
                 <div>
-                  <p className="font-medium">
+                  <p className="font-semibold">
                     {buyer?.name ?? "Unknown"} — {payment.packageId?.name ?? "Package"} ({payment.amount})
                   </p>
-                  <p className="text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {buyer?.email} · paid via {payment.paymentMethod}
                   </p>
                 </div>
