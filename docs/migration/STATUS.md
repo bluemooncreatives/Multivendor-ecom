@@ -15,21 +15,20 @@ production certified based on the checks recorded here.
 
 ## Source comparison
 
-`npm run audit:migration` reads application files in the original
-`../Ecommerce-Multivendor` and embedded `legacy-ecommercemultivendor`, including
-their application/view/route backups and extracted add-ons. It records hashes,
-functions, controller actions, and target API call references in `inventory.json`.
-Third-party dependencies, generated builds, uploaded media, environment secrets,
-and database row contents are not exported into the report.
+The embedded `legacy-ecommercemultivendor` PHP reference tree and the
+`audit:migration` inventory tool were removed after parity was implemented and
+verified feature by feature (see the tables below and `VALIDATION.md`). During
+the migration that tool compared the original `../Ecommerce-Multivendor` and the
+embedded `legacy-ecommercemultivendor` file for file — 1,263 original files and
+1,261 legacy files, whose only differences were line endings and trailing
+whitespace — against the 90 Next.js page components. The historical counts are
+inventory figures, not completed-feature acceptance.
 
-`npm run migrate:legacy -- --dump <file> --dry-run` additionally reads the legacy
-MySQL dump itself and reports, table by table, what it would write. The selected
-source directories contain 1,263 original files and 1,261 legacy
-files. There are 185 byte-level differences in common files; all disappear when
-line endings and trailing whitespace are normalized. The original additionally
-contains `resources/lang/en.json` and `Backup/resources/lang/en.json`. The target
-has 90 Next.js page components. These are inventory counts, not completed
-feature acceptance counts. PHP code has not been executed.
+`npm run migrate:legacy -- --dump <file> --dry-run` reads a legacy MySQL dump and
+reports, table by table, what it would write. The real legacy mysqldump is
+retained as the importer's test fixture at
+`apps/api/src/scripts/legacy/__tests__/fixtures/software_ecommercemvendor22.sql`,
+so the cut-over tooling stays exercised against genuine data.
 
 ## Implemented and exercised paths
 
@@ -103,9 +102,13 @@ been run.
 
 The static `public` tree was relocated, not discarded. Runtime uploads now belong
 under ignored `data/uploads` and `data/private-uploads`; the former public upload
-root remains a guarded compatibility fallback. Source PHP/backups/SQL references
-are retained until migration and data reconciliation are proven complete. No
-legacy deletion is represented as safe or finished.
+root remains a guarded compatibility fallback. The legacy PHP reference
+application (`legacy-ecommercemultivendor/`) and the `audit:migration` inventory
+tool were removed once parity was implemented and verified — 240 API tests, 102
+browser checks, API/web typecheck and build all green. The real legacy mysqldump
+was preserved as the importer's test fixture so the cut-over tooling and its
+reconciliation rehearsal remain available; an operator still points
+`migrate:legacy` at a copy of their live database for the production cut-over.
 
 Provider contracts consulted for corrections:
 

@@ -31,14 +31,15 @@ apps/
     public/                 Deployable static assets
 packages/types/             Shared TypeScript contracts
 data/
-  i18n/                     Legacy translation reference
-  mongodb/                  Legacy export reference
   uploads/                  Runtime public uploads (ignored)
   private-uploads/          Paid files (ignored; never statically served)
-docs/migration/             Comparison inventory, progress and import runbook
-scripts/                   Read-only source inventory utility
-legacy-ecommercemultivendor/ Migration reference; retained pending acceptance
+docs/migration/             Migration record, progress and import runbook
+scripts/                   Post-build web smoke test
 ```
+
+The legacy PHP reference application was removed once parity was implemented and
+verified; the real legacy mysqldump is retained as the importer's test fixture at
+`apps/api/src/scripts/legacy/__tests__/fixtures/`.
 
 Use a supported Node.js version and a MongoDB replica set; checkout and financial
 operations require transactions. Copy `.env.example` to `.env` and supply your
@@ -55,7 +56,6 @@ npm run dev:web
 npm run typecheck
 npm test
 npm run build
-npm run audit:migration
 # After the production build:
 python scripts/smoke-web.py
 ```
@@ -65,7 +65,7 @@ read [the runbook](docs/migration/DATA-IMPORT.md) before writing):
 
 ```powershell
 npm run migrate:legacy -- `
-  --dump ../../legacy-ecommercemultivendor/software_ecommercemvendor22.sql `
+  --dump path/to/your-legacy-database.sql `
   --dry-run --report ../../import-report.json
 ```
 

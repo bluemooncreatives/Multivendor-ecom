@@ -4,10 +4,12 @@ Payment gateway implementation and provider acceptance are excluded from this
 continuation. Existing gateway regression tests may run with the rest of the
 suite; they use mocks and do not constitute provider acceptance.
 
-The original PHP tree and the embedded PHP reference have no substantive
-differences after line endings and trailing whitespace are normalized. The
-inventory still contains 1,263 original files, 1,261 embedded reference files and
-90 target page components. An inventory entry is not a completed acceptance test.
+During the migration the original PHP tree (1,263 files) and the embedded PHP
+reference (1,261 files) had no substantive differences after line endings and
+trailing whitespace were normalized, and were compared against the 90 target page
+components. The embedded reference tree has since been removed (parity
+implemented and verified); the real legacy mysqldump is kept as the importer's
+test fixture. An inventory entry was never a completed acceptance test.
 
 ## Features reviewed and corrected
 
@@ -82,9 +84,11 @@ Removed the obsolete ignored `apps/api/affiliate-test.log`. Build output, browse
 traces, test logs and runtime uploads stay outside version control. Production
 API output excludes test files and browser fixtures.
 
-PHP references, SQL dumps and migration artifacts remain retained. They are not
-runtime deployment roots. Deleting them before parity and data acceptance would
-remove the evidence still needed for reconciliation.
+The legacy PHP reference application and the `audit:migration` inventory tool
+were removed after parity was implemented and verified. The real legacy mysqldump
+was preserved as the importer's test fixture, so the cut-over tooling stays
+exercised against genuine data and the operator still has the material for the
+live-data reconciliation rehearsal.
 
 Provider contracts consulted: [AWS S3 SDK examples](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/javascript_s3_code_examples.html),
 [Google verification](https://developers.google.com/recaptcha/docs/verify),

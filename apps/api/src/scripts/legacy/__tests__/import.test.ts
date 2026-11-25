@@ -24,9 +24,10 @@ import { BusinessSetting } from "../../../models/Settings.js";
 import { SellerPackage } from "../../../models/Package.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-// The legacy application, including its database dump, is vendored next to the
-// rewrite precisely so the import can be exercised against the real thing.
-const DUMP = path.resolve(here, "../../../../../../legacy-ecommercemultivendor/software_ecommercemvendor22.sql");
+// The real legacy mysqldump is retained as an importer test fixture so the
+// cut-over tooling stays exercised against genuine data after the legacy PHP
+// application tree was removed.
+const DUMP = path.resolve(here, "fixtures/software_ecommercemvendor22.sql");
 
 let repl: MongoMemoryReplSet;
 let sql: string;
