@@ -43,61 +43,61 @@ export function ProductReviews({ productId }: { productId: string }) {
     <div className="space-y-6">
       {user && eligibleOrder && (
         <form className="space-y-3 rounded-lg border bg-muted/20 p-4" onSubmit={handleSubmit}>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold">Write a review</p>
-            <RatingStars value={rating} onChange={setRating} size="md" />
-          </div>
-          <Textarea
-            rows={3}
-            placeholder="Share your experience with this product…"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          <Button type="submit" size="sm" disabled={createReview.isPending}>
-            Submit review
-          </Button>
-        </form>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">Write a review</p>
+              <RatingStars value={rating} onChange={setRating} size="md" />
+            </div>
+            <Textarea
+              rows={3}
+              placeholder="Share your experience with this product…"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+            <Button type="submit" size="sm" disabled={createReview.isPending}>
+              Submit review
+            </Button>
+          </form>
       )}
 
       {isError ? (
-        <Alert variant="destructive">
-          <AlertDescription>Could not load reviews.</AlertDescription>
-        </Alert>
-      ) : isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
-        </div>
-      ) : reviews.length === 0 ? (
-        <EmptyState icon={MessageSquare} title="No reviews yet" description="Verified buyers can leave a review after delivery." />
-      ) : (
-        <div className="divide-y">
-          {reviews.map((review) => {
-            const author = review.userId && typeof review.userId === "object" ? review.userId.name : "Customer";
-            return (
-              <div key={review.id} className="space-y-2 py-4 first:pt-0 last:pb-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold">{author}</span>
-                  <RatingStars value={review.rating} size="sm" />
-                </div>
-                {review.comment && <p className="text-sm text-muted-foreground">{review.comment}</p>}
-                {review.sellerReply && (
-                  <div className="rounded-lg border bg-muted/40 p-3 text-sm">
-                    <span className="font-semibold text-foreground">Seller response: </span>
-                    <span className="text-muted-foreground">{review.sellerReply}</span>
-                  </div>
+            <Alert variant="destructive">
+              <AlertDescription>Could not load reviews.</AlertDescription>
+            </Alert>
+          ) : isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          ) : reviews.length === 0 ? (
+            <EmptyState icon={MessageSquare} title="No reviews yet" description="Verified buyers can leave a review after delivery." />
+          ) : (
+              <div className="divide-y">
+                {reviews.map((review) => {
+                  const author = review.userId && typeof review.userId === "object" ? review.userId.name : "Customer";
+                  return (
+                        <div key={review.id} className="space-y-2 py-4 first:pt-0 last:pb-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold">{author}</span>
+                            <RatingStars value={review.rating} size="sm" />
+                          </div>
+                          {review.comment && <p className="text-sm text-muted-foreground">{review.comment}</p>}
+                          {review.sellerReply && (
+                              <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                                <span className="font-semibold text-foreground">Seller response: </span>
+                                <span className="text-muted-foreground">{review.sellerReply}</span>
+                              </div>
                 )}
-              </div>
-            );
+                            </div>
+                          );
           })}
-        </div>
+                        </div>
       )}
 
-      {hasNextPage && (
-        <Button variant="outline" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
-          {isFetchingNextPage ? "Loading…" : "Load more reviews"}
-        </Button>
-      )}
-    </div>
-  );
+                        {hasNextPage && (
+                          <Button variant="outline" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
+                            {isFetchingNextPage ? "Loading…" : "Load more reviews"}
+                          </Button>
+                        )}
+                      </div>
+                      );
 }

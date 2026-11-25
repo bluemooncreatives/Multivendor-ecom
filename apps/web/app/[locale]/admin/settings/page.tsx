@@ -22,21 +22,21 @@ import { useUploadFile } from "@/lib/hooks/useCatalogForm";
 import { SecretInput } from "@/components/admin/secret-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-
-function apiError(err: unknown, fallback: string) {
-  return (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
-}
+import { PageHeader } from "@/components/shared/page-header";
+import { FormField, ToggleCard } from "@/components/shared/form-field";
+import { PageSkeleton } from "@/components/shared/loading-state";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function AdminSettingsPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <PageHeader title="Settings" description="Configure storefront branding, commerce rules, integrations, and verification." />
 
       <Tabs defaultValue="general">
         <TabsList>
@@ -83,8 +83,6 @@ export default function AdminSettingsPage() {
   );
 }
 
-// --- General ------------------------------------------------------------------
-
 const LOGO_SLOTS = [
   { field: "logoUrl", label: "Header logo" },
   { field: "footerLogoUrl", label: "Footer logo" },
@@ -113,88 +111,88 @@ function GeneralTab() {
       const stored = await upload.mutateAsync({ file, kind: "image" });
       setForm((prev) => ({ ...prev, [field]: stored.url }));
     } catch (err) {
-      toast.error(apiError(err, "Upload failed"));
+      toast.error(getApiErrorMessage(err, "Upload failed"));
     }
   }
 
   return (
     <form
-      className="space-y-4"
+      className="space-y-5"
       onSubmit={async (e) => {
         e.preventDefault();
         try {
           await save.mutateAsync(form);
           toast.success("Settings saved");
         } catch (err) {
-          toast.error(apiError(err, "Could not save settings"));
+          toast.error(getApiErrorMessage(err, "Could not save settings"));
         }
       }}
     >
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Store information</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="App name" className="sm:col-span-2">
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
+          <FormField label="App name" className="sm:col-span-2">
             <Input value={str("appName")} onChange={(e) => setForm({ ...form, appName: e.target.value })} />
-          </Field>
-          <Field label="Default language">
+          </FormField>
+          <FormField label="Default language">
             <Input value={str("defaultLanguage")} onChange={(e) => setForm({ ...form, defaultLanguage: e.target.value })} />
-          </Field>
-          <Field label="Default currency">
+          </FormField>
+          <FormField label="Default currency">
             <Input value={str("defaultCurrency")} onChange={(e) => setForm({ ...form, defaultCurrency: e.target.value })} />
-          </Field>
-          <Field label="Timezone">
+          </FormField>
+          <FormField label="Timezone">
             <Input value={str("defaultTimezone")} onChange={(e) => setForm({ ...form, defaultTimezone: e.target.value })} />
-          </Field>
-          <Field label="Theme colour">
-            <Input type="color" value={str("themeColor") || "#2563eb"} onChange={(e) => setForm({ ...form, themeColor: e.target.value })} />
-          </Field>
-          <Field label="Support email">
+          </FormField>
+          <FormField label="Theme colour">
+            <Input type="color" className="h-10 cursor-pointer p-1" value={str("themeColor") || "#2563eb"} onChange={(e) => setForm({ ...form, themeColor: e.target.value })} />
+          </FormField>
+          <FormField label="Support email">
             <Input value={str("supportEmail")} onChange={(e) => setForm({ ...form, supportEmail: e.target.value })} />
-          </Field>
-          <Field label="Support phone">
+          </FormField>
+          <FormField label="Support phone">
             <Input value={str("supportPhone")} onChange={(e) => setForm({ ...form, supportPhone: e.target.value })} />
-          </Field>
-          <Field label="Address" className="sm:col-span-2">
+          </FormField>
+          <FormField label="Address" className="sm:col-span-2">
             <Textarea rows={2} value={str("address")} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-          </Field>
-          <Field label="Footer text" className="sm:col-span-2">
+          </FormField>
+          <FormField label="Footer text" className="sm:col-span-2">
             <Textarea rows={2} value={str("footerText")} onChange={(e) => setForm({ ...form, footerText: e.target.value })} />
-          </Field>
+          </FormField>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Logos</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-3">
           {LOGO_SLOTS.map((slot) => (
-            <Field key={slot.field} label={slot.label}>
+            <FormField key={slot.field} label={slot.label}>
               {form[slot.field] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={String(form[slot.field])} alt="" className="h-12 w-auto max-w-full rounded border object-contain" />
+                <img src={String(form[slot.field])} alt="" className="mb-2 h-12 w-auto max-w-full rounded border object-contain" />
               ) : null}
               <Input type="file" accept="image/*" onChange={(e) => handleUpload(slot.field, e.target.files?.[0] ?? null)} />
-            </Field>
+            </FormField>
           ))}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Social profiles</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
           {(["facebook", "twitter", "instagram", "youtube", "linkedin"] as const).map((network) => (
-            <Field key={network} label={network[0]!.toUpperCase() + network.slice(1)}>
+            <FormField key={network} label={network[0]!.toUpperCase() + network.slice(1)}>
               <Input
                 type="url"
                 value={socials[network] ?? ""}
                 onChange={(e) => setForm({ ...form, socialProfiles: { ...socials, [network]: e.target.value } })}
               />
-            </Field>
+            </FormField>
           ))}
         </CardContent>
       </Card>
@@ -205,8 +203,6 @@ function GeneralTab() {
     </form>
   );
 }
-
-// --- Activation toggles --------------------------------------------------------
 
 const ACTIVATION_TOGGLES: { key: keyof ActivationSettings; label: string; hint: string }[] = [
   { key: "vendorSystem", label: "Vendor system", hint: "Allow third-party sellers to list products." },
@@ -233,36 +229,31 @@ function ActivationTab() {
       await save.mutateAsync({ activation: { ...settings!.activation, [key]: value } });
       toast.success("Saved");
     } catch (err) {
-      toast.error(apiError(err, "Could not save"));
+      toast.error(getApiErrorMessage(err, "Could not save"));
     }
   }
 
-  if (!settings) return <p className="text-muted-foreground">Loading…</p>;
+  if (!settings) return <PageSkeleton />;
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="border-b bg-muted/20 pb-3.5">
         <CardTitle className="text-base">Features</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="grid gap-3 pt-5 md:grid-cols-2">
         {ACTIVATION_TOGGLES.map((toggleDef) => (
-          <div key={toggleDef.key} className="flex items-start justify-between gap-4 rounded-md border p-3">
-            <div>
-              <p className="text-sm font-medium">{toggleDef.label}</p>
-              <p className="text-xs text-muted-foreground">{toggleDef.hint}</p>
-            </div>
-            <Switch
-              checked={settings.activation?.[toggleDef.key] ?? false}
-              onCheckedChange={(v) => toggle(toggleDef.key, v)}
-            />
-          </div>
+          <ToggleCard
+            key={toggleDef.key}
+            label={toggleDef.label}
+            hint={toggleDef.hint}
+            checked={settings.activation?.[toggleDef.key] ?? false}
+            onCheckedChange={(v) => toggle(toggleDef.key, v)}
+          />
         ))}
       </CardContent>
     </Card>
   );
 }
-
-// --- Commerce (tax, commission, shipping) --------------------------------------
 
 function CommerceTab() {
   const { data: settings } = useBusinessSettings();
@@ -282,44 +273,38 @@ function CommerceTab() {
       onSubmit={async (e) => {
         e.preventDefault();
         try {
-          // `activation` is owned by the Features tab; sending a stale copy from
-          // here would revert any toggle changed since this tab loaded.
-          const { activation, ...rest } = form;
+          const { activation: _activation, ...rest } = form;
           await save.mutateAsync(rest);
           toast.success("Saved");
         } catch (err) {
-          toast.error(apiError(err, "Could not save"));
+          toast.error(getApiErrorMessage(err, "Could not save"));
         }
       }}
     >
       <Card>
         <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-          <Field label="Tax %" hint="Applied to products that do not set their own rate.">
+          <FormField label="Tax %" hint="Applied to products that do not set their own rate.">
             <Input type="number" min={0} step="0.01" value={num("taxPercent")} onChange={(e) => setForm({ ...form, taxPercent: Number(e.target.value) })} />
-          </Field>
-          <Field label="Commission %" hint="Default platform cut, unless a package or category overrides it.">
+          </FormField>
+          <FormField label="Commission %" hint="Default platform cut, unless a package or category overrides it.">
             <Input type="number" min={0} max={100} step="0.01" value={num("commissionPercent")} onChange={(e) => setForm({ ...form, commissionPercent: Number(e.target.value) })} />
-          </Field>
+          </FormField>
 
-          <Field label="Shipping mode">
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-              value={mode}
-              onChange={(e) => setForm({ ...form, shippingMode: e.target.value })}
-            >
+          <FormField label="Shipping mode">
+            <NativeSelect value={mode} onChange={(e) => setForm({ ...form, shippingMode: e.target.value })}>
               <option value="flat">Flat rate</option>
               <option value="product_wise">Product wise</option>
               <option value="seller_wise">Seller wise</option>
               <option value="free">Free shipping</option>
-            </select>
-          </Field>
-          <Field label="Flat shipping cost" hint="Split across the shipments in an order.">
+            </NativeSelect>
+          </FormField>
+          <FormField label="Flat shipping cost" hint="Split across the shipments in an order.">
             <Input type="number" min={0} step="0.01" disabled={mode !== "flat"} value={num("flatShippingCost")} onChange={(e) => setForm({ ...form, flatShippingCost: Number(e.target.value) })} />
-          </Field>
-          <Field label="In-House shipping cost" hint="Charged for admin-owned products under seller-wise shipping.">
+          </FormField>
+          <FormField label="In-House shipping cost" hint="Charged for admin-owned products under seller-wise shipping.">
             <Input type="number" min={0} step="0.01" disabled={mode !== "seller_wise"} value={num("adminShippingCost")} onChange={(e) => setForm({ ...form, adminShippingCost: Number(e.target.value) })} />
-          </Field>
-          <Field label="Free shipping above" hint="Leave empty to always charge shipping.">
+          </FormField>
+          <FormField label="Free shipping above" hint="Leave empty to always charge shipping.">
             <Input
               type="number"
               min={0}
@@ -327,17 +312,15 @@ function CommerceTab() {
               value={(form.minOrderForFreeShipping as number | null) ?? ""}
               onChange={(e) => setForm({ ...form, minOrderForFreeShipping: e.target.value === "" ? null : Number(e.target.value) })}
             />
-          </Field>
+          </FormField>
 
-          <div className="flex items-start justify-between gap-4 rounded-md border p-3 sm:col-span-2">
-            <div>
-              <p className="text-sm font-medium">Demo mode</p>
-              <p className="text-xs text-muted-foreground">
-                Blocks every state-changing request except sign-in and cart edits.
-              </p>
-            </div>
-            <Switch checked={Boolean(form.demoMode)} onCheckedChange={(v) => setForm({ ...form, demoMode: v })} />
-          </div>
+          <ToggleCard
+            label="Demo mode"
+            hint="Blocks every state-changing request except sign-in and cart edits."
+            checked={Boolean(form.demoMode)}
+            onCheckedChange={(v) => setForm({ ...form, demoMode: v })}
+            className="sm:col-span-2"
+          />
         </CardContent>
       </Card>
 
@@ -348,9 +331,6 @@ function CommerceTab() {
   );
 }
 
-// --- Credential groups ----------------------------------------------------------
-
-/** Shared shell for the four secret-bearing groups. */
 function GroupForm({
   group,
   title,
@@ -370,8 +350,6 @@ function GroupForm({
 
   useEffect(() => {
     if (!stored) return;
-    // Secret fields arrive as {configured, hint}; they are kept out of form state
-    // so an untouched field submits nothing and the stored value survives.
     const plain = Object.fromEntries(
       Object.entries(stored).filter(([, v]) => typeof v !== "object" || v === null),
     );
@@ -391,15 +369,15 @@ function GroupForm({
           await save.mutateAsync(form);
           toast.success("Saved");
         } catch (err) {
-          toast.error(apiError(err, "Could not save"));
+          toast.error(getApiErrorMessage(err, "Could not save"));
         }
       }}
     >
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">{title}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">{children(form, setForm, status)}</CardContent>
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">{children(form, setForm, status)}</CardContent>
       </Card>
       <Button type="submit" disabled={save.isPending}>
         Save
@@ -416,38 +394,37 @@ function SmtpTab() {
     <GroupForm group="smtp" title="Outgoing email">
       {(form, setForm, status) => (
         <>
-          <Field label="Host">
+          <FormField label="Host">
             <Input value={String(form.host ?? "")} onChange={(e) => setForm({ ...form, host: e.target.value })} />
-          </Field>
-          <Field label="Port">
+          </FormField>
+          <FormField label="Port">
             <Input type="number" value={String(form.port ?? "")} onChange={(e) => setForm({ ...form, port: Number(e.target.value) })} />
-          </Field>
-          <Field label="Username">
+          </FormField>
+          <FormField label="Username">
             <Input value={String(form.username ?? "")} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-          </Field>
+          </FormField>
           <SecretInput
             label="Password"
             status={status.password}
             value={form.password as string | undefined}
             onChange={(v) => setForm({ ...form, password: v })}
           />
-          <Field label="Encryption">
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+          <FormField label="Encryption">
+            <NativeSelect
               value={String(form.encryption ?? "tls")}
               onChange={(e) => setForm({ ...form, encryption: e.target.value })}
             >
               <option value="tls">TLS</option>
               <option value="ssl">SSL</option>
               <option value="none">None</option>
-            </select>
-          </Field>
-          <Field label="From address">
+            </NativeSelect>
+          </FormField>
+          <FormField label="From address">
             <Input type="email" value={String(form.fromAddress ?? "")} onChange={(e) => setForm({ ...form, fromAddress: e.target.value })} />
-          </Field>
-          <Field label="From name">
+          </FormField>
+          <FormField label="From name">
             <Input value={String(form.fromName ?? "")} onChange={(e) => setForm({ ...form, fromName: e.target.value })} />
-          </Field>
+          </FormField>
         </>
       )}
     </GroupForm>
@@ -459,26 +436,22 @@ function StorageTab() {
     <GroupForm group="storage" title="File storage">
       {(form, setForm, status) => (
         <>
-          <Field label="Driver">
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-              value={String(form.driver ?? "local")}
-              onChange={(e) => setForm({ ...form, driver: e.target.value })}
-            >
+          <FormField label="Driver">
+            <NativeSelect value={String(form.driver ?? "local")} onChange={(e) => setForm({ ...form, driver: e.target.value })}>
               <option value="local">Local disk</option>
               <option value="s3">Amazon S3</option>
               <option value="cloudinary">Cloudinary</option>
-            </select>
-          </Field>
-          <Field label="Bucket">
+            </NativeSelect>
+          </FormField>
+          <FormField label="Bucket">
             <Input value={String(form.bucket ?? "")} onChange={(e) => setForm({ ...form, bucket: e.target.value })} />
-          </Field>
-          <Field label="Region">
+          </FormField>
+          <FormField label="Region">
             <Input value={String(form.region ?? "")} onChange={(e) => setForm({ ...form, region: e.target.value })} />
-          </Field>
-          <Field label="Endpoint" hint="Only for S3-compatible providers.">
+          </FormField>
+          <FormField label="Endpoint" hint="Only for S3-compatible providers.">
             <Input value={String(form.endpoint ?? "")} onChange={(e) => setForm({ ...form, endpoint: e.target.value })} />
-          </Field>
+          </FormField>
           <SecretInput
             label="Access key id"
             status={status.accessKeyId}
@@ -509,21 +482,21 @@ function SocialTab() {
               { provider: "twitter", label: "Twitter", idField: "twitterClientId", secretField: "twitterClientSecret" },
             ] as const
           ).map((entry) => (
-            <div key={entry.provider} className="space-y-3 rounded-md border p-3 sm:col-span-2">
+            <div key={entry.provider} className="space-y-3 rounded-lg border p-4 sm:col-span-2">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">{entry.label}</p>
+                <p className="text-sm font-semibold">{entry.label}</p>
                 <Switch
                   checked={Boolean(form[`${entry.provider}Enabled`])}
                   onCheckedChange={(v) => setForm({ ...form, [`${entry.provider}Enabled`]: v })}
                 />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Client id">
+                <FormField label="Client id">
                   <Input
                     value={String(form[entry.idField] ?? "")}
                     onChange={(e) => setForm({ ...form, [entry.idField]: e.target.value })}
                   />
-                </Field>
+                </FormField>
                 <SecretInput
                   label="Client secret"
                   status={status[entry.secretField]}
@@ -544,13 +517,15 @@ function RecaptchaTab() {
     <GroupForm group="recaptcha" title="reCAPTCHA">
       {(form, setForm, status) => (
         <>
-          <div className="flex items-center justify-between rounded-md border p-3 sm:col-span-2">
-            <p className="text-sm font-medium">Enabled</p>
-            <Switch checked={Boolean(form.enabled)} onCheckedChange={(v) => setForm({ ...form, enabled: v })} />
-          </div>
-          <Field label="Site key">
+          <ToggleCard
+            label="Enabled"
+            checked={Boolean(form.enabled)}
+            onCheckedChange={(v) => setForm({ ...form, enabled: v })}
+            className="sm:col-span-2"
+          />
+          <FormField label="Site key">
             <Input value={String(form.siteKey ?? "")} onChange={(e) => setForm({ ...form, siteKey: e.target.value })} />
-          </Field>
+          </FormField>
           <SecretInput
             label="Secret key"
             status={status.secretKey}
@@ -563,8 +538,6 @@ function RecaptchaTab() {
   );
 }
 
-// --- SEO & analytics -----------------------------------------------------------
-
 function SeoTab() {
   const { data: settings } = useSeoSettings();
   const save = useSaveSeoSettings();
@@ -572,8 +545,6 @@ function SeoTab() {
   const [form, setForm] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
-    // metaKeywords defaults to [] so the comma-joined input stays controlled even
-    // on a settings row saved before the field existed.
     if (settings) setForm({ ...settings, metaKeywords: settings.metaKeywords ?? [] });
   }, [settings]);
 
@@ -581,49 +552,49 @@ function SeoTab() {
 
   return (
     <form
-      className="space-y-4"
+      className="space-y-5"
       onSubmit={async (e) => {
         e.preventDefault();
         try {
           await save.mutateAsync(form);
           toast.success("Saved");
         } catch (err) {
-          toast.error(apiError(err, "Could not save"));
+          toast.error(getApiErrorMessage(err, "Could not save"));
         }
       }}
     >
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Search engine</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="Meta title" className="sm:col-span-2">
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
+          <FormField label="Meta title" className="sm:col-span-2">
             <Input value={String(form.metaTitle ?? "")} onChange={(e) => setForm({ ...form, metaTitle: e.target.value })} />
-          </Field>
-          <Field label="Meta description" className="sm:col-span-2">
+          </FormField>
+          <FormField label="Meta description" className="sm:col-span-2">
             <Textarea rows={3} value={String(form.metaDescription ?? "")} onChange={(e) => setForm({ ...form, metaDescription: e.target.value })} />
-          </Field>
-          <Field label="Keywords" hint="Comma separated." className="sm:col-span-2">
+          </FormField>
+          <FormField label="Keywords" hint="Comma separated." className="sm:col-span-2">
             <Input
               value={keywords.join(", ")}
               onChange={(e) =>
                 setForm({ ...form, metaKeywords: e.target.value.split(",").map((k) => k.trim()).filter(Boolean) })
               }
             />
-          </Field>
-          <Field label="Author">
+          </FormField>
+          <FormField label="Author">
             <Input value={String(form.author ?? "")} onChange={(e) => setForm({ ...form, author: e.target.value })} />
-          </Field>
-          <Field label="Revisit after (days)">
+          </FormField>
+          <FormField label="Revisit after (days)">
             <Input type="number" min={1} value={Number(form.revisitAfterDays ?? 7)} onChange={(e) => setForm({ ...form, revisitAfterDays: Number(e.target.value) })} />
-          </Field>
-          <Field label="Sitemap URL">
+          </FormField>
+          <FormField label="Sitemap URL">
             <Input value={String(form.sitemapUrl ?? "")} onChange={(e) => setForm({ ...form, sitemapUrl: e.target.value })} />
-          </Field>
-          <Field label="Share image">
+          </FormField>
+          <FormField label="Share image">
             {form.metaImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={String(form.metaImageUrl)} alt="" className="h-12 w-auto rounded border object-contain" />
+              <img src={String(form.metaImageUrl)} alt="" className="mb-2 h-12 w-auto rounded border object-contain" />
             ) : null}
             <Input
               type="file"
@@ -635,19 +606,19 @@ function SeoTab() {
                   const stored = await upload.mutateAsync({ file, kind: "image" });
                   setForm((prev) => ({ ...prev, metaImageUrl: stored.url }));
                 } catch (err) {
-                  toast.error(apiError(err, "Upload failed"));
+                  toast.error(getApiErrorMessage(err, "Upload failed"));
                 }
               }}
             />
-          </Field>
+          </FormField>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Trackers</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-5">
           {(
             [
               { toggle: "googleAnalyticsEnabled", field: "googleAnalyticsId", label: "Google Analytics", placeholder: "G-XXXXXXX" },
@@ -655,9 +626,9 @@ function SeoTab() {
               { toggle: "facebookChatEnabled", field: "facebookPageId", label: "Facebook Chat", placeholder: "Page ID" },
             ] as const
           ).map((tracker) => (
-            <div key={tracker.field} className="space-y-2 rounded-md border p-3">
+            <div key={tracker.field} className="space-y-2 rounded-lg border p-3.5">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">{tracker.label}</p>
+                <p className="text-sm font-semibold">{tracker.label}</p>
                 <Switch
                   checked={Boolean(form[tracker.toggle])}
                   onCheckedChange={(v) => setForm({ ...form, [tracker.toggle]: v })}
@@ -679,8 +650,6 @@ function SeoTab() {
     </form>
   );
 }
-
-// --- Seller verification form builder -------------------------------------------
 
 const emptyField = {
   label: "",
@@ -706,10 +675,10 @@ function VerificationFormTab() {
       </p>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">{draft.id ? "Edit field" : "Add a field"}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <form
             className="grid gap-4 sm:grid-cols-4"
             onSubmit={async (e) => {
@@ -719,16 +688,15 @@ function VerificationFormTab() {
                 setDraft(emptyField);
                 toast.success("Saved");
               } catch (err) {
-                toast.error(apiError(err, "Could not save the field"));
+                toast.error(getApiErrorMessage(err, "Could not save the field"));
               }
             }}
           >
-            <Field label="Label" className="sm:col-span-2">
+            <FormField label="Label" className="sm:col-span-2" required>
               <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} required />
-            </Field>
-            <Field label="Type">
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            </FormField>
+            <FormField label="Type">
+              <NativeSelect
                 value={draft.type}
                 onChange={(e) => setDraft({ ...draft, type: e.target.value as VerificationField["type"] })}
               >
@@ -737,14 +705,14 @@ function VerificationFormTab() {
                 <option value="multi_select">Multi-select</option>
                 <option value="radio">Radio</option>
                 <option value="file">File upload</option>
-              </select>
-            </Field>
-            <Field label="Order">
+              </NativeSelect>
+            </FormField>
+            <FormField label="Order">
               <Input type="number" value={draft.order} onChange={(e) => setDraft({ ...draft, order: Number(e.target.value) })} />
-            </Field>
+            </FormField>
 
             {needsOptions && (
-              <Field label="Options" hint="Comma separated." className="sm:col-span-4">
+              <FormField label="Options" hint="Comma separated." className="sm:col-span-4" required>
                 <Input
                   value={draft.options.join(", ")}
                   onChange={(e) =>
@@ -752,7 +720,7 @@ function VerificationFormTab() {
                   }
                   required
                 />
-              </Field>
+              </FormField>
             )}
 
             <div className="flex items-center gap-2 sm:col-span-2">
@@ -775,15 +743,15 @@ function VerificationFormTab() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Form fields</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-2 pt-4">
           {(fields ?? []).length === 0 && <p className="text-sm text-muted-foreground">No fields yet.</p>}
           {(fields ?? []).map((field) => (
-            <div key={field.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+            <div key={field.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3.5 text-sm">
               <div>
-                <span className={field.active ? "font-medium" : "text-muted-foreground line-through"}>{field.label}</span>
+                <span className={field.active ? "font-semibold" : "text-muted-foreground line-through"}>{field.label}</span>
                 <span className="ms-2 text-xs text-muted-foreground">{field.type}</span>
                 {field.required && (
                   <Badge variant="outline" className="ms-2">
@@ -808,7 +776,7 @@ function VerificationFormTab() {
                 >
                   Edit
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => deleteField.mutate(field.id)}>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteField.mutate(field.id)}>
                   Remove
                 </Button>
               </div>
@@ -816,28 +784,6 @@ function VerificationFormTab() {
           ))}
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-// --- Shared -------------------------------------------------------------------
-
-function Field({
-  label,
-  hint,
-  className,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={`space-y-2 ${className ?? ""}`}>
-      <Label>{label}</Label>
-      {children}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

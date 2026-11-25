@@ -202,56 +202,56 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
       value.variants.length > 0
         ? value.variants
         : [
-            {
-              sku: value.slug || slugify(value.name),
-              attributes: {},
-              price: value.basePrice,
-              stock: value.isDigital ? 999_999 : 0,
-            },
-          ];
+          {
+            sku: value.slug || slugify(value.name),
+            attributes: {},
+            price: value.basePrice,
+            stock: value.isDigital ? 999_999 : 0,
+          },
+        ];
     onSubmit({ ...value, variants });
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <Tabs defaultValue="basic">
-        <TabsList>
-          <TabsTrigger value="basic">Basics</TabsTrigger>
-          <TabsTrigger value="media">Media</TabsTrigger>
-          <TabsTrigger value="variants">Variants</TabsTrigger>
-          <TabsTrigger value="pricing">Pricing &amp; tax</TabsTrigger>
-          <TabsTrigger value="shipping">Shipping</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
-        </TabsList>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <Tabs defaultValue="basic">
+          <TabsList>
+            <TabsTrigger value="basic">Basics</TabsTrigger>
+            <TabsTrigger value="media">Media</TabsTrigger>
+            <TabsTrigger value="variants">Variants</TabsTrigger>
+            <TabsTrigger value="pricing">Pricing &amp; tax</TabsTrigger>
+            <TabsTrigger value="shipping">Shipping</TabsTrigger>
+            <TabsTrigger value="seo">SEO</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="basic">
-          <Card>
-            <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-              <FormField label="Name" required>
-                <Input
-                  value={value.name}
-                  onChange={(e) =>
-                    onChange({
-                      ...value,
-                      name: e.target.value,
-                      slug: value.slug === slugify(value.name) || !value.slug ? slugify(e.target.value) : value.slug,
-                    })
-                  }
-                  required
-                />
-              </FormField>
-              <FormField label="Slug" required>
-                <Input value={value.slug} onChange={(e) => set("slug", e.target.value)} required />
+          <TabsContent value="basic">
+            <Card>
+              <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
+                  <FormField label="Name" required>
+                    <Input
+                      value={value.name}
+                      onChange={(e) =>
+                        onChange({
+                          ...value,
+                          name: e.target.value,
+                          slug: value.slug === slugify(value.name) || !value.slug ? slugify(e.target.value) : value.slug,
+                        })
+                      }
+                      required
+                    />
+                </FormField>
+                <FormField label="Slug" required>
+                  <Input value={value.slug} onChange={(e) => set("slug", e.target.value)} required />
               </FormField>
 
-              <FormField label="Category" required>
-                <SelectField
-                  value={value.categoryId}
-                  onChange={(v) => onChange({ ...value, categoryId: v, subCategoryId: null, subSubCategoryId: null, brandId: null })}
-                  placeholder="Select category"
-                  options={(roots ?? []).map((c) => ({ value: c.id, label: c.name }))}
-                  required
-                />
+                  <FormField label="Category" required>
+                  <SelectField
+                    value={value.categoryId}
+                    onChange={(v) => onChange({ ...value, categoryId: v, subCategoryId: null, subSubCategoryId: null, brandId: null })}
+                    placeholder="Select category"
+                    options={(roots ?? []).map((c) => ({ value: c.id, label: c.name }))}
+                    required
+                  />
               </FormField>
               <FormField label="Sub-category">
                 <SelectField
@@ -278,143 +278,143 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                   placeholder="No brand"
                   options={(brands ?? []).map((b) => ({ value: b.id, label: b.name }))}
                 />
-              </FormField>
+            </FormField>
 
               <FormField label="Unit">
                 <Input value={value.unit} onChange={(e) => set("unit", e.target.value)} placeholder="pc, kg, litre…" />
-              </FormField>
-              <FormField label="Barcode">
-                <Input
-                  value={value.barcode ?? ""}
-                  onChange={(e) => set("barcode", e.target.value || null)}
-                  placeholder="Scanned at the POS"
-                />
-              </FormField>
-              <FormField label="Minimum order quantity">
-                <Input
-                  type="number"
-                  min={1}
-                  value={value.minOrderQty}
-                  onChange={(e) => set("minOrderQty", Number(e.target.value))}
-                />
-              </FormField>
-              <FormField label="Club points earned">
-                <Input
-                  type="number"
-                  min={0}
-                  value={value.clubPoints}
-                  onChange={(e) => set("clubPoints", Number(e.target.value))}
-                />
-              </FormField>
+            </FormField>
+            <FormField label="Barcode">
+              <Input
+                value={value.barcode ?? ""}
+                onChange={(e) => set("barcode", e.target.value || null)}
+                placeholder="Scanned at the POS"
+              />
+            </FormField>
+            <FormField label="Minimum order quantity">
+              <Input
+                type="number"
+                min={1}
+                value={value.minOrderQty}
+                onChange={(e) => set("minOrderQty", Number(e.target.value))}
+              />
+            </FormField>
+            <FormField label="Club points earned">
+              <Input
+                type="number"
+                min={0}
+                value={value.clubPoints}
+                onChange={(e) => set("clubPoints", Number(e.target.value))}
+              />
+          </FormField>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Tags</Label>
-                {value.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {value.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="gap-1">
-                        {tag}
-                        <button
-                          type="button"
-                          aria-label={`Remove ${tag}`}
-                          onClick={() => set("tags", value.tags.filter((t) => t !== tag))}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <Input
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  placeholder="Type a tag and press Enter"
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter") return;
-                    e.preventDefault();
-                    const tag = tagInput.trim();
-                    if (tag && !value.tags.includes(tag)) set("tags", [...value.tags, tag]);
-                    setTagInput("");
-                  }}
-                />
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Tags</Label>
+            {value.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {value.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="gap-1">
+                    {tag}
+                    <button
+                      type="button"
+                      aria-label={`Remove ${tag}`}
+                      onClick={() => set("tags", value.tags.filter((t) => t !== tag))}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
               </div>
+            )}
+            <Input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              placeholder="Type a tag and press Enter"
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                const tag = tagInput.trim();
+                if (tag && !value.tags.includes(tag)) set("tags", [...value.tags, tag]);
+                setTagInput("");
+              }}
+            />
+          </div>
 
-              <FormField label="Description" className="sm:col-span-2">
-                <Textarea rows={6} value={value.description} onChange={(e) => set("description", e.target.value)} />
-              </FormField>
+            <FormField label="Description" className="sm:col-span-2">
+              <Textarea rows={6} value={value.description} onChange={(e) => set("description", e.target.value)} />
+        </FormField>
 
-              <ToggleCard
+          <ToggleCard
                 label="Digital product"
-                hint="Buyers download a file instead of receiving a shipment."
-                checked={value.isDigital}
-                onCheckedChange={(v) => set("isDigital", v)}
-              />
-              <ToggleCard
+          hint="Buyers download a file instead of receiving a shipment."
+          checked={value.isDigital}
+          onCheckedChange={(v) => set("isDigital", v)}
+        />
+          <ToggleCard
                 label="Refundable"
-                hint="Customers may open a refund request for this product."
-                checked={value.refundable}
-                onCheckedChange={(v) => set("refundable", v)}
-              />
+          hint="Customers may open a refund request for this product."
+          checked={value.refundable}
+          onCheckedChange={(v) => set("refundable", v)}
+        />
 
-              {value.isDigital && (
-                <FormField
-                  label="Digital file"
-                  hint={
-                    value.digitalFileUrl
-                      ? "Stored. Buyers receive a signed, expiring link — the file is never served directly."
-                      : undefined
-                  }
-                  className="sm:col-span-2"
-                >
-                  <Input
-                    type="file"
-                    accept=".pdf,.zip,.epub,.mp3,.mp4,.jpg,.jpeg,.png"
-                    onChange={(e) => handleSingleUpload(e.target.files?.[0] ?? null, "digital", "digitalFileUrl")}
-                  />
+        {value.isDigital && (
+            <FormField
+              label="Digital file"
+              hint={
+                value.digitalFileUrl
+                  ? "Stored. Buyers receive a signed, expiring link — the file is never served directly."
+                  : undefined
+              }
+              className="sm:col-span-2"
+            >
+              <Input
+                type="file"
+                accept=".pdf,.zip,.epub,.mp3,.mp4,.jpg,.jpeg,.png"
+                onChange={(e) => handleSingleUpload(e.target.files?.[0] ?? null, "digital", "digitalFileUrl")}
+              />
                 </FormField>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+    </CardContent>
+          </Card >
+        </TabsContent >
 
-        <TabsContent value="media">
-          <Card>
-            <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Gallery images</Label>
-                <Input type="file" accept="image/*" multiple onChange={(e) => handleImageUpload(e.target.files)} />
-                <div className="flex flex-wrap gap-3 pt-2">
-                  {value.images.map((url) => (
-                    <div key={url} className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="" className="h-20 w-20 rounded-lg border object-cover" />
-                      <button
-                        type="button"
-                        aria-label="Remove image"
-                        className="absolute -end-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border bg-background shadow-sm hover:text-destructive"
-                        onClick={() =>
-                          onChange({
-                            ...value,
-                            images: value.images.filter((i) => i !== url),
-                            thumbnailUrl: value.thumbnailUrl === url ? null : value.thumbnailUrl,
-                          })
-                        }
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                      <button
-                        type="button"
-                        className="mt-1 block w-full text-center text-[11px] font-medium text-primary underline"
-                        onClick={() => set("thumbnailUrl", url)}
-                      >
-                        {value.thumbnailUrl === url ? "Thumbnail" : "Set thumbnail"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
+    < TabsContent value = "media" >
+      <Card>
+        <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Gallery images</Label>
+            <Input type="file" accept="image/*" multiple onChange={(e) => handleImageUpload(e.target.files)} />
+              <div className="flex flex-wrap gap-3 pt-2">
+                {value.images.map((url) => (
+                  <div key={url} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="h-20 w-20 rounded-lg border object-cover" />
+                    <button
+                      type="button"
+                      aria-label="Remove image"
+                      className="absolute -end-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border bg-background shadow-sm hover:text-destructive"
+                      onClick={() =>
+                        onChange({
+                          ...value,
+                          images: value.images.filter((i) => i !== url),
+                          thumbnailUrl: value.thumbnailUrl === url ? null : value.thumbnailUrl,
+                        })
+                      }
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      className="mt-1 block w-full text-center text-[11px] font-medium text-primary underline"
+                      onClick={() => set("thumbnailUrl", url)}
+                    >
+                      {value.thumbnailUrl === url ? "Thumbnail" : "Set thumbnail"}
+                    </button>
+                  </div>
+                ))}
               </div>
+            </div>
 
-              <FormField label="Video provider">
+                <FormField label="Video provider">
                 <SelectField
                   value={value.videoProvider ?? ""}
                   onChange={(v) => set("videoProvider", (v || null) as ProductFormInput["videoProvider"])}
@@ -425,36 +425,36 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                     { value: "dailymotion", label: "Dailymotion" },
                   ]}
                 />
-              </FormField>
-              <FormField label="Video link">
-                <Input
-                  type="url"
-                  value={value.videoLink ?? ""}
-                  onChange={(e) => set("videoLink", e.target.value || null)}
-                  disabled={!value.videoProvider}
-                />
-              </FormField>
+            </FormField>
+            <FormField label="Video link">
+              <Input
+                type="url"
+                value={value.videoLink ?? ""}
+                onChange={(e) => set("videoLink", e.target.value || null)}
+                disabled={!value.videoProvider}
+              />
+          </FormField>
 
-              <FormField
-                label="Specification PDF"
-                hint={value.pdfSpecUrl ? "A specification sheet is attached." : undefined}
-                className="sm:col-span-2"
-              >
-                <Input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => handleSingleUpload(e.target.files?.[0] ?? null, "document", "pdfSpecUrl")}
-                />
-              </FormField>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <FormField
+              label="Specification PDF"
+              hint={value.pdfSpecUrl ? "A specification sheet is attached." : undefined}
+              className="sm:col-span-2"
+            >
+              <Input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => handleSingleUpload(e.target.files?.[0] ?? null, "document", "pdfSpecUrl")}
+              />
+        </FormField>
+      </CardContent>
+          </Card >
+        </TabsContent >
 
-        <TabsContent value="variants">
-          <Card>
-            <CardHeader className="border-b bg-muted/20 pb-3.5">
-              <CardTitle className="text-base">Colours &amp; options</CardTitle>
-            </CardHeader>
+    < TabsContent value = "variants" >
+      <Card>
+          <CardHeader className="border-b bg-muted/20 pb-3.5">
+            <CardTitle className="text-base">Colours &amp; options</CardTitle>
+          </CardHeader>
             <CardContent className="space-y-5 pt-5">
               <div className="space-y-2">
                 <Label>Colours</Label>
@@ -468,9 +468,8 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                         onClick={() =>
                           set("colors", active ? value.colors.filter((c) => c !== color.id) : [...value.colors, color.id])
                         }
-                        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                          active ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "hover:bg-accent"
-                        }`}
+                        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${active ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "hover:bg-accent"
+                          }`}
                       >
                         <span className="h-3 w-3 rounded-full border" style={{ backgroundColor: color.hex }} />
                         {color.name}
@@ -499,9 +498,8 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                               };
                             })
                           }
-                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                            active ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "hover:bg-accent"
-                          }`}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${active ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "hover:bg-accent"
+                            }`}
                         >
                           {option}
                         </button>
@@ -516,60 +514,60 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
               </Button>
 
               {value.variants.length > 0 && (
-                <div className="rounded-lg border">
-                  <Table className="min-w-[640px]">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Variant</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Compare at</TableHead>
-                        <TableHead>Stock</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {value.variants.map((variant, index) => (
-                        <TableRow key={variant.sku}>
-                          <TableCell className="font-medium">
-                            {Object.entries(variant.attributes)
-                              .map(([k, v]) => `${k}: ${v}`)
-                              .join(", ") || "Default"}
-                          </TableCell>
-                          <TableCell>
-                            <Input value={variant.sku} onChange={(e) => updateVariant(index, { sku: e.target.value })} />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={variant.price}
-                              onChange={(e) => updateVariant(index, { price: Number(e.target.value) })}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={variant.comparePrice ?? ""}
-                              onChange={(e) =>
-                                updateVariant(index, {
-                                  comparePrice: e.target.value === "" ? undefined : Number(e.target.value),
-                                })
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={variant.stock}
-                              onChange={(e) => updateVariant(index, { stock: Number(e.target.value) })}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      <div className="rounded-lg border">
+                        <Table className="min-w-[640px]">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Variant</TableHead>
+                              <TableHead>SKU</TableHead>
+                              <TableHead>Price</TableHead>
+                              <TableHead>Compare at</TableHead>
+                              <TableHead>Stock</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {value.variants.map((variant, index) => (
+                                  <TableRow key={variant.sku}>
+                                    <TableCell className="font-medium">
+                                      {Object.entries(variant.attributes)
+                                        .map(([k, v]) => `${k}: ${v}`)
+                                        .join(", ") || "Default"}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input value={variant.sku} onChange={(e) => updateVariant(index, { sku: e.target.value })} />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={variant.price}
+                                        onChange={(e) => updateVariant(index, { price: Number(e.target.value) })}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={variant.comparePrice ?? ""}
+                                        onChange={(e) =>
+                                          updateVariant(index, {
+                                            comparePrice: e.target.value === "" ? undefined : Number(e.target.value),
+                                          })
+                                        }
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={variant.stock}
+                                        onChange={(e) => updateVariant(index, { stock: Number(e.target.value) })}
+                                      />
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                      </TableBody>
+                    </Table>
                 </div>
               )}
             </CardContent>
@@ -579,15 +577,15 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
         <TabsContent value="pricing">
           <Card>
             <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-              <FormField label="Base price" required>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={value.basePrice}
-                  onChange={(e) => set("basePrice", Number(e.target.value))}
-                  required
-                />
+                <FormField label="Base price" required>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={value.basePrice}
+                    onChange={(e) => set("basePrice", Number(e.target.value))}
+                    required
+                  />
               </FormField>
               <FormField label="Purchase price" hint="Your cost. Used for profit reporting; never shown to shoppers.">
                 <Input
@@ -635,67 +633,67 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
                     { value: "flat", label: "Flat amount" },
                   ]}
                 />
-              </FormField>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </FormField>
+          </CardContent>
+      </Card>
+        </TabsContent >
 
-        <TabsContent value="shipping">
-          <Card>
-            <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
+    < TabsContent value = "shipping" >
+      <Card>
+        <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
               <FormField label="Shipping" hint="Applies when the store runs product-wise shipping.">
-                <SelectField
-                  value={value.shippingType}
-                  onChange={(v) => set("shippingType", v as "free" | "flat_rate")}
-                  options={[
-                    { value: "free", label: "Free shipping" },
-                    { value: "flat_rate", label: "Flat rate" },
-                  ]}
-                />
-              </FormField>
-              <FormField label="Shipping cost">
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={value.shippingCost}
-                  onChange={(e) => set("shippingCost", Number(e.target.value))}
-                  disabled={value.shippingType === "free"}
-                />
-              </FormField>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              <SelectField
+                value={value.shippingType}
+                onChange={(v) => set("shippingType", v as "free" | "flat_rate")}
+                options={[
+                  { value: "free", label: "Free shipping" },
+                  { value: "flat_rate", label: "Flat rate" },
+                ]}
+              />
+          </FormField>
+          <FormField label="Shipping cost">
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={value.shippingCost}
+              onChange={(e) => set("shippingCost", Number(e.target.value))}
+              disabled={value.shippingType === "free"}
+            />
+        </FormField>
+      </CardContent>
+          </Card >
+        </TabsContent >
 
-        <TabsContent value="seo">
-          <Card>
-            <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-              <FormField label="Meta title" hint="Defaults to the product name when empty.">
-                <Input
-                  value={value.metaTitle ?? ""}
-                  onChange={(e) => set("metaTitle", e.target.value || null)}
-                  maxLength={200}
-                />
-              </FormField>
-              <FormField label="Meta image">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleSingleUpload(e.target.files?.[0] ?? null, "image", "metaImageUrl")}
-                />
-              </FormField>
-              <FormField label="Meta description" className="sm:col-span-2">
-                <Textarea
-                  rows={3}
-                  maxLength={500}
-                  value={value.metaDescription ?? ""}
-                  onChange={(e) => set("metaDescription", e.target.value || null)}
-                />
-              </FormField>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+    < TabsContent value = "seo" >
+      <Card>
+        <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
+            <FormField label="Meta title" hint="Defaults to the product name when empty.">
+              <Input
+                value={value.metaTitle ?? ""}
+                onChange={(e) => set("metaTitle", e.target.value || null)}
+                maxLength={200}
+              />
+          </FormField>
+          <FormField label="Meta image">
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleSingleUpload(e.target.files?.[0] ?? null, "image", "metaImageUrl")}
+            />
+          </FormField>
+          <FormField label="Meta description" className="sm:col-span-2">
+            <Textarea
+              rows={3}
+              maxLength={500}
+              value={value.metaDescription ?? ""}
+              onChange={(e) => set("metaDescription", e.target.value || null)}
+            />
+        </FormField>
+      </CardContent>
+          </Card >
+        </TabsContent >
+      </Tabs >
 
       <Button type="submit" size="lg" disabled={submitting}>
         {submitLabel ?? "Save product"}
@@ -704,22 +702,22 @@ export function ProductForm({ value, onChange, onSubmit, scope, submitting, subm
   );
 }
 
-function SelectField({
-  value,
-  onChange,
-  options,
-  placeholder,
-  disabled,
-  required,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  placeholder?: string;
-  disabled?: boolean;
-  required?: boolean;
-}) {
-  return (
+  function SelectField({
+    value,
+    onChange,
+    options,
+    placeholder,
+    disabled,
+    required,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    options: { value: string; label: string }[];
+    placeholder?: string;
+    disabled?: boolean;
+    required?: boolean;
+  }) {
+    return (
     <NativeSelect
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -732,6 +730,6 @@ function SelectField({
           {option.label}
         </option>
       ))}
-    </NativeSelect>
+    </NativeSelect >
   );
-}
+  }

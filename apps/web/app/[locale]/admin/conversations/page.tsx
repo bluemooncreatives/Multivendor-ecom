@@ -1,27 +1,40 @@
 "use client";
 
+import { MessageSquare } from "lucide-react";
 import { useAdminConversations } from "@/lib/hooks/useConversations";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
+import { CardGridSkeleton } from "@/components/shared/loading-state";
 
 export default function AdminConversationsPage() {
   const { data: conversations, isLoading } = useAdminConversations();
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Conversations oversight</h1>
+    <div className="space-y-6">
+      <PageHeader title="Conversations oversight" description="Audit buyer-seller message activity across the marketplace." />
+
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <CardGridSkeleton count={3} columns="grid-cols-1" />
       ) : !conversations || conversations.length === 0 ? (
-        <p className="text-muted-foreground">No conversations yet.</p>
+        <EmptyState icon={MessageSquare} title="No conversations yet" description="Buyer-seller threads will appear here." />
       ) : (
-        conversations.map((conv) => (
-          <Card key={conv.id}>
-            <CardContent className="space-y-1 pt-6 text-sm">
-              <p className="font-medium">{conv.participantIds.map((p) => p.name).join(" ↔ ")}</p>
-              <p className="text-muted-foreground">{conv.messages.length} message(s) · last at {new Date(conv.lastMessageAt).toLocaleString()}</p>
-            </CardContent>
-          </Card>
-        ))
+        <div className="space-y-3">
+          {conversations.map((conv) => (
+            <Card key={conv.id}>
+              <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
+                <div>
+                  <p className="font-semibold">{conv.participantIds.map((p) => p.name).join(" ↔ ")}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Last message {new Date(conv.lastMessageAt).toLocaleString()}
+                  </p>
+                </div>
+                <Badge variant="secondary">{conv.messages.length} message(s)</Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );

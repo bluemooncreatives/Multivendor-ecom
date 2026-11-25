@@ -89,130 +89,130 @@ function PosTill({ scope, draftKey }: { scope: "seller" | "admin"; draftKey: str
         if (["cash", "card", "wallet", "manual"].includes(saved.paymentType)) setPaymentType(saved.paymentType);
         if (typeof saved.attempt === "string") attempt.current = saved.attempt;
       }
-    } catch {
-      /* An invalid or unavailable draft does not block opening the till. */
-    }
-    setDraftLoaded(true);
-  }, [draftKey]);
+  } catch {
+    /* An invalid or unavailable draft does not block opening the till. */
+  }
+  setDraftLoaded(true);
+}, [draftKey]);
 
-  useEffect(() => {
-    if (!draftLoaded) return;
+useEffect(() => {
+  if (!draftLoaded) return;
+  try {
+    sessionStorage.setItem(
+      draftKey,
+      JSON.stringify({ lines, discount, shippingCost, walkIn, customer, paymentType, attempt: attempt.current }),
+    );
+  } catch {
+    /* Storage can be disabled by the browser. */
+  }
+}, [draftKey, draftLoaded, lines, discount, shippingCost, walkIn, customer, paymentType]);
+
+function addLine(product: PosProduct, variant: PosVariant) {
+  const available = variant.stock - variant.reserved;
+  if (available <= 0) {
+    toast.error(`${product.name} is out of stock`);
+    return;
+  }
+
+  setLines((prev) => {
+    const existing = prev.findIndex((l) => l.productId === product.id && l.variantSku === variant.sku);
+    if (existing >= 0) {
+      const line = prev[existing]!;
+      if (line.quantity >= available) {
+        toast.error(`Only ${available} in stock`);
+        return prev;
+      }
+      return prev.map((l, i) => (i === existing ? { ...l, quantity: l.quantity + 1 } : l));
+    }
+
+    return [
+      ...prev,
+      {
+        productId: product.id,
+        variantSku: variant.sku,
+        name: product.name,
+        variantLabel: Object.values(variant.attributes ?? {}).join(" / "),
+        price: product.pricing?.variants.find((v) => v.sku === variant.sku)?.price ?? variant.price,
+        quantity: 1,
+        available,
+      },
+    ];
+  });
+
+  setQuery("");
+}
+
+async function handleCheckout() {
+  if (lines.length === 0) return;
+  if (!customer && (!walkIn.name || !walkIn.phone)) {
+    toast.error("Enter the customer's name and phone");
+    return;
+  }
+
+  try {
+    attempt.current ??= crypto.randomUUID();
     try {
       sessionStorage.setItem(
         draftKey,
         JSON.stringify({ lines, discount, shippingCost, walkIn, customer, paymentType, attempt: attempt.current }),
       );
     } catch {
-      /* Storage can be disabled by the browser. */
+      /* Optional draft recovery. */
     }
-  }, [draftKey, draftLoaded, lines, discount, shippingCost, walkIn, customer, paymentType]);
-
-  function addLine(product: PosProduct, variant: PosVariant) {
-    const available = variant.stock - variant.reserved;
-    if (available <= 0) {
-      toast.error(`${product.name} is out of stock`);
-      return;
-    }
-
-    setLines((prev) => {
-      const existing = prev.findIndex((l) => l.productId === product.id && l.variantSku === variant.sku);
-      if (existing >= 0) {
-        const line = prev[existing]!;
-        if (line.quantity >= available) {
-          toast.error(`Only ${available} in stock`);
-          return prev;
-        }
-        return prev.map((l, i) => (i === existing ? { ...l, quantity: l.quantity + 1 } : l));
-      }
-
-      return [
-        ...prev,
-        {
-          productId: product.id,
-          variantSku: variant.sku,
-          name: product.name,
-          variantLabel: Object.values(variant.attributes ?? {}).join(" / "),
-          price: product.pricing?.variants.find((v) => v.sku === variant.sku)?.price ?? variant.price,
-          quantity: 1,
-          available,
+    const order = await createSale.mutateAsync({
+      idempotencyKey: (attempt.current ??= crypto.randomUUID()),
+      items: lines.map((l) => ({ productId: l.productId, variantSku: l.variantSku, quantity: l.quantity })),
+      customerId: customer?.id,
+      walkIn: customer
+        ? null
+        : {
+          name: walkIn.name,
+          phone: walkIn.phone,
+          email: walkIn.email || undefined,
+          address: walkIn.address || undefined,
+          city: walkIn.city || undefined,
+          postalCode: walkIn.postalCode || undefined,
         },
-      ];
+      discount,
+      shippingCost,
+      paymentType,
     });
 
-    setQuery("");
+    toast.success(`Sale recorded: ${order.code}`);
+    setLastSale(order.id);
+    attempt.current = null;
+    setLines([]);
+    setDiscount(0);
+    setShippingCost(0);
+    setWalkIn({ name: "", phone: "", email: "", address: "", city: "", postalCode: "" });
+    setCustomer(null);
+    setCustomerQuery("");
+    setPaymentType("cash");
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, "Could not record sale"));
   }
+}
 
-  async function handleCheckout() {
-    if (lines.length === 0) return;
-    if (!customer && (!walkIn.name || !walkIn.phone)) {
-      toast.error("Enter the customer's name and phone");
-      return;
-    }
+return (
+      <div className="grid gap-6 lg:grid-cols-[1fr_25rem]">
+        <div className="space-y-5">
+          <Card>
+              <CardHeader className="border-b bg-muted/20 pb-3.5">
+                <CardTitle className="text-base">Find a product</CardTitle>
+              </CardHeader>
+                <CardContent className="space-y-3 pt-4">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      autoFocus
+                      className="ps-9"
+                      placeholder="Scan a barcode, or type a name or SKU"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                    />
+                  </div>
 
-    try {
-      attempt.current ??= crypto.randomUUID();
-      try {
-        sessionStorage.setItem(
-          draftKey,
-          JSON.stringify({ lines, discount, shippingCost, walkIn, customer, paymentType, attempt: attempt.current }),
-        );
-      } catch {
-        /* Optional draft recovery. */
-      }
-      const order = await createSale.mutateAsync({
-        idempotencyKey: (attempt.current ??= crypto.randomUUID()),
-        items: lines.map((l) => ({ productId: l.productId, variantSku: l.variantSku, quantity: l.quantity })),
-        customerId: customer?.id,
-        walkIn: customer
-          ? null
-          : {
-              name: walkIn.name,
-              phone: walkIn.phone,
-              email: walkIn.email || undefined,
-              address: walkIn.address || undefined,
-              city: walkIn.city || undefined,
-              postalCode: walkIn.postalCode || undefined,
-            },
-        discount,
-        shippingCost,
-        paymentType,
-      });
-
-      toast.success(`Sale recorded: ${order.code}`);
-      setLastSale(order.id);
-      attempt.current = null;
-      setLines([]);
-      setDiscount(0);
-      setShippingCost(0);
-      setWalkIn({ name: "", phone: "", email: "", address: "", city: "", postalCode: "" });
-      setCustomer(null);
-      setCustomerQuery("");
-      setPaymentType("cash");
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Could not record sale"));
-    }
-  }
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_25rem]">
-      <div className="space-y-5">
-        <Card>
-          <CardHeader className="border-b bg-muted/20 pb-3.5">
-            <CardTitle className="text-base">Find a product</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            <div className="relative">
-              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                autoFocus
-                className="ps-9"
-                placeholder="Scan a barcode, or type a name or SKU"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-
-            {query.trim().length >= 2 && (
+                  {query.trim().length >= 2 && (
               <div className="space-y-2 pt-1">
                 {isFetching && <p className="text-sm text-muted-foreground">Searching…</p>}
                 {results?.length === 0 && !isFetching && <p className="text-sm text-muted-foreground">No matches.</p>}

@@ -13,7 +13,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageHeader } from "@/components/shared/page-header";
+import { FormField } from "@/components/shared/form-field";
 
 export default function AdminSmsPage() {
   const { data: settings } = useOtpSettings();
@@ -25,17 +31,41 @@ export default function AdminSmsPage() {
 
   const [form, setForm] = useState<OtpSettings | null>(null);
   const [credentials, setCredentials] = useState<Record<string, string>>({});
-  const credentialFields: { key: string; label: string; secret?: boolean }[] = form?.provider === "twilio"
-    ? [{ key: "accountSid", label: "Account SID" }, { key: "authToken", label: "Auth token", secret: true }, { key: "from", label: "Send from number" }]
-    : form?.provider === "nexmo"
-    ? [{ key: "apiKey", label: "API key", secret: true }, { key: "apiSecret", label: "API secret", secret: true }, { key: "from", label: "Sender" }, { key: "entityId", label: "DLT entity ID (if required)" }, { key: "templateId", label: "DLT content ID (if required)" }]
-    : form?.provider === "ssl_wireless"
-    ? [{ key: "apiKey", label: "API token", secret: true }, { key: "sid", label: "SID" }]
-    : form?.provider === "msg91"
-    ? [{ key: "apiKey", label: "Auth key", secret: true }, { key: "from", label: "Sender" }, { key: "templateId", label: "DLT template ID (if required)" }]
-    : form?.provider === "fast2sms"
-    ? [{ key: "apiKey", label: "API key", secret: true }, { key: "from", label: "DLT sender" }, { key: "entityId", label: "DLT entity ID" }, { key: "templateId", label: "DLT template ID" }]
-    : [];
+  const credentialFields: { key: string; label: string; secret?: boolean }[] =
+    form?.provider === "twilio"
+      ? [
+          { key: "accountSid", label: "Account SID" },
+          { key: "authToken", label: "Auth token", secret: true },
+          { key: "from", label: "Send from number" },
+        ]
+      : form?.provider === "nexmo"
+        ? [
+            { key: "apiKey", label: "API key", secret: true },
+            { key: "apiSecret", label: "API secret", secret: true },
+            { key: "from", label: "Sender" },
+            { key: "entityId", label: "DLT entity ID (if required)" },
+            { key: "templateId", label: "DLT content ID (if required)" },
+          ]
+        : form?.provider === "ssl_wireless"
+          ? [
+              { key: "apiKey", label: "API token", secret: true },
+              { key: "sid", label: "SID" },
+            ]
+          : form?.provider === "msg91"
+            ? [
+                { key: "apiKey", label: "Auth key", secret: true },
+                { key: "from", label: "Sender" },
+                { key: "templateId", label: "DLT template ID (if required)" },
+              ]
+            : form?.provider === "fast2sms"
+              ? [
+                  { key: "apiKey", label: "API key", secret: true },
+                  { key: "from", label: "DLT sender" },
+                  { key: "entityId", label: "DLT entity ID" },
+                  { key: "templateId", label: "DLT template ID" },
+                ]
+              : [];
+
   const [selectedPhones, setSelectedPhones] = useState("");
   const [blast, setBlast] = useState<{ message: string; audience: "all" | "customers" | "sellers" | "explicit" }>({
     message: "",
@@ -48,14 +78,21 @@ export default function AdminSmsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">SMS & OTP</h1>
+      <PageHeader title="SMS & OTP" description="Configure OTP providers, order notification triggers, and bulk SMS campaigns." />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">OTP settings</CardTitle>
         </CardHeader>
-        <CardContent>
-          {form?.usesEnvironmentVerify && <p className="mb-4 text-sm text-muted-foreground">Phone codes currently use the environment's Twilio Verify configuration. Saving provider settings or credentials switches phone verification to the database configuration.</p>}
+        <CardContent className="space-y-4 pt-5">
+          {form?.usesEnvironmentVerify && (
+            <Alert variant="info">
+              <AlertDescription>
+                Phone codes currently use the environment&apos;s Twilio Verify configuration. Saving provider settings or
+                credentials switches phone verification to the database configuration.
+              </AlertDescription>
+            </Alert>
+          )}
           {form && (
             <form
               className="grid gap-4 md:grid-cols-2"
@@ -65,13 +102,14 @@ export default function AdminSmsPage() {
                 saveSettings.mutate(payload);
               }}
             >
-              <div className="space-y-1">
-                <Label htmlFor="provider">Provider</Label>
-                <select
+              <FormField label="Provider" htmlFor="provider">
+                <NativeSelect
                   id="provider"
-                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                   value={form.provider}
-                  onChange={(e) => { setCredentials({}); setForm({ ...form, provider: e.target.value as OtpSettings["provider"] }); }}
+                  onChange={(e) => {
+                    setCredentials({});
+                    setForm({ ...form, provider: e.target.value as OtpSettings["provider"] });
+                  }}
                 >
                   <option value="none">Disabled</option>
                   <option value="twilio">Twilio</option>
@@ -79,43 +117,64 @@ export default function AdminSmsPage() {
                   <option value="msg91">MSG91</option>
                   <option value="ssl_wireless">SSL Wireless</option>
                   <option value="fast2sms">Fast2SMS</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="senderId">Sender ID</Label>
+                </NativeSelect>
+              </FormField>
+              <FormField label="Sender ID" htmlFor="senderId">
                 <Input id="senderId" value={form.senderId ?? ""} onChange={(e) => setForm({ ...form, senderId: e.target.value })} />
-              </div>
+              </FormField>
 
-              <fieldset className="space-y-2 md:col-span-2">
-                <legend className="text-sm font-medium">Phone verification</legend>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+              <fieldset className="space-y-2.5 rounded-lg border p-4 md:col-span-2">
+                <legend className="px-1 text-sm font-semibold">Phone verification</legend>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="otp-reg"
                     checked={form.otpOnRegistration}
-                    onChange={(e) => setForm({ ...form, otpOnRegistration: e.target.checked })}
+                    onCheckedChange={(checked) => setForm({ ...form, otpOnRegistration: checked === true })}
                   />
-                  Verify phone before registration
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Label htmlFor="otp-reg" className="cursor-pointer font-normal">
+                    Verify phone before registration
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="otp-forgot"
                     checked={form.otpOnForgotPassword}
-                    onChange={(e) => setForm({ ...form, otpOnForgotPassword: e.target.checked })}
+                    onCheckedChange={(checked) => setForm({ ...form, otpOnForgotPassword: checked === true })}
                   />
-                  Allow password reset by phone
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Label htmlFor="otp-forgot" className="cursor-pointer font-normal">
+                    Allow password reset by phone
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="otp-order"
                     checked={form.otpOnOrderPlacement}
-                    onChange={(e) => setForm({ ...form, otpOnOrderPlacement: e.target.checked })}
+                    onCheckedChange={(checked) => setForm({ ...form, otpOnOrderPlacement: checked === true })}
                   />
-                  Send order placement SMS
-                </label>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.smsOnDeliveryStatus ?? false}
-                  onChange={(event) => setForm({ ...form, smsOnDeliveryStatus: event.target.checked })} />Send delivery-status SMS</label>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.smsOnPaymentStatus ?? false}
-                  onChange={(event) => setForm({ ...form, smsOnPaymentStatus: event.target.checked })} />Send payment-status SMS</label>
+                  <Label htmlFor="otp-order" className="cursor-pointer font-normal">
+                    Send order placement SMS
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="sms-delivery"
+                    checked={form.smsOnDeliveryStatus ?? false}
+                    onCheckedChange={(checked) => setForm({ ...form, smsOnDeliveryStatus: checked === true })}
+                  />
+                  <Label htmlFor="sms-delivery" className="cursor-pointer font-normal">
+                    Send delivery-status SMS
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="sms-payment"
+                    checked={form.smsOnPaymentStatus ?? false}
+                    onCheckedChange={(checked) => setForm({ ...form, smsOnPaymentStatus: checked === true })}
+                  />
+                  <Label htmlFor="sms-payment" className="cursor-pointer font-normal">
+                    Send payment-status SMS
+                  </Label>
+                </div>
               </fieldset>
 
               <div className="md:col-span-2">
@@ -129,10 +188,10 @@ export default function AdminSmsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Provider credentials</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <p className="mb-4 text-sm text-muted-foreground">
             Credentials are write-only — once saved they are never sent back to the browser. Leave a field blank to keep it unchanged.
           </p>
@@ -146,25 +205,40 @@ export default function AdminSmsPage() {
               });
             }}
           >
-            {credentialFields.map((field) => <div key={field.key} className="space-y-1">
-              <Label htmlFor={`sms-${field.key}`}>{field.label}</Label>
-              <Input id={`sms-${field.key}`} type={field.secret ? "password" : "text"} autoComplete="off"
-                value={credentials[field.key] ?? ""} onChange={(e) => setCredentials({ ...credentials, [field.key]: e.target.value })} />
-            </div>)}
-            {form?.provider === "fast2sms" && <div className="space-y-1">
-              <Label htmlFor="sms-route">Route</Label>
-              <select id="sms-route" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={credentials.route ?? ""}
-                onChange={(e) => setCredentials({ ...credentials, route: e.target.value })}>
-                <option value="">Keep existing (default: Quick SMS)</option><option value="q">Quick SMS</option><option value="dlt_manual">DLT manual</option>
-              </select>
-              <p className="text-xs text-muted-foreground">DLT manual needs the sender, entity and template IDs. Message text must match your approved template.</p>
-            </div>}
+            {credentialFields.map((field) => (
+              <FormField key={field.key} label={field.label} htmlFor={`sms-${field.key}`}>
+                <Input
+                  id={`sms-${field.key}`}
+                  type={field.secret ? "password" : "text"}
+                  autoComplete="off"
+                  value={credentials[field.key] ?? ""}
+                  onChange={(e) => setCredentials({ ...credentials, [field.key]: e.target.value })}
+                />
+              </FormField>
+            ))}
+            {form?.provider === "fast2sms" && (
+              <FormField
+                label="Route"
+                htmlFor="sms-route"
+                hint="DLT manual needs the sender, entity and template IDs. Message text must match your approved template."
+              >
+                <NativeSelect
+                  id="sms-route"
+                  value={credentials.route ?? ""}
+                  onChange={(e) => setCredentials({ ...credentials, route: e.target.value })}
+                >
+                  <option value="">Keep existing (default: Quick SMS)</option>
+                  <option value="q">Quick SMS</option>
+                  <option value="dlt_manual">DLT manual</option>
+                </NativeSelect>
+              </FormField>
+            )}
             <div className="md:col-span-3">
               <Button type="submit" variant="outline" disabled={saveCredentials.isPending || credentialFields.length === 0}>
                 Save credentials
               </Button>
               {saveCredentials.data && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1.5 text-xs text-muted-foreground">
                   Stored: {saveCredentials.data.configuredKeys.join(", ") || "nothing"}
                 </p>
               )}
@@ -174,23 +248,23 @@ export default function AdminSmsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Send a bulk SMS</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <form
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              sendSms.mutate({ ...blast, ...(blast.audience === "explicit" ? { phones: selectedPhones.split(/[\s,;]+/).filter(Boolean) } : {}) },
-                { onSuccess: () => setBlast({ ...blast, message: "" }) });
+              sendSms.mutate(
+                { ...blast, ...(blast.audience === "explicit" ? { phones: selectedPhones.split(/[\s,;]+/).filter(Boolean) } : {}) },
+                { onSuccess: () => setBlast({ ...blast, message: "" }) },
+              );
             }}
           >
-            <div className="space-y-1">
-              <Label htmlFor="audience">Audience</Label>
-              <select
+            <FormField label="Audience" htmlFor="audience" className="max-w-xs">
+              <NativeSelect
                 id="audience"
-                className="h-10 w-full max-w-xs rounded-md border bg-background px-3 text-sm"
                 value={blast.audience}
                 onChange={(e) => setBlast({ ...blast, audience: e.target.value as typeof blast.audience })}
               >
@@ -198,29 +272,38 @@ export default function AdminSmsPage() {
                 <option value="sellers">Sellers</option>
                 <option value="all">Everyone</option>
                 <option value="explicit">Selected phone numbers</option>
-              </select>
-            </div>
-            {blast.audience === "explicit" && <div className="space-y-1">
-              <Label htmlFor="sms-phones">Selected phone numbers</Label>
-              <textarea id="sms-phones" className="min-h-20 w-full rounded-md border bg-background p-3 text-sm"
-                value={selectedPhones} onChange={(event) => setSelectedPhones(event.target.value)} required
-                placeholder="+919000000001, +919000000002" />
-              <p className="text-xs text-muted-foreground">Separate numbers with spaces or commas. Only verified, active accounts are included.</p>
-            </div>}
-            <div className="space-y-1">
-              <Label htmlFor="message">Message</Label>
-              <textarea
+              </NativeSelect>
+            </FormField>
+            {blast.audience === "explicit" && (
+              <FormField
+                label="Selected phone numbers"
+                htmlFor="sms-phones"
+                hint="Separate numbers with spaces or commas. Only verified, active accounts are included."
+              >
+                <Textarea
+                  id="sms-phones"
+                  rows={3}
+                  value={selectedPhones}
+                  onChange={(event) => setSelectedPhones(event.target.value)}
+                  required
+                  placeholder="+919000000001, +919000000002"
+                />
+              </FormField>
+            )}
+            <FormField
+              label="Message"
+              htmlFor="message"
+              hint={`${blast.message.length}/600 characters. Only accounts with a verified phone number receive this.`}
+            >
+              <Textarea
                 id="message"
-                className="min-h-24 w-full rounded-md border bg-background p-3 text-sm"
+                rows={4}
                 maxLength={600}
                 value={blast.message}
                 onChange={(e) => setBlast({ ...blast, message: e.target.value })}
                 required
               />
-              <p className="text-xs text-muted-foreground">
-                {blast.message.length}/600 characters. Only accounts with a verified phone number receive this.
-              </p>
-            </div>
+            </FormField>
             <Button type="submit" disabled={sendSms.isPending}>
               Send
             </Button>
@@ -234,13 +317,13 @@ export default function AdminSmsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Send history</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-2 pt-4">
           {logs?.length === 0 && <p className="text-sm text-muted-foreground">No SMS campaigns sent yet.</p>}
           {logs?.map((log: { id: string; message: string; audience: string; recipientCount: number; createdAt: string }) => (
-            <div key={log.id} className="rounded-md border p-3 text-sm">
+            <div key={log.id} className="rounded-lg border p-3.5 text-sm">
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>
                   {log.audience} · {log.recipientCount} recipient(s)
@@ -252,15 +335,26 @@ export default function AdminSmsPage() {
           ))}
         </CardContent>
       </Card>
+
       <Card>
-        <CardHeader><CardTitle className="text-base">Order SMS status</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-sm text-muted-foreground">Sent means the provider accepted the message. Failed attempts retry automatically up to five times; network failures can leave delivery uncertain.</p>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
+          <CardTitle className="text-base">Order SMS status</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 pt-4">
+          <p className="text-sm text-muted-foreground">
+            Sent means the provider accepted the message. Failed attempts retry automatically up to five times; network
+            failures can leave delivery uncertain.
+          </p>
           {deliveries?.length === 0 && <p className="text-sm text-muted-foreground">No order SMS messages yet.</p>}
-          {deliveries?.map((delivery) => <div key={delivery.id} className="rounded-md border p-3 text-sm">
-            <p className="font-medium">{delivery.phone} · {delivery.status} · {delivery.attempts} attempt(s)</p>
-            <p>{delivery.message}</p>{delivery.lastError && <p className="text-destructive">{delivery.lastError}</p>}
-          </div>)}
+          {deliveries?.map((delivery) => (
+            <div key={delivery.id} className="rounded-lg border p-3.5 text-sm">
+              <p className="font-medium">
+                {delivery.phone} · {delivery.status} · {delivery.attempts} attempt(s)
+              </p>
+              <p className="text-muted-foreground">{delivery.message}</p>
+              {delivery.lastError && <p className="text-xs text-destructive">{delivery.lastError}</p>}
+            </div>
+          ))}
         </CardContent>
       </Card>
     </div>

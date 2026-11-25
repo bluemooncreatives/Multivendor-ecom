@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { FileText } from "lucide-react";
 import { useAdminPages, useCreatePage, useDeletePage } from "@/lib/hooks/useAdminCatalogExtras";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { TableSkeleton } from "@/components/shared/loading-state";
 
 export default function AdminPagesPage() {
   const { data: pages, isLoading } = useAdminPages();
@@ -15,12 +20,13 @@ export default function AdminPagesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">CMS pages</h1>
+      <PageHeader title="CMS pages" description="Create and manage custom informational pages." />
+
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">New page</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -29,12 +35,11 @@ export default function AdminPagesPage() {
               setForm({ slug: "", title: "", body: "" });
             }}
           >
-            <div className="flex gap-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Input placeholder="Slug (about-us)" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} required />
               <Input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
             </div>
-            <textarea
-              className="w-full rounded-md border p-2 text-sm"
+            <Textarea
               rows={6}
               placeholder="Page content (HTML supported)"
               value={form.body}
@@ -49,24 +54,26 @@ export default function AdminPagesPage() {
       </Card>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <TableSkeleton rows={4} />
+      ) : !pages || pages.length === 0 ? (
+        <EmptyState icon={FileText} title="No CMS pages yet" description="Pages created above will appear here." />
       ) : (
-        <div className="divide-y rounded-md border">
-          {pages?.map((page) => (
-            <div key={page.id} className="flex items-center justify-between p-3 text-sm">
+        <Card className="divide-y overflow-hidden">
+          {pages.map((page) => (
+            <div key={page.id} className="flex items-center justify-between px-5 py-3.5 text-sm">
               <div>
-                <p className="font-medium">{page.title}</p>
-                <p className="text-muted-foreground">/{page.slug}</p>
+                <p className="font-semibold">{page.title}</p>
+                <p className="font-mono text-xs text-muted-foreground">/{page.slug}</p>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={page.published ? "secondary" : "outline"}>{page.published ? "Published" : "Draft"}</Badge>
-                <Button variant="ghost" size="sm" onClick={() => deletePage.mutate(page.id)}>
+                <StatusBadge status={page.published ? "published" : "draft"} />
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deletePage.mutate(page.id)}>
                   Delete
                 </Button>
               </div>
             </div>
           ))}
-        </div>
+        </Card>
       )}
     </div>
   );

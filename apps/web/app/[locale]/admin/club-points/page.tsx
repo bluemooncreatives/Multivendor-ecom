@@ -12,8 +12,11 @@ import {
 import { useAdminCategories } from "@/lib/hooks/useAdminCommerce";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
+import { FormField } from "@/components/shared/form-field";
 
 export default function AdminClubPointsPage() {
   const { data: config } = useClubPointConfig();
@@ -36,13 +39,13 @@ export default function AdminClubPointsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Club points</h1>
+      <PageHeader title="Club points" description="Manage loyalty point conversion rates and product point assignments." />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Conversion settings</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <form
             className="grid gap-4 md:grid-cols-3"
             onSubmit={(e) => {
@@ -50,8 +53,7 @@ export default function AdminClubPointsPage() {
               saveConfig.mutate(form);
             }}
           >
-            <div className="space-y-1">
-              <Label htmlFor="rate">Wallet value of one point</Label>
+            <FormField label="Wallet value of one point" htmlFor="rate" hint="Set to 0 to disable conversion entirely.">
               <Input
                 id="rate"
                 type="number"
@@ -60,10 +62,8 @@ export default function AdminClubPointsPage() {
                 value={form.convertRate}
                 onChange={(e) => setForm({ ...form, convertRate: Number(e.target.value) })}
               />
-              <p className="text-xs text-muted-foreground">Set to 0 to disable conversion entirely.</p>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="min">Minimum points to convert</Label>
+            </FormField>
+            <FormField label="Minimum points to convert" htmlFor="min">
               <Input
                 id="min"
                 type="number"
@@ -71,7 +71,7 @@ export default function AdminClubPointsPage() {
                 value={form.minConvertPoints}
                 onChange={(e) => setForm({ ...form, minConvertPoints: Number(e.target.value) })}
               />
-            </div>
+            </FormField>
             <div className="flex items-end">
               <Button type="submit" disabled={saveConfig.isPending}>
                 Save
@@ -82,10 +82,10 @@ export default function AdminClubPointsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Assign points in bulk</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <form
             className="grid gap-4 md:grid-cols-3"
             onSubmit={(e) => {
@@ -93,8 +93,7 @@ export default function AdminClubPointsPage() {
               bulkSet.mutate({ clubPoints: bulk.clubPoints, categoryId: bulk.categoryId || undefined });
             }}
           >
-            <div className="space-y-1">
-              <Label htmlFor="bulk-points">Points per unit</Label>
+            <FormField label="Points per unit" htmlFor="bulk-points">
               <Input
                 id="bulk-points"
                 type="number"
@@ -102,12 +101,10 @@ export default function AdminClubPointsPage() {
                 value={bulk.clubPoints}
                 onChange={(e) => setBulk({ ...bulk, clubPoints: Number(e.target.value) })}
               />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="bulk-category">Limit to category</Label>
-              <select
+            </FormField>
+            <FormField label="Limit to category" htmlFor="bulk-category">
+              <NativeSelect
                 id="bulk-category"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                 value={bulk.categoryId}
                 onChange={(e) => setBulk({ ...bulk, categoryId: e.target.value })}
               >
@@ -117,8 +114,8 @@ export default function AdminClubPointsPage() {
                     {c.name}
                   </option>
                 ))}
-              </select>
-            </div>
+              </NativeSelect>
+            </FormField>
             <div className="flex items-end">
               <Button type="submit" variant="outline" disabled={bulkSet.isPending}>
                 Apply to {bulk.categoryId ? "category" : "all products"}
@@ -126,7 +123,7 @@ export default function AdminClubPointsPage() {
             </div>
           </form>
           {bulkSet.data && (
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-3 text-sm text-muted-foreground">
               Updated {bulkSet.data.updated} of {bulkSet.data.matched} matching products.
             </p>
           )}
@@ -134,23 +131,23 @@ export default function AdminClubPointsPage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between">
+        <CardHeader className="flex-row items-center justify-between space-y-0 border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Points per product</CardTitle>
-          <label className="flex items-center gap-2 text-sm font-normal">
-            <input type="checkbox" checked={assignedOnly} onChange={(e) => setAssignedOnly(e.target.checked)} />
-            Only products with points
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-normal">
+            <Checkbox checked={assignedOnly} onCheckedChange={(checked) => setAssignedOnly(checked === true)} />
+            <span>Only products with points</span>
           </label>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-2 pt-4">
           {products?.length === 0 && <p className="text-sm text-muted-foreground">No products to show.</p>}
           {products?.map((product) => (
-            <div key={product.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
-              <span>{product.name}</span>
+            <div key={product.id} className="flex items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+              <span className="font-medium">{product.name}</span>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
                   min={0}
-                  className="w-24"
+                  className="h-9 w-24"
                   value={drafts[product.id] ?? product.clubPoints}
                   onChange={(e) => setDrafts({ ...drafts, [product.id]: Number(e.target.value) })}
                 />
@@ -169,17 +166,18 @@ export default function AdminClubPointsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Members holding points</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-2 pt-4">
           {users?.length === 0 && <p className="text-sm text-muted-foreground">Nobody has earned points yet.</p>}
           {users?.map((user) => (
-            <div key={user.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+            <div key={user.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
               <span>
-                {user.name} <span className="text-muted-foreground">({user.email})</span>
+                <span className="font-medium">{user.name}</span>{" "}
+                <span className="text-muted-foreground">({user.email})</span>
               </span>
-              <span className="font-medium">{user.clubPoints} pts</span>
+              <span className="font-semibold text-primary">{user.clubPoints} pts</span>
             </div>
           ))}
         </CardContent>

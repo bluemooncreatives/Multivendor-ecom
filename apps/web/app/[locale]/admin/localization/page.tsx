@@ -16,20 +16,19 @@ import {
 import { useTranslations, useSaveTranslations, useCopyTranslations } from "@/lib/hooks/useAdminSettings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-function apiError(err: unknown, fallback: string) {
-  return (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
-}
+import { PageHeader } from "@/components/shared/page-header";
+import { FormField } from "@/components/shared/form-field";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function AdminLocalizationPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Localization</h1>
+      <PageHeader title="Localization" description="Configure currencies, languages, storefront translation overrides, and countries." />
 
       <Tabs defaultValue="currencies">
         <TabsList>
@@ -74,10 +73,10 @@ function CurrenciesTab() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Add a currency</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <form
             className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6"
             onSubmit={async (e) => {
@@ -87,29 +86,25 @@ function CurrenciesTab() {
                 setForm(emptyCurrency);
                 toast.success("Currency added");
               } catch (err) {
-                toast.error(apiError(err, "Could not add currency"));
+                toast.error(getApiErrorMessage(err, "Could not add currency"));
               }
             }}
           >
-            <div className="space-y-1">
-              <Label>Code</Label>
+            <FormField label="Code" required>
               <Input
                 placeholder="USD"
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                 required
               />
-            </div>
-            <div className="space-y-1">
-              <Label>Name</Label>
+            </FormField>
+            <FormField label="Name">
               <Input placeholder="US Dollar" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label>Symbol</Label>
+            </FormField>
+            <FormField label="Symbol" required>
               <Input placeholder="$" value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value })} required />
-            </div>
-            <div className="space-y-1">
-              <Label>Rate to INR</Label>
+            </FormField>
+            <FormField label="Rate to INR" required>
               <Input
                 type="number"
                 step="0.0001"
@@ -118,9 +113,8 @@ function CurrenciesTab() {
                 onChange={(e) => setForm({ ...form, rateToBase: Number(e.target.value) })}
                 required
               />
-            </div>
-            <div className="space-y-1">
-              <Label>Decimals</Label>
+            </FormField>
+            <FormField label="Decimals">
               <Input
                 type="number"
                 min={0}
@@ -128,18 +122,16 @@ function CurrenciesTab() {
                 value={form.decimals}
                 onChange={(e) => setForm({ ...form, decimals: Number(e.target.value) })}
               />
-            </div>
-            <div className="space-y-1">
-              <Label>Symbol position</Label>
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            </FormField>
+            <FormField label="Symbol position">
+              <NativeSelect
                 value={form.symbolPosition}
                 onChange={(e) => setForm({ ...form, symbolPosition: e.target.value as "before" | "after" })}
               >
                 <option value="before">Before ({form.symbol || "$"}100)</option>
                 <option value="after">After (100{form.symbol || "$"})</option>
-              </select>
-            </div>
+              </NativeSelect>
+            </FormField>
             <Button type="submit" className="lg:col-span-6" disabled={createCurrency.isPending}>
               Add currency
             </Button>
@@ -148,12 +140,12 @@ function CurrenciesTab() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Currencies</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-2 pt-4">
           {currencies?.map((currency) => (
-            <div key={currency.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+            <div key={currency.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3.5 text-sm">
               <span>
                 <strong>{currency.code}</strong> {currency.name && `— ${currency.name}`} ·{" "}
                 {currency.symbolPosition === "before" ? `${currency.symbol}100` : `100${currency.symbol}`} ·{" "}
@@ -183,12 +175,12 @@ function LanguagesTab() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Add a language</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <form
-            className="flex flex-wrap items-end gap-2"
+            className="flex flex-wrap items-end gap-3"
             onSubmit={async (e) => {
               e.preventDefault();
               try {
@@ -196,18 +188,16 @@ function LanguagesTab() {
                 setForm({ code: "", name: "", rtl: false });
                 toast.success("Language added");
               } catch (err) {
-                toast.error(apiError(err, "Could not add language"));
+                toast.error(getApiErrorMessage(err, "Could not add language"));
               }
             }}
           >
-            <div className="space-y-1">
-              <Label>Code</Label>
+            <FormField label="Code" required>
               <Input placeholder="fr" className="w-24" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
-            </div>
-            <div className="space-y-1">
-              <Label>Name</Label>
+            </FormField>
+            <FormField label="Name" required>
               <Input placeholder="French" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            </div>
+            </FormField>
             <div className="flex items-center gap-2 pb-2">
               <Switch checked={form.rtl} onCheckedChange={(v) => setForm({ ...form, rtl: v })} />
               <span className="text-sm">Right to left</span>
@@ -220,14 +210,14 @@ function LanguagesTab() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Languages</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-2 pt-4">
           {languages?.map((language) => (
-            <div key={language.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm">
+            <div key={language.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3.5 text-sm">
               <span>
-                {language.name} <Badge variant="outline">{language.code}</Badge>
+                <span className="font-semibold">{language.name}</span> <Badge variant="outline">{language.code}</Badge>
               </span>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2">
@@ -260,8 +250,6 @@ function TranslationsTab() {
   const saveTranslations = useSaveTranslations();
   const copyTranslations = useCopyTranslations();
 
-  // Edits are held locally and saved as one batch, so a translator can work
-  // through a page of strings without a request per keystroke.
   const [edits, setEdits] = useState<Record<string, string>>({});
   useEffect(() => setEdits({}), [code, search]);
 
@@ -272,111 +260,97 @@ function TranslationsTab() {
   const dirtyCount = Object.keys(edits).length;
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Translation editor</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            These override the strings shipped with the storefront. An empty value falls back to the built-in text.
-          </p>
+    <Card>
+      <CardHeader className="border-b bg-muted/20 pb-3.5">
+        <CardTitle className="text-base">Translation editor</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-5">
+        <p className="text-sm text-muted-foreground">
+          These override the strings shipped with the storefront. An empty value falls back to the built-in text.
+        </p>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="space-y-1">
-              <Label>Language</Label>
-              <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-              >
-                {(languages ?? []).map((l) => (
+        <div className="flex flex-wrap items-end gap-3">
+          <FormField label="Language">
+            <NativeSelect value={code} onChange={(e) => setCode(e.target.value)}>
+              {(languages ?? []).map((l) => (
+                <option key={l.id} value={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </FormField>
+          <FormField label="Search">
+            <Input placeholder="Key or value" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </FormField>
+          <FormField label="Copy keys from">
+            <NativeSelect value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
+              <option value="">Select a language</option>
+              {(languages ?? [])
+                .filter((l) => l.code !== code)
+                .map((l) => (
                   <option key={l.id} value={l.code}>
                     {l.name}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label>Search</Label>
-              <Input placeholder="Key or value" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </NativeSelect>
+          </FormField>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!copyFrom || copyTranslations.isPending}
+            onClick={async () => {
+              try {
+                const result = await copyTranslations.mutateAsync({ fromCode: copyFrom, toCode: code });
+                toast.success(`Seeded ${result.copied} key(s)`);
+              } catch (err) {
+                toast.error(getApiErrorMessage(err, "Could not copy translations"));
+              }
+            }}
+          >
+            Copy keys
+          </Button>
+        </div>
+
+        {!rows || rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No keys yet. Copy the key list from another language to get started.
+          </p>
+        ) : (
+          <>
+            <div className="max-h-[28rem] space-y-2 overflow-y-auto rounded-lg border p-3">
+              {rows.map((row) => (
+                <div key={row.id} className="grid gap-2 sm:grid-cols-[1fr_2fr]">
+                  <code className="self-center break-all text-xs text-muted-foreground">{row.key}</code>
+                  <Input
+                    value={edits[row.key] ?? row.value}
+                    onChange={(e) => setEdits({ ...edits, [row.key]: e.target.value })}
+                  />
+                </div>
+              ))}
             </div>
 
-            <div className="space-y-1">
-              <Label>Copy keys from</Label>
-              <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-                value={copyFrom}
-                onChange={(e) => setCopyFrom(e.target.value)}
-              >
-                <option value="">Select a language</option>
-                {(languages ?? [])
-                  .filter((l) => l.code !== code)
-                  .map((l) => (
-                    <option key={l.id} value={l.code}>
-                      {l.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
             <Button
               type="button"
-              variant="outline"
-              disabled={!copyFrom || copyTranslations.isPending}
+              disabled={dirtyCount === 0 || saveTranslations.isPending}
               onClick={async () => {
                 try {
-                  const result = await copyTranslations.mutateAsync({ fromCode: copyFrom, toCode: code });
-                  toast.success(`Seeded ${result.copied} key(s)`);
+                  await saveTranslations.mutateAsync({
+                    languageCode: code,
+                    entries: Object.entries(edits).map(([key, value]) => ({ key, value })),
+                  });
+                  setEdits({});
+                  toast.success(`Saved ${dirtyCount} translation(s)`);
                 } catch (err) {
-                  toast.error(apiError(err, "Could not copy translations"));
+                  toast.error(getApiErrorMessage(err, "Could not save translations"));
                 }
               }}
             >
-              Copy keys
+              Save {dirtyCount > 0 ? `${dirtyCount} change${dirtyCount === 1 ? "" : "s"}` : "changes"}
             </Button>
-          </div>
-
-          {!rows || rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No keys yet. Copy the key list from another language to get started.
-            </p>
-          ) : (
-            <>
-              <div className="max-h-[28rem] space-y-2 overflow-y-auto">
-                {rows.map((row) => (
-                  <div key={row.id} className="grid gap-2 sm:grid-cols-[1fr_2fr]">
-                    <code className="self-center break-all text-xs text-muted-foreground">{row.key}</code>
-                    <Input
-                      value={edits[row.key] ?? row.value}
-                      onChange={(e) => setEdits({ ...edits, [row.key]: e.target.value })}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <Button
-                type="button"
-                disabled={dirtyCount === 0 || saveTranslations.isPending}
-                onClick={async () => {
-                  try {
-                    await saveTranslations.mutateAsync({
-                      languageCode: code,
-                      entries: Object.entries(edits).map(([key, value]) => ({ key, value })),
-                    });
-                    setEdits({});
-                    toast.success(`Saved ${dirtyCount} translation(s)`);
-                  } catch (err) {
-                    toast.error(apiError(err, "Could not save translations"));
-                  }
-                }}
-              >
-                Save {dirtyCount > 0 ? `${dirtyCount} change${dirtyCount === 1 ? "" : "s"}` : "changes"}
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -387,12 +361,12 @@ function CountriesTab() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="border-b bg-muted/20 pb-3.5">
         <CardTitle className="text-base">Countries</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-5">
         <form
-          className="flex flex-wrap items-end gap-2"
+          className="flex flex-wrap items-end gap-3"
           onSubmit={async (e) => {
             e.preventDefault();
             try {
@@ -400,12 +374,11 @@ function CountriesTab() {
               setForm({ code: "", name: "", defaultCurrency: "" });
               toast.success("Country added");
             } catch (err) {
-              toast.error(apiError(err, "Could not add country"));
+              toast.error(getApiErrorMessage(err, "Could not add country"));
             }
           }}
         >
-          <div className="space-y-1">
-            <Label>Code</Label>
+          <FormField label="Code" required>
             <Input
               placeholder="US"
               className="w-24"
@@ -413,20 +386,18 @@ function CountriesTab() {
               onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
               required
             />
-          </div>
-          <div className="space-y-1">
-            <Label>Name</Label>
+          </FormField>
+          <FormField label="Name" required>
             <Input placeholder="United States" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          </div>
-          <div className="space-y-1">
-            <Label>Default currency</Label>
+          </FormField>
+          <FormField label="Default currency">
             <Input
               placeholder="USD"
               className="w-32"
               value={form.defaultCurrency}
               onChange={(e) => setForm({ ...form, defaultCurrency: e.target.value.toUpperCase() })}
             />
-          </div>
+          </FormField>
           <Button type="submit" disabled={createCountry.isPending}>
             Add
           </Button>
@@ -434,7 +405,7 @@ function CountriesTab() {
 
         <div className="flex flex-wrap gap-2">
           {countries?.map((c) => (
-            <Badge key={c.id} variant="outline">
+            <Badge key={c.id} variant="outline" className="py-1">
               {c.name} ({c.code})
             </Badge>
           ))}

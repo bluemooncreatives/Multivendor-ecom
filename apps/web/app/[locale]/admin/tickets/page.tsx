@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { LifeBuoy, Send } from "lucide-react";
 import { useAdminTickets, useAdminReplyTicket } from "@/lib/hooks/useAdminTickets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { CardGridSkeleton } from "@/components/shared/loading-state";
 
 export default function AdminTicketsPage() {
   const { data: tickets, isLoading } = useAdminTickets();
@@ -13,48 +17,55 @@ export default function AdminTicketsPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Support tickets</h1>
+    <div className="space-y-6">
+      <PageHeader title="Support tickets" description="Respond to customer and seller support inquiries." />
+
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <CardGridSkeleton count={3} columns="grid-cols-1" />
       ) : !tickets || tickets.length === 0 ? (
-        <p className="text-muted-foreground">No support tickets.</p>
+        <EmptyState icon={LifeBuoy} title="No support tickets" description="Incoming support tickets will appear here." />
       ) : (
-        tickets.map((ticket: any) => (
-          <Card key={ticket.id}>
-            <CardHeader className="flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base">
-                {ticket.subject} — <span className="text-sm font-normal text-muted-foreground">{ticket.userId?.name}</span>
-              </CardTitle>
-              <Badge variant={ticket.status === "closed" ? "outline" : "secondary"}>{ticket.status}</Badge>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {ticket.replies.map((reply: any, i: number) => (
-                <p key={i} className="rounded-md bg-muted p-2 text-sm">
-                  {reply.message}
-                </p>
-              ))}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Reply…"
-                  value={drafts[ticket.id] ?? ""}
-                  onChange={(e) => setDrafts({ ...drafts, [ticket.id]: e.target.value })}
-                />
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    const msg = drafts[ticket.id];
-                    if (!msg) return;
-                    reply.mutate({ id: ticket.id, message: msg });
-                    setDrafts({ ...drafts, [ticket.id]: "" });
-                  }}
-                >
-                  Send
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))
+        <div className="space-y-4">
+          {tickets.map((ticket: { id: string; subject: string; status: string; userId?: { name?: string }; replies: { message: string }[] }) => (
+            <Card key={ticket.id}>
+              <CardHeader className="flex-row items-center justify-between space-y-0 border-b bg-muted/20 py-3.5">
+                <CardTitle className="text-base">
+                  {ticket.subject}{" "}
+                  {ticket.userId?.name && <span className="text-sm font-normal text-muted-foreground">— {ticket.userId.name}</span>}
+                </CardTitle>
+                <StatusBadge status={ticket.status} />
+              </CardHeader>
+              <CardContent className="space-y-3 pt-4">
+                <div className="space-y-2">
+                  {ticket.replies.map((r, i) => (
+                    <p key={i} className="rounded-lg bg-muted/50 p-3 text-sm">
+                      {r.message}
+                    </p>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Reply…"
+                    value={drafts[ticket.id] ?? ""}
+                    onChange={(e) => setDrafts({ ...drafts, [ticket.id]: e.target.value })}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const msg = drafts[ticket.id];
+                      if (!msg) return;
+                      reply.mutate({ id: ticket.id, message: msg });
+                      setDrafts({ ...drafts, [ticket.id]: "" });
+                    }}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Send
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );

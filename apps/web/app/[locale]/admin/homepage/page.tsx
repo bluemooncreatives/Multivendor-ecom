@@ -21,14 +21,13 @@ import { useCategories, useBrands } from "@/lib/hooks/useProducts";
 import { useUploadFile } from "@/lib/hooks/useCatalogForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-
-function apiError(err: unknown, fallback: string) {
-  return (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
-}
+import { PageHeader } from "@/components/shared/page-header";
+import { FormField } from "@/components/shared/form-field";
+import { getApiErrorMessage } from "@/lib/utils";
 
 export default function AdminHomepagePage() {
   const { data: sliders } = useAdminSliders();
@@ -55,27 +54,25 @@ export default function AdminHomepagePage() {
   const [bannerPlacement, setBannerPlacement] = useState("home_top");
   const [homeCategoryId, setHomeCategoryId] = useState("");
 
-  // Uploads go through the shared endpoint and set the pending image URL, so an
-  // admin can pick a file instead of having to host it somewhere first.
   async function uploadInto(file: File | null, set: (url: string) => void) {
     if (!file) return;
     try {
       const stored = await upload.mutateAsync({ file, kind: "image" });
       set(stored.url);
     } catch (err) {
-      toast.error(apiError(err, "Upload failed"));
+      toast.error(getApiErrorMessage(err, "Upload failed"));
     }
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Homepage builder</h1>
+      <PageHeader title="Homepage builder" description="Curate storefront hero sliders, promotional banners, and top strips." />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Hero sliders</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4 pt-5">
           <form
             className="grid gap-3 sm:grid-cols-3"
             onSubmit={(e) => {
@@ -85,14 +82,12 @@ export default function AdminHomepagePage() {
               setSliderLink("");
             }}
           >
-            <div className="space-y-1">
-              <Label>Image</Label>
+            <FormField label="Image">
               <Input type="file" accept="image/*" onChange={(e) => uploadInto(e.target.files?.[0] ?? null, setSliderUrl)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Links to</Label>
+            </FormField>
+            <FormField label="Links to">
               <Input placeholder="https://…" value={sliderLink} onChange={(e) => setSliderLink(e.target.value)} />
-            </div>
+            </FormField>
             <div className="flex items-end">
               <Button type="submit" disabled={!sliderUrl || createSlider.isPending}>
                 Add slide
@@ -100,13 +95,13 @@ export default function AdminHomepagePage() {
             </div>
             {sliderUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={sliderUrl} alt="" className="h-16 w-auto rounded border object-contain sm:col-span-3" />
+              <img src={sliderUrl} alt="" className="h-16 w-auto rounded-md border object-contain sm:col-span-3" />
             )}
           </form>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {sliders?.map((s) => (
-              <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
-                <div className="flex items-center gap-2">
+              <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                <div className="flex items-center gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={s.imageUrl} alt="" className="h-10 w-16 rounded object-cover" />
                   <span className="truncate text-xs text-muted-foreground">{s.linkUrl ?? "No link"}</span>
@@ -116,7 +111,7 @@ export default function AdminHomepagePage() {
                     <span className="text-xs text-muted-foreground">Published</span>
                     <Switch checked={s.active} onCheckedChange={(v) => updateSlider.mutate({ id: s.id, active: v })} />
                   </label>
-                  <Button variant="ghost" size="sm" onClick={() => deleteSlider.mutate(s.id)}>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteSlider.mutate(s.id)}>
                     Remove
                   </Button>
                 </div>
@@ -127,10 +122,10 @@ export default function AdminHomepagePage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Banners</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4 pt-5">
           <form
             className="grid gap-3 sm:grid-cols-4"
             onSubmit={(e) => {
@@ -140,27 +135,20 @@ export default function AdminHomepagePage() {
               setBannerLink("");
             }}
           >
-            <div className="space-y-1">
-              <Label>Image</Label>
+            <FormField label="Image">
               <Input type="file" accept="image/*" onChange={(e) => uploadInto(e.target.files?.[0] ?? null, setBannerUrl)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Links to</Label>
+            </FormField>
+            <FormField label="Links to">
               <Input placeholder="https://…" value={bannerLink} onChange={(e) => setBannerLink(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Position</Label>
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                value={bannerPlacement}
-                onChange={(e) => setBannerPlacement(e.target.value)}
-              >
+            </FormField>
+            <FormField label="Position">
+              <NativeSelect value={bannerPlacement} onChange={(e) => setBannerPlacement(e.target.value)}>
                 <option value="home_top">Home banner 1 (top)</option>
                 <option value="home_middle">Home banner 2 (middle)</option>
                 <option value="category">Category page</option>
                 <option value="checkout">Checkout</option>
-              </select>
-            </div>
+              </NativeSelect>
+            </FormField>
             <div className="flex items-end">
               <Button type="submit" disabled={!bannerUrl || createBanner.isPending}>
                 Add banner
@@ -168,13 +156,13 @@ export default function AdminHomepagePage() {
             </div>
             {bannerUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={bannerUrl} alt="" className="h-16 w-auto rounded border object-contain sm:col-span-4" />
+              <img src={bannerUrl} alt="" className="h-16 w-auto rounded-md border object-contain sm:col-span-4" />
             )}
           </form>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {banners?.map((b) => (
-              <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
-                <div className="flex items-center gap-2">
+              <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                <div className="flex items-center gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={b.imageUrl} alt="" className="h-10 w-16 rounded object-cover" />
                   <Badge variant="outline">{b.placement}</Badge>
@@ -184,7 +172,7 @@ export default function AdminHomepagePage() {
                     <span className="text-xs text-muted-foreground">Published</span>
                     <Switch checked={b.active} onCheckedChange={(v) => updateBanner.mutate({ id: b.id, active: v })} />
                   </label>
-                  <Button variant="ghost" size="sm" onClick={() => deleteBanner.mutate(b.id)}>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteBanner.mutate(b.id)}>
                     Remove
                   </Button>
                 </div>
@@ -195,10 +183,10 @@ export default function AdminHomepagePage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Homepage category showcase</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4 pt-5">
           <p className="text-sm text-muted-foreground">
             Up to three categories appear in this section ({homeCategories?.length ?? 0} of 3 used).
           </p>
@@ -210,32 +198,29 @@ export default function AdminHomepagePage() {
                 await createHomeCategory.mutateAsync({ categoryId: homeCategoryId });
                 setHomeCategoryId("");
               } catch (err) {
-                toast.error(apiError(err, "Could not add that category"));
+                toast.error(getApiErrorMessage(err, "Could not add that category"));
               }
             }}
           >
-            <select
-              className="h-10 flex-1 rounded-md border bg-background px-3 text-sm"
-              value={homeCategoryId}
-              onChange={(e) => setHomeCategoryId(e.target.value)}
-              required
-            >
-              <option value="">Select category</option>
-              {categories?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex-1">
+              <NativeSelect value={homeCategoryId} onChange={(e) => setHomeCategoryId(e.target.value)} required>
+                <option value="">Select category</option>
+                {categories?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
             <Button type="submit" disabled={createHomeCategory.isPending}>
               Add
             </Button>
           </form>
-          <div className="space-y-1">
-            {homeCategories?.map((hc: any) => (
-              <div key={hc.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
-                <span>{hc.categoryId?.name}</span>
-                <Button variant="ghost" size="sm" onClick={() => deleteHomeCategory.mutate(hc.id)}>
+          <div className="space-y-2">
+            {homeCategories?.map((hc: { id: string; categoryId?: { name?: string } }) => (
+              <div key={hc.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
+                <span className="font-medium">{hc.categoryId?.name}</span>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteHomeCategory.mutate(hc.id)}>
                   Remove
                 </Button>
               </div>
@@ -245,15 +230,15 @@ export default function AdminHomepagePage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b bg-muted/20 pb-3.5">
           <CardTitle className="text-base">Top 10 categories &amp; brands</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 pt-5">
           <p className="text-sm text-muted-foreground">
             Click to feature or unfeature. Each strip shows at most ten, so unfeature one before adding an eleventh.
           </p>
-          <div>
-            <p className="mb-2 text-sm font-medium">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">
               Categories ({categories?.filter((c) => (c as { featured?: boolean }).featured).length ?? 0} of 10)
             </p>
             <div className="flex flex-wrap gap-2">
@@ -262,13 +247,13 @@ export default function AdminHomepagePage() {
                 return (
                   <Badge
                     key={c.id}
-                    variant={featured ? "secondary" : "outline"}
-                    className="cursor-pointer"
+                    variant={featured ? "default" : "outline"}
+                    className="cursor-pointer py-1"
                     onClick={async () => {
                       try {
                         await toggleTopCategory.mutateAsync({ id: c.id, featured: !featured });
                       } catch (err) {
-                        toast.error(apiError(err, "Could not update"));
+                        toast.error(getApiErrorMessage(err, "Could not update"));
                       }
                     }}
                   >
@@ -278,8 +263,8 @@ export default function AdminHomepagePage() {
               })}
             </div>
           </div>
-          <div>
-            <p className="mb-2 text-sm font-medium">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">
               Brands ({brands?.filter((b) => (b as { featured?: boolean }).featured).length ?? 0} of 10)
             </p>
             <div className="flex flex-wrap gap-2">
@@ -288,13 +273,13 @@ export default function AdminHomepagePage() {
                 return (
                   <Badge
                     key={b.id}
-                    variant={featured ? "secondary" : "outline"}
-                    className="cursor-pointer"
+                    variant={featured ? "default" : "outline"}
+                    className="cursor-pointer py-1"
                     onClick={async () => {
                       try {
                         await toggleTopBrand.mutateAsync({ id: b.id, featured: !featured });
                       } catch (err) {
-                        toast.error(apiError(err, "Could not update"));
+                        toast.error(getApiErrorMessage(err, "Could not update"));
                       }
                     }}
                   >

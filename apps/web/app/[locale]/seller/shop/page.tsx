@@ -61,36 +61,36 @@ export default function SellerShopPage() {
       />
 
       <Card>
-        <CardHeader className="border-b bg-muted/20 pb-4">
-          <CardTitle className="text-base">Storefront profile</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-5">
-          <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
+          <CardHeader className="border-b bg-muted/20 pb-4">
+            <CardTitle className="text-base">Storefront profile</CardTitle>
+          </CardHeader>
+            <CardContent className="pt-5">
+              <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
             <FormField label="Shop name" htmlFor="shop-name" required>
-              <Input id="shop-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            </FormField>
-            <FormField label="Shop URL slug" htmlFor="shop-slug" required>
-              <Input id="shop-slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} required />
-            </FormField>
-            <FormField label="Logo URL" htmlFor="shop-logo">
-              <Input id="shop-logo" value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} />
-            </FormField>
-            <FormField label="Banner URL" htmlFor="shop-banner">
-              <Input id="shop-banner" value={form.bannerUrl} onChange={(e) => setForm({ ...form, bannerUrl: e.target.value })} />
-            </FormField>
-            <FormField label="Description" htmlFor="shop-desc" className="sm:col-span-2">
-              <Textarea
-                id="shop-desc"
-                rows={3}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </FormField>
-            <Button type="submit" className="sm:col-span-2" disabled={saveShop.isPending}>
-              Save shop
-            </Button>
-          </form>
-        </CardContent>
+                    <Input id="shop-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+                  </FormField>
+                  <FormField label="Shop URL slug" htmlFor="shop-slug" required>
+                    <Input id="shop-slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} required />
+                  </FormField>
+                  <FormField label="Logo URL" htmlFor="shop-logo">
+                    <Input id="shop-logo" value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} />
+                  </FormField>
+                  <FormField label="Banner URL" htmlFor="shop-banner">
+                    <Input id="shop-banner" value={form.bannerUrl} onChange={(e) => setForm({ ...form, bannerUrl: e.target.value })} />
+                  </FormField>
+                  <FormField label="Description" htmlFor="shop-desc" className="sm:col-span-2">
+                    <Textarea
+                      id="shop-desc"
+                      rows={3}
+                      value={form.description}
+                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    />
+              </FormField>
+              <Button type="submit" className="sm:col-span-2" disabled={saveShop.isPending}>
+                Save shop
+              </Button>
+            </form>
+          </CardContent>
       </Card>
 
       <VerificationCard />
@@ -147,45 +147,45 @@ function VerificationCard() {
 
   return (
     <Card>
-      <CardHeader className="border-b bg-muted/20 pb-4">
-        <CardTitle className="text-base">Shop verification</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 pt-5">
-        {shop?.verified ? (
-          <p className="text-sm text-muted-foreground">
-            Your shop is verified and visible on the storefront. Submitting new documents will queue another review without
-            de-listing your shop.
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Upload your business documents to get verified. Only verified shops appear on the public storefront.
-          </p>
-        )}
+        <CardHeader className="border-b bg-muted/20 pb-4">
+          <CardTitle className="text-base">Shop verification</CardTitle>
+        </CardHeader>
+          <CardContent className="space-y-4 pt-5">
+            {shop?.verified ? (
+              <p className="text-sm text-muted-foreground">
+                Your shop is verified and visible on the storefront. Submitting new documents will queue another review without
+                de-listing your shop.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Upload your business documents to get verified. Only verified shops appear on the public storefront.
+              </p>
+            )}
 
-        {underReview ? (
-          <p className="rounded-lg border bg-muted/30 p-3 text-sm">
-            Your documents are under review. You will be notified once an administrator makes a decision.
-          </p>
-        ) : (
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {(fields ?? []).map((field) => (
-              <FormField key={field.id} label={field.label} required={field.required}>
-                {field.type === "text" && (
+            {underReview ? (
+                <p className="rounded-lg border bg-muted/30 p-3 text-sm">
+                  Your documents are under review. You will be notified once an administrator makes a decision.
+                </p>
+                ) : (
+                  <form className="space-y-4" onSubmit={handleSubmit}>
+                    {(fields ?? []).map((field) => (
+                        <FormField key={field.id} label={field.label} required={field.required}>
+                          {field.type === "text" && (
                   <Input value={(answers[field.id] as string) ?? ""} onChange={(e) => setAnswer(field.id, e.target.value)} />
-                )}
+                          )}
 
-                {field.type === "file" && (
-                  <>
-                    <Input
-                      type="file"
-                      accept="application/pdf"
-                      onChange={(e) => handleFileAnswer(field.id, e.target.files?.[0] ?? null)}
-                    />
-                    {answers[field.id] && <p className="text-xs text-muted-foreground">Uploaded.</p>}
-                  </>
-                )}
+                          {field.type === "file" && (
+                            <>
+                              <Input
+                                type="file"
+                                accept="application/pdf"
+                                onChange={(e) => handleFileAnswer(field.id, e.target.files?.[0] ?? null)}
+                              />
+                              {answers[field.id] && <p className="text-xs text-muted-foreground">Uploaded.</p>}
+                            </>
+                          )}
 
-                {(field.type === "select" || field.type === "radio") && (
+                          {(field.type === "select" || field.type === "radio") && (
                   <NativeSelect
                     value={(answers[field.id] as string) ?? ""}
                     onChange={(e) => setAnswer(field.id, e.target.value)}
@@ -199,54 +199,54 @@ function VerificationCard() {
                   </NativeSelect>
                 )}
 
-                {field.type === "multi_select" && (
-                  <NativeSelect
+                        {field.type === "multi_select" && (
+                            <NativeSelect
                     multiple
-                    className="h-24"
-                    value={(answers[field.id] as string[]) ?? []}
-                    onChange={(e) => setAnswer(field.id, Array.from(e.target.selectedOptions, (o) => o.value))}
-                  >
-                    {field.options.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                            className="h-24"
+                            value={(answers[field.id] as string[]) ?? []}
+                            onChange={(e) => setAnswer(field.id, Array.from(e.target.selectedOptions, (o) => o.value))}
+                          >
+                            {field.options.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
                   </NativeSelect>
-                )}
-              </FormField>
+                    )}
+                </FormField>
             ))}
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Supporting documents</p>
-              {docs.map((doc, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    placeholder="https://…/business-licence.pdf"
-                    value={doc}
-                    onChange={(e) => setDocs(docs.map((d, i) => (i === index ? e.target.value : d)))}
-                  />
-                  {docs.length > 1 && (
-                    <Button type="button" variant="ghost" onClick={() => setDocs(docs.filter((_, i) => i !== index))}>
-                      Remove
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Supporting documents</p>
+                    {docs.map((doc, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          placeholder="https://…/business-licence.pdf"
+                          value={doc}
+                          onChange={(e) => setDocs(docs.map((d, i) => (i === index ? e.target.value : d)))}
+                        />
+                        {docs.length > 1 && (
+                          <Button type="button" variant="ghost" onClick={() => setDocs(docs.filter((_, i) => i !== index))}>
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
 
-            <div className="flex flex-wrap gap-2">
-              {docs.length < 10 && (
-                <Button type="button" variant="outline" onClick={() => setDocs([...docs, ""])}>
-                  Add another document
-                </Button>
-              )}
-              <Button type="submit" disabled={applyForVerification.isPending}>
-                Submit for verification
-              </Button>
-            </div>
-          </form>
+                  <div className="flex flex-wrap gap-2">
+                    {docs.length < 10 && (
+                      <Button type="button" variant="outline" onClick={() => setDocs([...docs, ""])}>
+                        Add another document
+                      </Button>
+                    )}
+                    <Button type="submit" disabled={applyForVerification.isPending}>
+                      Submit for verification
+                    </Button>
+                  </div>
+                </form>
         )}
-      </CardContent>
+              </CardContent>
     </Card>
-  );
+          );
 }
