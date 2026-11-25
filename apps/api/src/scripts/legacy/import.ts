@@ -418,9 +418,9 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
       },
       recaptcha: { enabled: takeFlag("google_recaptcha") },
       socialLogin: {
-        google: takeFlag("google_login"),
-        facebook: takeFlag("facebook_login"),
-        twitter: takeFlag("twitter_login"),
+        googleEnabled: takeFlag("google_login"),
+        facebookEnabled: takeFlag("facebook_login"),
+        twitterEnabled: takeFlag("twitter_login"),
       },
     };
     handled.add("product_activation");
@@ -435,12 +435,17 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
     handled.add("symbol_format");
     handled.add("no_of_decimals");
 
-    if (!dryRun) await BusinessSetting.updateOne({ key: "business" }, { $set: business }, { upsert: true });
+    if (!dryRun) {
+      const { socialLogin, recaptcha, ...settings } = business;
+      await BusinessSetting.updateOne({ key: "business" }, { $set: { ...settings,
+        "recaptcha.enabled": recaptcha.enabled,
+        ...Object.fromEntries(Object.entries(socialLogin).map(([name, value]) => [`socialLogin.${name}`, value])),
+      } }, { upsert: true });
+    }
     report.updated += 1;
 
     const seo = {
       key: "seo",
-      metaKeywords: null as string | null,
       googleAnalyticsEnabled: takeFlag("google_analytics"),
       facebookPixelEnabled: takeFlag("facebook_pixel"),
       facebookChatEnabled: takeFlag("facebook_chat"),
@@ -492,7 +497,7 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
         { key: "seo" },
         {
           $set: {
-            metaKeywords: str(row.keyword),
+            metaKeywords: (str(row.keyword) ?? "").split(",").map((value) => value.trim()).filter(Boolean),
             metaDescription: str(row.description),
             author: str(row.author),
             revisitAfterDays: num(row.revisit, 7),
@@ -559,9 +564,10 @@ export async function importLegacyDump(options: ImportOptions): Promise<ImportRe
 
   await run("otp_configurations", async (rows, report) => {
     const values = new Map(rows.map((row) => [str(row.type), bool(row.value)]));
-    const active = [
+    const priority = [
       ["nexmo", "nexmo"], ["twillo", "twilio"], ["ssl_wireless", "ssl_wireless"], ["fast2sms", "fast2sms"],
-    ].filter(([legacy]) => values.get(legacy) === true);
+    ] as const;
+    const active = priority.filter(([legacy]) => values.get(legacy) === true);
     const provider = active[0]?.[1] ?? "none";
     if (active.length > 1) reporter.warn("Several legacy SMS providers were enabled. Preserved the sendSMS helper's provider priority; review the selected provider before sending.");
     if (!dryRun) await OtpSetting.updateOne({ key: "otp" }, { $set: {

@@ -29,7 +29,7 @@ export async function publicAuthOptions() {
 /** Legacy registration CAPTCHA, verified server-side before creating an account. */
 export async function verifyRegistrationCaptcha(token?: string) {
   const config = await getDecryptedGroup("recaptcha");
-  if (config.enabled !== true) return;
+  if (config.enabled !== true) return false;
   if (!config.secretKey || !config.siteKey) throw new ApiError(503, "Registration verification is not configured");
   if (!token) throw new ApiError(422, "Complete the registration verification");
   let result: { success?: boolean; hostname?: string };
@@ -44,4 +44,5 @@ export async function verifyRegistrationCaptcha(token?: string) {
   if (!result.success || result.hostname !== new URL(env.NEXT_PUBLIC_APP_URL).hostname) {
     throw new ApiError(422, "Verification expired or was invalid; please try again");
   }
+  return true;
 }

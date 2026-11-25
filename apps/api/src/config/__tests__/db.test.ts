@@ -1,12 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mock = vi.hoisted(() => ({ connect: vi.fn(), disconnect: vi.fn(), init: vi.fn() }));
+const mock = vi.hoisted(() => ({ connect: vi.fn(), disconnect: vi.fn(), init: vi.fn(), indexes: vi.fn() }));
 vi.mock("mongoose", () => ({ default: { set: vi.fn(), connect: mock.connect, disconnect: mock.disconnect,
-  models: { User: { init: mock.init } }, connection: { on: vi.fn() } } }));
+  models: { User: { init: mock.init, collection: { indexes: mock.indexes } } }, connection: { on: vi.fn() } } }));
 vi.mock("../env.js", () => ({ env: { MONGODB_URI: "mongodb://disposable.test", MONGODB_DB: "index_contract_test" } }));
 vi.mock("../logger.js", () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
-beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mock.connect.mockResolvedValue(undefined); mock.disconnect.mockResolvedValue(undefined); });
+beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mock.connect.mockResolvedValue(undefined); mock.disconnect.mockResolvedValue(undefined);
+  mock.init.mockResolvedValue(undefined); mock.indexes.mockResolvedValue([]); });
 
 describe("database startup acceptance", () => {
+  it("refuses traffic when an old full email index still prevents phone-only accounts", async () => {
+    mock.indexes.mockResolvedValue([{ name: "email_1", key: { email: 1 }, unique: true }]);
+    const { connectDb } = await import("../db.js");
+    await expect(connectDb()).rejects.toThrow(/Auth index upgrade required/);
+    expect(mock.disconnect).toHaveBeenCalledTimes(1);
+  });
   it("waits for required indexes before reporting a successful connection", async () => {
     let ready!: () => void;
     let start!: () => void;

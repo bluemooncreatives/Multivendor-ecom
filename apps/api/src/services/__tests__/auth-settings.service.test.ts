@@ -26,7 +26,7 @@ describe("runtime authentication settings", () => {
     mock.fetch.mockResolvedValue({ ok: true, json: async () => ({ success: true, hostname: "attacker.example.test" }) });
     await expect(verifyRegistrationCaptcha("token")).rejects.toThrow(/invalid/);
     mock.fetch.mockResolvedValue({ ok: true, json: async () => ({ success: true, hostname: "shop.example.test" }) });
-    await expect(verifyRegistrationCaptcha("fresh-token")).resolves.toBeUndefined();
+    await expect(verifyRegistrationCaptcha("fresh-token")).resolves.toBe(true);
   });
 
   it("fails closed during provider outages while allowing registrations when CAPTCHA is disabled", async () => {
@@ -34,6 +34,6 @@ describe("runtime authentication settings", () => {
     mock.fetch.mockRejectedValue(new Error("Offline"));
     await expect(verifyRegistrationCaptcha("token")).rejects.toThrow(/temporarily unavailable/);
     mock.group.mockResolvedValue({ enabled: false });
-    await expect(verifyRegistrationCaptcha()).resolves.toBeUndefined();
+    await expect(verifyRegistrationCaptcha()).resolves.toBe(false);
   });
 });

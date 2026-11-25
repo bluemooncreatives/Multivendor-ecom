@@ -37,6 +37,9 @@ export function createApp() {
       limit: env.API_RATE_LIMIT_PER_MINUTE ?? 180,
       standardHeaders: true,
       legacyHeaders: false,
+      // Tests share one app instance and client IP across a whole file, so the
+      // global budget would otherwise 429 later cases; disabled only in tests.
+      skip: () => env.NODE_ENV === "test",
     }),
   );
 

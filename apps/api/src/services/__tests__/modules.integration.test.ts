@@ -9,6 +9,7 @@ vi.mock("twilio", () => ({ default: vi.fn(() => ({ messages: { create: smsTransp
 })) }));
 
 vi.mock("../../config/env.js", () => ({ env: {
+  NODE_ENV: "test",
   EMAIL_VERIFY_SECRET: "module-email-secret", JWT_ACCESS_SECRET: "module-access-secret", JWT_ACCESS_EXPIRES: "15m",
   JWT_REFRESH_SECRET: "module-refresh-secret", JWT_REFRESH_EXPIRES: "7d", UPLOAD_DRIVER: "local",
   API_PUBLIC_URL: "http://localhost:4000", NEXT_PUBLIC_APP_URL: "http://localhost:3000",
@@ -51,7 +52,7 @@ import { RefundRequest } from "../../models/Refund.js";
 import { Page, Policy } from "../../models/Content.js";
 import { PhoneChallenge } from "../../models/PhoneChallenge.js";
 import { sendPhoneOtp, checkPhoneOtp, phoneAuthOptions } from "../otp.service.js";
-import { comparePassword } from "../../utils/password.js";
+import { comparePassword, hashPassword } from "../../utils/password.js";
 import { env } from "../../config/env.js";
 import { SmsOutbox } from "../../models/SmsOutbox.js";
 import { queueOrderSms, processOrderSmsQueue } from "../order-sms.service.js";
@@ -609,6 +610,10 @@ describe("phone verification and authentication", () => {
     const original = keys.map((key) => runtime[key]);
     try {
       Object.assign(runtime, { TWILIO_ACCOUNT_SID: "AC-test", TWILIO_AUTH_TOKEN: "test-token", TWILIO_VERIFY_SERVICE_SID: "VA-test" });
+      const admin = await account("admin");
+      expect((await request("/admin/settings/otp", admin.token)).status).toBe(200);
+      expect(await OtpSetting.countDocuments()).toBe(0);
+      expect(await phoneAuthOptions()).toMatchObject({ verification: true });
       const phone = "+919100000000";
       await sendPhoneOtp(phone);
       expect(smsTransport.verifySend).toHaveBeenCalledWith({ to: phone, channel: "sms" });
@@ -707,7 +712,7 @@ describe("phone verification and authentication", () => {
     expect((await request("/auth/refresh", undefined, "POST", { refreshToken: session.refreshToken })).status).toBe(401);
   });
 
-  it("invalidates verification on profile phone changes and prevents another account claiming the same number", async () => {
+  it("retains the working phone until its replacement is verified and prevents another account claiming it", async () => {
     await configure();
     const buyer = await account();
     const other = await account();
@@ -716,11 +721,79 @@ describe("phone verification and authentication", () => {
     expect((await request("/me/profile", other.token, "PATCH", { phone })).status).toBe(409);
     const replacement = "+919100000007";
     expect((await request("/me/profile", buyer.token, "PATCH", { phone: replacement })).status).toBe(200);
-    expect((await User.findById(buyer.user._id))!.phoneVerifiedAt).toBeNull();
+    expect(await User.findById(buyer.user._id)).toMatchObject({ phone, pendingPhone: replacement });
+    expect((await User.findById(buyer.user._id))!.phoneVerifiedAt).toBeTruthy();
     expect((await request("/auth/otp/send", buyer.token, "POST", { phone })).status).toBe(409);
     expect((await request("/auth/otp/send", buyer.token, "POST", { phone: replacement })).status).toBe(204);
     expect((await request("/auth/otp/verify", buyer.token, "POST", { phone: replacement, code: lastCode() })).status).toBe(204);
     expect((await User.findById(buyer.user._id))!.phoneVerifiedAt).toBeTruthy();
+    expect((await User.findById(buyer.user._id))!.phone).toBe(replacement);
+    expect((await User.findById(buyer.user._id))!.pendingPhone).toBeUndefined();
+  });
+
+  it("creates multiple phone-only accounts with proof even when email registrations do not require a phone", async () => {
+    await configure();
+    await OtpSetting.updateOne({}, { otpOnRegistration: false });
+    expect((await request("/auth/register", undefined, "POST", { name: "Missing contact", password: "Strong-password-123" })).status).toBe(422);
+    for (const phone of ["+919100000010", "+919100000011"]) {
+      const body = { name: "Phone only", phone, password: "Strong-password-123" };
+      expect((await request("/auth/register", undefined, "POST", body)).status).toBe(422);
+      await sendPhoneOtp(phone, "registration");
+      expect((await request("/auth/register", undefined, "POST", { ...body, phoneCode: lastCode() })).status).toBe(201);
+      expect((await request("/auth/login", undefined, "POST", { email: phone, password: body.password })).status).toBe(200);
+    }
+    expect(await User.countDocuments({ email: { $exists: false }, phoneVerifiedAt: { $type: "date" } })).toBe(2);
+    const emailOnly = { name: "Email only", email: "email-only@example.test", password: "Strong-password-123" };
+    expect((await request("/auth/register", undefined, "POST", emailOnly)).status).toBe(201);
+    const owner = await User.findOne({ phone: "+919100000010" });
+    const token = signAccessToken({ sub: String(owner!._id), role: "customer" });
+    expect((await request("/me/profile", token, "PATCH", { phone: "" })).status).toBe(409);
+    await User.updateOne({ _id: owner!._id }, { email: "recovery@example.test", emailVerifiedAt: new Date() });
+    expect((await request("/me/profile", token, "PATCH", { phone: "" })).status).toBe(200);
+    expect((await User.findById(owner!._id))!.phone).toBeUndefined();
+  });
+
+  it("recovers a unique legacy phone-only identity while refusing ambiguous and unverified email-account phones", async () => {
+    await configure();
+    const phone = "+919100000012";
+    const passwordHash = await hashPassword("Legacy-password-123");
+    const legacy = await User.create({ name: "Legacy phone", phone, passwordHash });
+    expect((await request("/auth/login", undefined, "POST", { email: phone, password: "Legacy-password-123" })).status).toBe(200);
+    expect((await request("/auth/phone/otp", undefined, "POST", { phone, purpose: "password_reset" })).status).toBe(204);
+    expect((await request("/auth/phone/reset-password", undefined, "POST", { phone, code: lastCode(), password: "Recovered-password-123" })).status).toBe(204);
+    expect((await User.findById(legacy._id))!.phoneVerifiedAt).toBeTruthy();
+    const emailOwner = await account();
+    const unverified = "+919100000013";
+    await User.updateOne({ _id: emailOwner.user._id }, { phone: unverified });
+    smsTransport.send.mockClear();
+    expect((await request("/auth/phone/otp", undefined, "POST", { phone: unverified, purpose: "login" })).status).toBe(204);
+    expect(smsTransport.send).not.toHaveBeenCalled();
+    expect((await request("/auth/login", undefined, "POST", { email: unverified, password: "anything" })).status).toBe(401);
+    await User.create([{ name: "Duplicate A", phone: unverified, passwordHash }, { name: "Duplicate B", phone: unverified, passwordHash }]);
+    expect((await request("/auth/phone/otp", undefined, "POST", { phone: unverified, purpose: "login" })).status).toBe(204);
+    expect(smsTransport.send).not.toHaveBeenCalled();
+    expect((await request("/auth/login", undefined, "POST", { email: unverified, password: "Legacy-password-123" })).status).toBe(401);
+  });
+
+  it("requires CAPTCHA before sending public SMS and reuses its proof only with the matching registration code", async () => {
+    await configure();
+    await BusinessSetting.updateOne({}, { recaptcha: { enabled: true, siteKey: "test-site", secretKey: "test-secret" } });
+    const phone = "+919100000014";
+    const originalFetch = globalThis.fetch;
+    const captcha = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true, hostname: "localhost" }), { status: 200 }));
+    globalThis.fetch = ((url, init) => String(url) === "https://www.google.com/recaptcha/api/siteverify" ? captcha(url, init) : originalFetch(url, init)) as typeof fetch;
+    try {
+      expect((await request("/auth/phone/otp", undefined, "POST", { phone, purpose: "registration" })).status).toBe(422);
+      expect(smsTransport.send).not.toHaveBeenCalled();
+      expect((await request("/auth/phone/otp", undefined, "POST", { phone, purpose: "registration", recaptchaToken: "single-use-token" })).status).toBe(204);
+      const code = lastCode();
+      const body = { name: "CAPTCHA phone", phone, password: "Strong-password-123" };
+      expect((await request("/auth/register", undefined, "POST", { ...body, phoneCode: code === "111111" ? "222222" : "111111" })).status).toBe(422);
+      expect(await User.exists({ phone })).toBeNull();
+      expect((await request("/auth/register", undefined, "POST", { ...body, phoneCode: code })).status).toBe(201);
+      expect(captcha).toHaveBeenCalledTimes(1);
+      expect((await request("/auth/register", undefined, "POST", { ...body, phoneCode: code })).status).toBe(422);
+    } finally { globalThis.fetch = originalFetch; }
   });
 
   it("fails closed when sending fails or a flow is disabled, preserving the resend deadline", async () => {

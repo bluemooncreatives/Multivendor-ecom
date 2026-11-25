@@ -51,6 +51,7 @@ export const resetPasswordSchema = z.object({
 export const sendOtpSchema = z.object({
   phone: z.string().regex(/^\+[1-9]\d{7,14}$/, "Use an international phone number beginning with +"),
   purpose: z.enum(["login", "password_reset", "registration"]).default("login"),
+  recaptchaToken: z.string().max(4096).optional(),
 });
 
 export const verifyOtpSchema = z.object({
@@ -79,7 +80,11 @@ function toAuthResponse(user: { _id: unknown }, tokens: { accessToken: string; r
 }
 
 export async function registerHandler(req: Request, res: Response) {
-  await verifyRegistrationCaptcha(req.body.recaptchaToken);
+  // A CAPTCHA-verified SMS challenge is reused only alongside the phone code;
+  // register() still validates and consumes that code before creating a user.
+  if (!(req.body.phone && req.body.phoneCode && await otpService.hasRegistrationCaptchaProof(req.body.phone))) {
+    await verifyRegistrationCaptcha(req.body.recaptchaToken);
+  }
   const { user, tokens } = await authService.register(req.body);
   res.status(201).json(toAuthResponse(user, tokens));
 }
@@ -163,9 +168,10 @@ export async function sendPublicOtpHandler(req: Request, res: Response) {
   const options = await otpService.phoneAuthOptions();
   if (!options.verification) throw new ApiError(503, "Phone verification is disabled or not configured");
   if (req.body.purpose === "password_reset" && !options.passwordReset) throw new ApiError(403, "Password reset by phone is disabled");
+  const captchaVerified = await verifyRegistrationCaptcha(req.body.recaptchaToken);
   const candidate = req.body.purpose === "registration" ? null : await findPhoneIdentity(req.body.phone);
   if (req.body.purpose === "registration" || (candidate && !candidate.banned)) {
-    await otpService.sendPhoneOtp(req.body.phone, req.body.purpose);
+    await otpService.sendPhoneOtp(req.body.phone, req.body.purpose, undefined, captchaVerified);
   }
   res.status(204).send();
 }

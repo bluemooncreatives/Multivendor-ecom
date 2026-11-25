@@ -7,11 +7,13 @@ production acceptance remain unproven. Gateway implementation is excluded.
 | Check | Result |
 | --- | --- |
 | Original baseline | 79 tests; the earlier 115-test record is historical |
-| Full `npm test` | Passed: 228 tests in 14 files, including 68 commerce tests, 49 module regressions, 8 SMS adapter tests, 2 startup-index checks and 7 legacy import tests |
+| Full `npm test` | Passed: 238 tests in 15 files, including 68 commerce tests, 53 module regressions (now covering phone-only registration/login/reset, legacy phone-only identity recovery and registration-CAPTCHA reuse), 8 SMS adapter tests, 2 startup-index checks, 5 auth-index upgrade/migration checks and 7 legacy import tests |
+| Auth-index migration | Passed: 5 checks — read-only report by default, email/verified-phone normalization and collision refusal before any write, multiple phone-only accounts under the partial unique index, replay safety, and refusal to drop a custom replacement index |
 | Final policy/permission regression | Passed: 2 selected tests; 25 skipped in that targeted run |
 | First API/web production build in this continuation | Passed: 254 generated pages; completed before the final policy/cache changes |
 | API/web production build | Passed after the order-SMS extension: both applications and 254 generated pages |
-| Standalone typecheck | Passed after the order-SMS and startup-index changes |
+| Standalone typecheck | Passed after the order-SMS, startup-index, phone-only-account and auth-index-migration changes (API and web) |
+| API production build | Passed after the phone-only-account and rate-limiter test-skip changes |
 | SMS/OTP regressions | Passed in the full suite. The selected run found a missing `explicit` SMS audit enum; corrected before the passing full run |
 | Order SMS regressions | Passed in the full suite: transactional rollback, event replay, concurrent workers, expired/replaced leases, exhausted retries, current feature switches and suppression of stale notifications |
 | Browser checks | Passed before the order-SMS extension: 99 checks — 89 non-gateway pages, 8 interaction/runtime checks and 2 locale checks. Includes registration verification, phone sign-in/reset, SMS admin, reviews, CMS, POS and branding; see `browser-results.json` |

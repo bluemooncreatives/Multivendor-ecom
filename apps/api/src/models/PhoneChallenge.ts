@@ -8,6 +8,7 @@ const phoneChallengeSchema = new Schema({
   codeHash: { type: String, default: null, select: false },
   transport: { type: String, enum: ["sms", "twilio_verify"], required: true },
   status: { type: String, enum: ["pending", "sent", "failed"], required: true },
+  captchaVerified: { type: Boolean, default: false },
   attempts: { type: Number, default: 0 },
   consumedAt: { type: Date, default: null },
   resendAfter: { type: Date, required: true },

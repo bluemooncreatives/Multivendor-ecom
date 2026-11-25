@@ -29,6 +29,7 @@ export default function RegisterPage() {
   const requiresPhone = usingPhoneOnly || options?.phone?.registrationRequired === true;
   const [recaptchaToken, setRecaptchaToken] = useState("");
   const [captchaAttempt, setCaptchaAttempt] = useState(0);
+  const [phoneCaptchaReady, setPhoneCaptchaReady] = useState(false);
   const defaultRole = searchParams.get("role") === "seller" ? "seller" : "customer";
   // Carried from an affiliate's shared link (?ref=CODE). An unknown code is not an
   // error — the account is created either way, it just earns nobody a commission.
@@ -44,6 +45,7 @@ export default function RegisterPage() {
       router.push(`/${locale}/dashboard`);
     } catch (err: any) {
       setRecaptchaToken(""); setCaptchaAttempt((value) => value + 1);
+      setPhoneCaptchaReady(false);
       toast.error(err?.response?.data?.message ?? "Could not create account");
     }
   }
@@ -57,7 +59,7 @@ export default function RegisterPage() {
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             {options?.phone?.registration && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={phoneOnly}
-              onChange={(event) => { setPhoneOnly(event.target.checked); setPhoneCode(""); }} />Register using a phone number</label>}
+              onChange={(event) => { setPhoneOnly(event.target.checked); setPhoneCode(""); setPhoneCaptchaReady(false); }} />Register using a phone number</label>}
             <div className="space-y-2">
               <Label htmlFor="name">{t("name")}</Label>
               <Input id="name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -86,12 +88,12 @@ export default function RegisterPage() {
             {requiresPhone && <div className="space-y-2">
               <Label htmlFor="register-phone">Phone number</Label>
               <Input id="register-phone" type="tel" autoComplete="tel" placeholder="+919000000001" pattern="\+[1-9][0-9]{7,14}"
-                required value={phone} onChange={(event) => { setPhone(event.target.value); setPhoneCode(""); }} />
+                required value={phone} onChange={(event) => { setPhone(event.target.value); setPhoneCode(""); setPhoneCaptchaReady(false); }} />
             </div>}
             {requiresPhone && <div className="space-y-2">
-              <Button type="button" variant="outline" disabled={sendPhoneCode.isPending || !/^\+[1-9]\d{7,14}$/.test(phone)} onClick={async () => {
-                try { await sendPhoneCode.mutateAsync(phone); toast.success("Phone code sent. Check your messages."); }
-                catch (error: any) { toast.error(error?.response?.data?.message ?? "Could not send a code"); }
+              <Button type="button" variant="outline" disabled={sendPhoneCode.isPending || !/^\+[1-9]\d{7,14}$/.test(phone) || (options?.recaptcha.enabled && !recaptchaToken)} onClick={async () => {
+                try { await sendPhoneCode.mutateAsync({ phone, recaptchaToken: recaptchaToken || undefined }); setPhoneCaptchaReady(true); toast.success("Phone code sent. Check your messages."); }
+                catch (error: any) { setRecaptchaToken(""); setCaptchaAttempt((value) => value + 1); setPhoneCaptchaReady(false); toast.error(error?.response?.data?.message ?? "Could not send a code"); }
               }}>Send registration code</Button>
               <Label htmlFor="register-phone-code">Phone verification code</Label>
               <Input id="register-phone-code" required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} />
@@ -117,7 +119,7 @@ export default function RegisterPage() {
             </div>
             {options?.recaptcha.enabled && <RegistrationCaptcha key={captchaAttempt} siteKey={options.recaptcha.siteKey} onChange={setRecaptchaToken} />}
             {optionsFailed && <p className="text-sm text-destructive">Registration settings could not load. Reload to try again.</p>}
-            <Button type="submit" className="w-full" disabled={register.isPending || loadingOptions || optionsFailed || (options?.recaptcha.enabled && !recaptchaToken) || (requiresPhone && !phoneCode)}>
+            <Button type="submit" className="w-full" disabled={register.isPending || loadingOptions || optionsFailed || (options?.recaptcha.enabled && !recaptchaToken && !(requiresPhone && phoneCaptchaReady)) || (requiresPhone && !phoneCode)}>
               {t("signUp")}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

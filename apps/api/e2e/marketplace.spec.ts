@@ -23,7 +23,7 @@ async function session(context: BrowserContext, role: string) {
 
 test("customer can sign in through the browser", async ({ page }) => {
   await page.goto("/en/login");
-  await page.getByLabel("Email address", { exact: true }).fill("customer@browser.test");
+  await page.getByLabel("Email address or phone number", { exact: true }).fill("customer@browser.test");
   await page.getByLabel("Password", { exact: true }).fill("Browser-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/dashboard/);
@@ -51,7 +51,7 @@ test("phone password reset works through the storefront", async ({ page, context
   await page.getByLabel("New password", { exact: true }).fill("Browser-new-password-123");
   await page.getByRole("button", { name: "Reset password by phone", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/login/);
-  await page.getByLabel("Email address", { exact: true }).fill("phone-reset@browser.test");
+  await page.getByLabel("Email address or phone number", { exact: true }).fill("phone-reset@browser.test");
   await page.getByLabel("Password", { exact: true }).fill("Browser-new-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/dashboard/);
