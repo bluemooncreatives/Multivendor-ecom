@@ -17,7 +17,7 @@ production acceptance remain unproven. Gateway implementation is excluded.
 | Web production build | Passed after the phone-only-account and catalogue (best-seller/popular/featured) changes |
 | SMS/OTP regressions | Passed in the full suite. The selected run found a missing `explicit` SMS audit enum; corrected before the passing full run |
 | Order SMS regressions | Passed in the full suite: transactional rollback, event replay, concurrent workers, expired/replaced leases, exhausted retries, current feature switches and suppression of stale notifications |
-| Browser checks | Passed before the order-SMS extension: 99 checks — 89 non-gateway pages, 8 interaction/runtime checks and 2 locale checks. Includes registration verification, phone sign-in/reset, SMS admin, reviews, CMS, POS and branding; see `browser-results.json` |
+| Browser checks | Passed: 102 checks — all non-gateway pages, interaction/runtime checks and locale checks. Now also covers phone-only registration (no email) and the storefront home's Featured / Today's-deal / Best-selling / New-arrivals listings, plus registration verification, phone sign-in/reset, SMS admin, reviews, CMS, POS, wallet checkout and branding; see `browser-results.json`. The fixture API runs compiled `dist`, so the API build must precede the browser run |
 | Source comparison inventory | Passed: 1,263 original files, 1,261 embedded reference files, 90 target page components; no substantive PHP-tree differences after whitespace normalization |
 | `git diff --check` | Passed before final documentation refresh |
 | Source PHP edits | None; reference retained |
