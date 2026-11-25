@@ -16,9 +16,11 @@ export interface ProductSearchParams {
   minPrice?: number;
   maxPrice?: number;
   tags?: string[];
+  featured?: boolean;
+  todaysDeal?: boolean;
   page?: number;
   pageSize?: number;
-  sort?: "newest" | "price_asc" | "price_desc" | "rating";
+  sort?: "newest" | "price_asc" | "price_desc" | "rating" | "popular";
 }
 
 // Every filter is a top-level key on one object, so Mongo ANDs them all implicitly.
@@ -47,6 +49,9 @@ export async function searchProducts(params: ProductSearchParams) {
   if (params.brandId) filter.brandId = params.brandId;
   if (params.sellerId) filter.sellerId = params.sellerId;
   if (params.tags?.length) filter.tags = { $all: params.tags };
+  // Legacy dedicated listings: home "featured" products and "today's deal".
+  if (params.featured !== undefined) filter.featured = params.featured;
+  if (params.todaysDeal !== undefined) filter.todaysDeal = params.todaysDeal;
   if (params.minPrice !== undefined || params.maxPrice !== undefined) {
     filter.basePrice = {
       ...(params.minPrice !== undefined ? { $gte: params.minPrice } : {}),
@@ -65,6 +70,8 @@ export async function searchProducts(params: ProductSearchParams) {
     price_asc: { basePrice: 1 },
     price_desc: { basePrice: -1 },
     rating: { ratingAverage: -1 },
+    // Legacy "popular" sort — best sellers first by units sold (num_of_sale).
+    popular: { numOfSale: -1 },
   };
   const sort = sortMap[params.sort ?? "newest"];
 

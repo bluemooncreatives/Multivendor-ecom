@@ -65,11 +65,15 @@ export async function reserveStock(lines: StockLine[], orderId: string, session:
 }
 
 // Converts a reservation into an actual stock decrement (payment confirmed / COD order placed).
+// This is the moment a sale becomes real, so the best-seller counter (`numOfSale`,
+// the legacy `num_of_sale`) advances here in the same atomic write — never on a mere
+// reservation and never again on release — matching the POS sale path. Legacy bumped
+// it by one per line; this app counts units sold, consistent with POS.
 export async function confirmReservation(lines: StockLine[], orderId: string, session: ClientSession) {
   for (const line of lines) {
     const result = await Product.updateOne(
       { _id: line.productId, variants: { $elemMatch: { sku: line.variantSku, reserved: { $gte: line.quantity }, stock: { $gte: line.quantity } } } },
-      { $inc: { "variants.$[v].reserved": -line.quantity, "variants.$[v].stock": -line.quantity } },
+      { $inc: { "variants.$[v].reserved": -line.quantity, "variants.$[v].stock": -line.quantity, numOfSale: line.quantity } },
       { session, arrayFilters: [{ "v.sku": line.variantSku }] },
     );
     if (result.modifiedCount !== 1) throw new ApiError(409, "The stock reservation is no longer available");

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 
 vi.mock("../../config/env.js", () => ({ env: {
+  NODE_ENV: "test",
   EMAIL_VERIFY_SECRET: "integration-email-secret-only", JWT_ACCESS_SECRET: "integration-access-secret-only", JWT_ACCESS_EXPIRES: "15m",
   JWT_REFRESH_SECRET: "integration-refresh-secret-only", JWT_REFRESH_EXPIRES: "7d", STRIPE_SECRET_KEY: "sk_test_integration_only",
   API_PUBLIC_URL: "http://localhost:4000", NEXT_PUBLIC_APP_URL: "http://localhost:3000", UPLOAD_DRIVER: "local",
@@ -12,6 +13,7 @@ vi.mock("../email.service.js", () => ({ sendOrderConfirmationEmail: vi.fn() }));
 vi.mock("../invoice.service.js", () => ({ renderInvoiceBuffer: vi.fn() }));
 
 import { createOrder } from "../checkout.service.js";
+import { searchProducts } from "../product.service.js";
 import { cancelOrder } from "../order.service.js";
 import { settleOrderPayment, failOrderPayment, recordPaymentEventOnce, completePaymentEvent, expireAbandonedOrders, listLateCaptures } from "../payment.service.js";
 import { createPosSale } from "../pos.service.js";
@@ -110,6 +112,8 @@ describe("checkout and settlement with real transactions", () => {
     const { product, input } = await fixture({ sellerId, addedBy: "seller" });
     const order = await createOrder(input);
     expect((await stock(product._id)).stock).toBe(8);
+    // Best-seller counter advances by units sold when the COD sale is realised.
+    expect((await Product.findById(product._id))!.numOfSale).toBe(2);
     expect(await SellerLedger.countDocuments({ orderId: order._id })).toBe(0);
     await Order.updateOne({ _id: order._id }, { status: "delivered", "details.0.status": "delivered" });
     await settleOrderPayment(String(order._id), "cod");
@@ -141,8 +145,27 @@ describe("checkout and settlement with real transactions", () => {
     await failOrderPayment(String(order._id), "stripe");
     expect((await stock(product._id)).stock).toBe(10);
     expect((await stock(product._id)).reserved).toBe(0);
+    // A hold that was released (never confirmed) must not count as a sale.
+    expect((await Product.findById(product._id))!.numOfSale).toBe(0);
     await expect(settleOrderPayment(String(order._id), "stripe")).rejects.toThrow(/closed/);
     expect((await stock(product._id)).stock).toBe(10);
+  });
+
+  it("orders catalogue results by units sold and filters the legacy featured/today's-deal listings", async () => {
+    const category = await Category.create({ name: "Category", slug: `cat-${id()}`, level: 0 });
+    const make = async (name: string, extra: Record<string, unknown>) => Product.create({ name, slug: `product-${id()}`, addedBy: "admin",
+      sellerId: null, categoryId: category._id, basePrice: 100, published: true, approvalStatus: "approved",
+      variants: [{ sku: "sku", price: 100, stock: 10, reserved: 0 }], ...extra });
+    await Promise.all([
+      make("Rarely bought", { numOfSale: 3 }),
+      make("Best seller", { numOfSale: 42, featured: true }),
+      make("Daily pick", { numOfSale: 10, todaysDeal: true }),
+    ]);
+    const popular = await searchProducts({ sort: "popular", categoryId: String(category._id) });
+    expect(popular.items.map((p) => p.name)).toEqual(["Best seller", "Daily pick", "Rarely bought"]);
+    expect(popular.items[0]!.numOfSale).toBe(42);
+    expect((await searchProducts({ featured: true })).items.map((p) => p.name)).toEqual(["Best seller"]);
+    expect((await searchProducts({ todaysDeal: true })).items.map((p) => p.name)).toEqual(["Daily pick"]);
   });
 
   it("returns one order for concurrent retries of a checkout", async () => {

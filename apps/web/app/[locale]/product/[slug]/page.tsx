@@ -39,6 +39,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   );
 
   const { data: related } = useProducts({ categoryId: product?.categoryId, sort: "newest" });
+  // Legacy "top from seller": the vendor's best sellers. Only meaningful for
+  // seller-owned listings (admin products carry no sellerId).
+  const { data: sellerTop } = useProducts(product?.sellerId ? { sellerId: product.sellerId, sort: "popular" } : {});
   const { data: shop } = useShopBySellerId(product?.sellerId);
   const { data: wishlist } = useWishlist();
   const addWishlist = useAddWishlistItem();
@@ -60,6 +63,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const hasDiscount = listPrice > price;
   const onFlashDeal = product.pricing?.discountSource === "flash_deal" && !!variantPricing && variantPricing.price < variantPricing.listPrice;
   const relatedProducts = (related?.items ?? []).filter((p) => p.id !== product.id).slice(0, 5);
+  const sellerTopProducts = product.sellerId
+    ? (sellerTop?.items ?? []).filter((p) => p.id !== product.id).slice(0, 5)
+    : [];
   const isWishlisted = !!wishlist?.find((item) => item.productId.id === product.id);
   const isComparing = compareIds.includes(product.id);
 
@@ -219,6 +225,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         <StorefrontSection title="Related Products">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {relatedProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </StorefrontSection>
+      )}
+
+      {sellerTopProducts.length > 0 && (
+        <StorefrontSection title={shop?.name ? `More from ${shop.name}` : "More from this shop"}>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {sellerTopProducts.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>

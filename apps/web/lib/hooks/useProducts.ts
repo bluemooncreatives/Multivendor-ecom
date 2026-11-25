@@ -11,8 +11,10 @@ export interface ProductSearchParams {
   sellerId?: string;
   minPrice?: number;
   maxPrice?: number;
+  featured?: boolean;
+  todaysDeal?: boolean;
   page?: number;
-  sort?: "newest" | "price_asc" | "price_desc" | "rating";
+  sort?: "newest" | "price_asc" | "price_desc" | "rating" | "popular";
 }
 
 export function useProducts(params: ProductSearchParams = {}) {

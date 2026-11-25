@@ -3,6 +3,9 @@
     "title": "PHPStore — Be Vocal for Local",
     "subtitle": "Digital India multivendor marketplace",
     "featured": "Featured products",
+    "todaysDeal": "Today's deals",
+    "bestSelling": "Best selling",
+    "newArrivals": "New arrivals",
     "categories": "Shop by category"
   },
   "nav": {

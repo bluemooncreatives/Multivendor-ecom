@@ -80,9 +80,11 @@ export const searchQuerySchema = z.object({
     .union([z.string(), z.array(z.string())])
     .optional()
     .transform((v) => (v ? (Array.isArray(v) ? v : [v]) : undefined)),
+  featured: z.enum(["true", "false"]).optional().transform((v) => (v === undefined ? undefined : v === "true")),
+  todaysDeal: z.enum(["true", "false"]).optional().transform((v) => (v === undefined ? undefined : v === "true")),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(60).optional(),
-  sort: z.enum(["newest", "price_asc", "price_desc", "rating"]).optional(),
+  sort: z.enum(["newest", "price_asc", "price_desc", "rating", "popular"]).optional(),
 });
 
 export async function searchProductsHandler(req: Request, res: Response) {

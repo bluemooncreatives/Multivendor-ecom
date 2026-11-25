@@ -228,10 +228,9 @@ async function processPosSale(input: PosSaleInput, quoteOnly: boolean) {
       }
       await reserveStock(stockLines, String(orderId), session);
       await reserveDealStock(dealLines, session);
+      // confirmReservation advances numOfSale (units sold) atomically with the
+      // stock decrement, so no separate best-seller increment is needed here.
       await confirmReservation(stockLines, String(orderId), session);
-      for (const line of input.lines) {
-        await Product.updateOne({ _id: line.productId }, { $inc: { numOfSale: line.quantity } }, { session });
-      }
 
       if (input.paymentType === "wallet") {
         if (!customer) throw new ApiError(400, "Wallet payment requires a registered customer");
